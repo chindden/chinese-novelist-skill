@@ -1,3 +1,6 @@
+
+> **V3 写前硬步骤 0**：每一章执行 A 阶段前先运行 `node scripts/v3_gate.mjs check PROJECT CHAPTER_NUMBER`，退出码非0就停止。本规则对串行、子Agent及 Teams 同样生效；前三章完成后必须走 [独立审稿质量门禁](v3-opening-review.md)，脚本的原文指纹失效时重新审核。补充阅读 [V3 题材化工艺原则](../guides/v3-craft-principles.md)：不把每章强冲突、固定字数钩子或机械爽点频率当成普适硬规则。
+
 # 逐章创作流程（所有写作模式共用）
 
 > 本文件是逐章创作流程的**单一事实源**。串行模式、子Agent并行模式、Agent Teams 模式均执行本清单，各模式仅"如何认领下一章"不同（见 [phase3-writing.md](phase3-writing.md)）。
