@@ -1,0 +1,29 @@
+name: V3 quality-gate and snapshot tests
+on:
+  push:
+    branches:
+      - feat/v3-editorial-pipeline
+  pull_request:
+    branches:
+      - master
+permissions:
+  contents: read
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Existing tests
+        run: |
+          node scripts/tests/init_chapter_summaries.test.mjs
+          node scripts/tests/validate_project.test.mjs
+      - name: V3 opening gate tests
+        run: node scripts/tests/v3_gate.test.mjs
+      - name: V3 ZIP snapshot tests
+        run: python3 scripts/tests/v3_snapshot.test.py
