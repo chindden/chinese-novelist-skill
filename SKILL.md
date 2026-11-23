@@ -7,6 +7,20 @@ metadata:
   source: 基于小说创作最佳实践设计
 ---
 
+## V3 精品创作模式（优先于下方旧版规则）
+
+**本分支启用 V3 默认工作流。** 如果下文“第三阶段无需再次确认、必须全部写完”与本节冲突，**以本节为准**：只允许先写前三章，第三章完成后强制停审，审稿及用户放行前绝不创作第四章。若环境不具备脚本/独立审稿能力，明确报告限制，不能假装测试或审核已通过。
+
+1. **创意竞标**：先读 [V3 创意实验室](references/flows/v3-creative-lab.md)，默认提出三个真正不同的故事引擎，对抗式淘汰，最终由用户选择；已有完整创意可保留。
+2. **长篇架构**：读 [四级规划与题材路由](references/flows/v3-story-architecture.md)。全书、分卷、故事弧、章节四级；反套路三锚点、人物生命力和可持续冲突。按题材定开篇，不强行套玄幻反杀公式。
+3. **计划与门禁**：沿用旧版项目文件和状态机。创建 `02-写作计划.json` 后运行 `node scripts/v3_gate.mjs init PROJECT`。每章开写前先执行 `node scripts/v3_gate.mjs check PROJECT CHAPTER`；失败就必须停止。
+4. **前三章试写与独立编辑**：仅串行写1–3章，读 [独立审稿门禁协议](references/flows/v3-opening-review.md)。第三章完成后运行 `fingerprint`，交真正独立上下文的编辑 Agent 审查，生成带原文证据的报告，运行 `record-review`。只有报告 `pass` 且用户明确同意，才执行 `approve` 解锁第四章。不可编造用户确认。
+5. **连续写作与质量审计**：沿用原版 `chapter-checklist.md`；融合 [V3 工艺](references/guides/v3-craft-principles.md)；每五章根据 [长篇审计协议](references/flows/v3-longform-audit.md) 检查人物、事实、伏笔、情绪与剧情机制重复。
+6. **持久化**：本地项目为运行时状态源，使用 [ZIP 快照与 Drive 备份协议](references/flows/v3-backup.md)；`python3 scripts/v3_snapshot.py` 负责本地创建/验证/恢复，真正的 Google Drive 上传必须使用宿主已连接的工具，下载回读校验哈希后才能标记远程有效，不得谎报同步。
+
+**质量优先级**：硬事实与因果 > 人物自主性与真实情绪 > 阅读期待与语言自然度；固定爽点计数、同类钩子轮换、对话字数配额是可选技巧，不是跨题材硬门槛。字数和 JSON 校验通过不等于精品作品通过。用户的作品满意度与盲测反馈才是最终验收。
+
+
 # Chinese Novelist: 中文小说创作助手
 
 ## 三大黄金法则
