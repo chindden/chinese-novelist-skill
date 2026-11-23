@@ -1,3 +1,15 @@
+> **V3 开发预览（独立分支）**：本仓库的 `feat/v3-editorial-pipeline` 在原版 v2.3.2 工程框架上加入精品创作流程和可执行前三章门禁。当前仍属于**待审 PR**，不是已经证明能稳定产出精品网文的正式版本。
+>
+> 核心增量： [创意竞标](references/flows/v3-creative-lab.md) · [四级故事规划与题材路由](references/flows/v3-story-architecture.md) · [独立审稿与前三章门禁](references/flows/v3-opening-review.md) · [长篇审计](references/flows/v3-longform-audit.md) · [文风与红队原则](references/guides/v3-craft-principles.md) · [Google Drive 备份协议](references/flows/v3-backup.md)。
+>
+> 门禁命令：`node scripts/v3_gate.mjs init PROJECT`、`check PROJECT 4`、`fingerprint PROJECT`、`record-review PROJECT REPORT.json`、`approve PROJECT --user-quote "用户实际批准原话"`。第三章完成后必须停审；代码检查的是状态与正文 SHA-256，文学质量仍需独立编辑给出有证据的判断并获得用户确认。
+>
+> ZIP 备份命令：`python3 scripts/v3_snapshot.py create PROJECT /tmp/revision.zip`、`verify /tmp/revision.zip`、`restore /tmp/revision.zip EMPTY_DIRECTORY`。这负责本地无损打包和恢复；**实际 Drive 上传/下载仍依赖宿主工具，尚未实现通用自动上传**。
+>
+> 自动化测试：`node scripts/tests/v3_gate.test.mjs`、`python3 scripts/tests/v3_snapshot.test.py`；CI 同时运行原版两组测试。后续必须进行真实网文试写与盲评，不能用“单测通过”替代精品质量证明。
+
+---
+
 <div align="center">
 
 # chinese-novelist skill
