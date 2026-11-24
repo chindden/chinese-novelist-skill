@@ -35,7 +35,7 @@ R3 继续复用原逐章独立审稿、三章弧审、Pilot 停审与事实账�
 新项目运行 `node scripts/init_v3_state.mjs <项目目录> --json` 后默认启用 R2 与 Stage 2 规划门禁；已有 V3 项目按需显式运行 `--enable-r2` 和/或 `--enable-plan-gate`。不可伪造历史审稿记录或作者批准；真实流程与命令见 [规划审核协议](references/v3/plan-review-protocol.md) 和 [运行手册](references/v3/operational-runbook.md)。
 
 ## 不可跳过的可执行门禁
-- **正式规划 Stage 2**：运行 `node scripts/plan_review.mjs <项目目录> prepare --planner-run-id REAL_RUN --planner-context-id REAL_CONTEXT` 冻结规划；架构与目标读者编辑分别独立提交报告。发现未解决的 BLOCKER/MAJOR 必须修正后重新冻结、重新双审；两路审核通过后仍须作者明确批准并运行 `plan_review.mjs approve`。新项目不能靠直接设 `storyPlanApproved=true` 绕过门禁。脚本验证证据与版本，不证明文学质量。
+- **正式规划 Stage 2**：旧 V3/R2 由 Agent 调用 `plan_review.mjs prepare/approve`；显式 R3 则按 [R3 运行手册](references/v3/r3-operational-runbook.md) 调用 `r3_plan.mjs` 的核心双审、真实作者批准及卷级检查点。发现未解决的阻断性缺陷必须修正、重新冻结及复审；任何模式都不得手工修改批准标志。工具验证版本与证据，不证明文学质量，也无需作者输入命令。
 - 在**创建每一章正文前**运行：
   `node scripts/v3_gate.mjs <项目目录> --chapter <章号> --json`
   第 2 章起检验此前所有章节独审，第 4 章还需 Pilot 和作者确认，第 7、10、13……章还需上一组三章整体独审。最后一章定稿后必须运行 `node scripts/v3_gate.mjs <项目目录> --finalize N --json`。非 0 退出码立即停止。

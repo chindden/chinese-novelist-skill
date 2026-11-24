@@ -40,7 +40,7 @@ update 读取 stdin 的对象，例：
 {"baseRevision":0,"changes":{"world":{"status":"confirmed","value":"仙侠","source":{"ref":"实际可复核的作者消息位置","quote":"实际作者原话"}},"mechanism":{"status":"proposed","value":"寿命无限但仍可因伤死亡","basis":"长生机制与风险控制参考"}}}
 ```
 
-字段：inspiration、world、promise、story、protagonist、conflict、mechanism、relationships、constraints、scope、ending、style、title。每项 value 为简洁自然语言（例如 scope 包含篇幅和章长）。未录入为 pending；proposed 是 AI 候选；confirmed 是作者实际认可；delegated 是作者明确委托（value=null 表示等待 AI 决定，填入后仍保留委托证据）；not_applicable/deferred 仅可用于可选项，必须有真实作者消息出处（可以是一次明确的批量授权/确认）。不把默认建议记作作者选择。optional unresolved 可由 Agent 判断是否影响当前题材，不作为统一硬门槛。
+字段：inspiration、world、promise、story、protagonist、conflict、mechanism、relationships、constraints、scope、ending、style、title。每项 value 为简洁自然语言（例如 scope 包含篇幅和章长）。未录入为 pending；proposed 是 AI 候选；confirmed 是作者实际认可；delegated 是作者明确委托（value=null 表示等待 AI 决定，填入后仍保留委托证据）；not_applicable/deferred 仅可用于可选项，必须有真实作者消息出处（可以是一次明确的批量授权/确认）。不把默认建议记作作者选择。optional unresolved 可由 Agent 判断是否影响当前题材，不作为统一硬门槛。即使 planningReady 为 true，只要当前题材依赖尚未解决的机制、关系或限制，也应先澄清或按真实委托拟定；不能直接把 unresolved 忽略。
 
 status 返回已知、待定、AI 受托未完成、暂缓、依赖变化需复核等。只问影响当前决策的缺口；无必要不复问已确认项。改变世界/故事等上游条件后，保留原决定并列出受影响的下游项，重新核对必要处，未受影响的不动。工具保护作者已确认/委托项不被普通 AI 提案直接覆盖。单写手串行；revision 防止顺序中的旧补丁，原子替换避免半写；不声称真正并发 CAS。读取失败停止并报告，不静默清空。已有规划文件时草案只读，不能用它重写正式蓝图或当前账本。历史项目无草案不补造。
 
