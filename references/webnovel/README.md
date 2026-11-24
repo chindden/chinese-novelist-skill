@@ -1,8 +1,40 @@
-# 八套中文网文创作知识库 · 路由总索引
+# 中文网文创作知识库 · 统一路由总索引
 
-这是一套服务 **Gemini / Chinese Novelist V3 R2** 的策划与写作参考资料。所有内容作为可选择的创作方法，不是爆款预测、流量数据或固定高潮配额。**作者已确认的题材、风格、人物和故事走向始终优先。**
+这是一套服务 **Chinese Novelist R3** 的策划与写作参考资料。所有内容作为可选择的创作方法，不是爆款预测、流量数据或固定高潮配额。**作者已确认的题材、风格、人物和故事走向始终优先。**
 
-## 目录与加载时机
+
+## 上游完整知识层（GPL-3.0）
+
+固定版本原件位于 `upstream/`，115 份参考/模板，另有上游许可证与两份纯检索模块；八套 CSV 722 条、裁决 17 条、56 个题材标签、15 个 canonical、37 套题材模板。逐文件 SHA 与逐条 ID 见 [导入清单](UPSTREAM-MANIFEST.json)，覆盖差异见 [覆盖矩阵](coverage-matrix.md)。
+
+从 Skill 根目录执行只读命令（Python 3 标准库，无网络、无状态写入）：
+
+```bash
+python3 scripts/webnovel_knowledge.py catalog
+python3 scripts/webnovel_knowledge.py route --genre "仙侠+种田+系统流"
+python3 scripts/webnovel_knowledge.py search --genre "规则怪谈" --skill write --table "场景写法" --query "规则揭示 线索" --limit 5
+python3 scripts/webnovel_knowledge.py search --genre "宫斗" --genre "年代" --skill init --query "角色命名" --limit 6
+python3 scripts/webnovel_knowledge.py entry TR-001
+```
+
+- route 返回题材、玩法/形式标签、模板路径、缺模板及未解析标签；玩法默认归属不是作者世界观。复合题材保留多轴，不固定比例。
+- search 复用上游 BM25，分别按题材和阶段检索、交错取候选并按 ID 去重，总返回上限默认 5、最高 20。字面召回不是文学质量。空结果可改关键词、另查原件。默认仅摘要和源路径，完整原条目按 ID 读；裁决与调性只作咨询。显式 `--genre 全部` 可跨库检索。原件中“大模型指令”、配额不是 R3 硬规则。
+- 无 Python 时可直接读 `upstream/references/taxonomy/genre-index.csv`，按 CSV ID 或关键词查必要行，不整库加载。
+
+### 按需专题索引
+
+| 当前需求 | 专题原件（只读相关段） |
+|---|---|
+| 题材定位与细分流派 | [题材档案](upstream/references/genre-profiles.md)、[题材套路](upstream/skills/webnovel-init/references/genre-tropes.md)、route 返回模板 |
+| 创意组合与反套路 | [组合指南](upstream/skills/webnovel-init/references/creativity/creative-combination.md)、[卖点设计](upstream/skills/webnovel-init/references/creativity/selling-points.md)、[创意约束](upstream/skills/webnovel-init/references/creativity/creativity-constraints.md)、对应 anti-trope 专题 |
+| 世界观与人物 | [角色设计](upstream/skills/webnovel-init/references/worldbuilding/character-design.md)、[势力体系](upstream/skills/webnovel-init/references/worldbuilding/faction-systems.md)、[力量体系](upstream/skills/webnovel-init/references/worldbuilding/power-systems.md)、[世界规则](upstream/skills/webnovel-init/references/worldbuilding/world-rules.md)、[金手指模板](upstream/templates/golden-finger-templates.md) |
+| 规划与冲突 | [冲突设计](upstream/skills/webnovel-plan/references/outlining/conflict-design.md)、[情节框架](upstream/skills/webnovel-plan/references/outlining/plot-frameworks.md)、[章纲](upstream/skills/webnovel-plan/references/outlining/chapter-planning.md)、[卷级节奏](upstream/skills/webnovel-plan/references/outlining/genre-volume-pacing.md)、[多线交织](upstream/references/shared/strand-weave-pattern.md)、[追读力](upstream/references/reading-power-taxonomy.md) |
+| 场景、文字、人物声线 | CSV 检索、[文风适配](upstream/skills/webnovel-write/references/style-adapter.md)、[文风变体](upstream/skills/webnovel-write/references/style-variants.md)、[命名与声线](upstream/references/shared/naming-and-voice-gaps.md)、[钩子兑现](upstream/skills/webnovel-write/references/writing/genre-hook-payoff-library.md) |
+| 去 AI 味与修订 | [anti-ai](upstream/skills/webnovel-write/references/anti-ai-guide.md)、[润色指南](upstream/skills/webnovel-write/references/polish-guide.md)、[常见问题](upstream/skills/webnovel-review/references/common-mistakes.md)、[节奏控制](upstream/skills/webnovel-review/references/pacing-control.md) |
+
+其他原件按清单定位；上游 README、运行数据流、审查 schema、状态模板及固定比例/裁决不作为 R3 执行合同。旧自主 Markdown 作为轻量概览和补充方法继续可用。
+
+## 原八套自主 Markdown · 目录与加载时机
 | 编号 | 文件 | 何时读 | 首要问题 |
 |---|---|---|---|
 | 01 | [题材与调性](01-genre-and-tone.md) | 创意立项、风格定位 | 目标读者到底想得到什么体验？ |
@@ -40,7 +72,7 @@
 
 ## 来源、知识产权与证据边界
 - 分类结构与检索式工作思路参考了 [lingfengQAQ/webnovel-writer](https://github.com/lingfengQAQ/webnovel-writer) 的公开项目；其 v6 含结构化网文参考资料，v8 则采用另一套创作工作台架构。
-- **本目录八份条目均重新组织、独立编写；不直接复制上游 GPL-3.0 许可的 CSV 语句、示例、程序或独特表述**。相关通用概念（重生、凡人流、场景因果、人物弧线等）不属于任何项目独占。
+- 原八份 Markdown 为历史自主整理；GPL-3.0 集成版另完整保留上游原件及两份检索模块，见导入清单和根目录 NOTICE。相关通用概念（重生、凡人流、场景因果、人物弧线等）不属于任何项目独占。
 - 任何题材偏好、节奏跨度或条目示例都是创作建议。没有明确、可复核的时间、口径与来源时不得声称“市场数据证明”“某平台官方推荐此比例”。
 - 借鉴成熟流派不等于照搬作品情节、人物关系或独特结局；创意竞标必须在人物命运和具体因果上形成独立新故事。
 - 保留现有 [V3 总流程](../v3/workflow.md)、独立审稿和哈希门禁。新增知识库**不会改变 R2 工程代码或自动批准规则**。

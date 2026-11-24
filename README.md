@@ -7,7 +7,7 @@
 - [R3 研发 PRD](docs/R3-PRD.md)
 - [R3 运行手册](references/v3/r3-operational-runbook.md)
 - [P1 创作反馈与持续学习协议](references/v3/r3-p1-protocol.md)
-- [八套网文创作知识库](references/webnovel/README.md)
+- [统一网文创作知识库](references/webnovel/README.md)
 
 ## 来源与历史
 
@@ -16,3 +16,6 @@
 ## 验证边界
 
 R3 opt-in，旧项目不静默启用。当前开发阶段为 P1 实验，P2、跨作品学习收益及多题材文学品质仍待验收。作者私有小说正文、账本、审批证据、项目 ZIP 与经验库不得进入公开 Skill 仓库。许可调整已作为独立提交实施；知识库扩容另行审计、引入与验收。
+
+
+上游原件已导入：722 条创作知识 + 17 条裁决、37 套题材模板、完整专题参考及只读检索。详见 [知识库索引](references/webnovel/README.md) 与 [覆盖差异矩阵](references/webnovel/coverage-matrix.md)。不代表已证明文学收益或市场全覆盖。

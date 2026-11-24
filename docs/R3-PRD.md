@@ -405,3 +405,8 @@ P0 成功仅证明可运行的工程保护、版本隔离与测试样本中的�
 ### GPL-3.0 许可调整（2026-11-24）
 
 按作者明确决策，本集成开发版使用 GPL-3.0；根 LICENSE 使用上游原 GPL v3 全文，原 PenglongHuang 2026 MIT 全文逐字保存在 LICENSES/MIT-upstream.txt，NOTICE.md 记录来源、修改与范围。原 MIT 授权和历史分支不撤销。上游知识审计基线锁定 [chindden/webnovel-writer@04e485d](https://github.com/chindden/webnovel-writer/tree/04e485d0d4d34524b83e219be5d0482557c53334)，此许可提交不导入任何知识数据、不改变 R3 执行逻辑。下一阶段实际源文件审计、原件导入、路由隔离及覆盖验收。作品正文和私人经验库不属于 Skill 发布物。
+
+
+### 上游知识原件导入与只读路由（2026-11-24）
+
+固定 webnovel-writer@04e485d；导入 115 份原始参考与模板 + GPL 许可证 + 两份纯检索模块，118/118 Git blob SHA 与 mode 一致（4694113）。843590e 提交逐文件及逐条 ID 台账，八套 722 条 + 裁决 17 条，15 canonical、56 标签、37 模板；17 标签无独立模板，保留为缺口。原八套 Markdown 保留，未宣称语义去重。统一 route/search/entry 直接复用上游 BM25 与 taxonomy，复合题材按轴查询、全局限额、ID 去重；不执行上游工作流、状态/审稿 runtime 或硬配额。实际 CI 与多题材检索结果以新提交的测试为准；补齐缺失主流细分、逐项语义冲突审计、文学收益仍待后续验证，P2 不启动。详见 references/webnovel/coverage-matrix.md。

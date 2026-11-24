@@ -17,7 +17,7 @@ R3 继续复用原逐章独立审稿、三章弧审、Pilot 停审与事实账�
 
 ## 执行优先级
 1. 先读本文件及 [V3 总流程](references/v3/workflow.md)。所有 V3 门禁、状态和用户确认要求优先于原版 `references/flows/` 中的“自动写完整书”指令。原版保留为技法和工具底座，**不要运行与 V3 冲突的旧流程**。
-2. 根据任务按需读取 [创意竞标](references/v3/creative-lab.md)、[题材与架构](references/v3/story-architecture.md)、[八套原创网文知识库总索引](references/webnovel/README.md)、[独立审稿](references/v3/editorial-gate.md)、[状态与备份](references/v3/state-and-backup.md)。知识库必须**先选题材/主流派及读者承诺，再按任务读取少量相关库与具体章节**；不能每次全库灌入上下文，不以套路数量代替故事质量。
+2. 根据任务按需读取 [创意竞标](references/v3/creative-lab.md)、[题材与架构](references/v3/story-architecture.md)、[统一网文知识库路由](references/webnovel/README.md)、[独立审稿](references/v3/editorial-gate.md)、[状态与备份](references/v3/state-and-backup.md)。知识库必须**先选题材/主流派及读者承诺，再按任务读取少量相关库与具体章节**；不能每次全库灌入上下文，不以套路数量代替故事质量。
 3. 原版人物、对话、章节、悬念和文风指南仍可按需读取。V2 的反套路、资源限制、对话博弈与二阶 AI 味建议已吸收到 V3 参考文档；旧版固定爽点配额并非通用硬约束。
 
 ## 六阶段主流程
@@ -48,7 +48,7 @@ R3 继续复用原逐章独立审稿、三章弧审、Pilot 停审与事实账�
 - 以真实读者盲评和作品对照为最终质量证据；不以自评分或字数判定精品。
 
 ## 兼容与来源
-八套网文知识库以通用写作方法重新整理；分类结构参考了 [lingfengQAQ/webnovel-writer](https://github.com/lingfengQAQ/webnovel-writer) 的开放项目思路，**未复制其 GPL-3.0 原文、CSV 条目或实现代码**；参考建议不视为市场事实或质量保证。具体见 [知识库说明](references/webnovel/README.md)。
+原八套自主整理的 Markdown 与固定版本的 [lingfengQAQ/webnovel-writer](https://github.com/lingfengQAQ/webnovel-writer) GPL-3.0 知识原件并存；统一通过只读检索与路由使用，不运行上游创作/审稿/状态 runtime；参考建议不视为市场事实或质量保证。具体见 [知识库说明](references/webnovel/README.md)。
 本技能从 PenglongHuang/chinese-novelist-skill v2.3.2 的文字参考与 Node.js 工具改造，MIT License 见根目录 `LICENSE`。原版入口备份在 `references/legacy/upstream-SKILL.md`。V2 的设计贡献属于创作规则融合，而非原版自动化测试功能。
 
 
@@ -57,3 +57,8 @@ R3 继续复用原逐章独立审稿、三章弧审、Pilot 停审与事实账�
 - 卷纲冻结前确定唯一、稳定、项目内相对 `filePath`；新卷推荐仅用章节编号作为文件名，章节标题写入 `title` 和正文标题。已冻结的历史路径（含标题后缀）照旧保留；不因标题更新而重命名文件，不移除槽位路径哈希。真正需要改路径须走原卷级复核/批准及受影响稿件证据检查，不直接改已批准快照。
 - 每次新建或重新提交单章审稿，由 `r2_review.mjs` 调用与正式字数 CLI 共用的计数函数，实测正文汉字（排除章节标题、标点和 Markdown 标记），按 `minWordsPerChapter`（缺省 3000）判定；不得人工标记达标代替检查。既有通过的审稿、正文哈希、弧审及门禁不作追溯重写。
 - 宿主有子 Agent 配额时，可复用真实存在且与本轮所有写手隔离的独立编辑上下文：重新提供冻结输入包，独立审阅，不注入写手自评、结论或隐含批准；如实登记本次实际 runId/contextId（若真实上下文复用，保持其真实 ID）。披露复用及限制。无法真实隔离时停在待审状态，不以编造新 ID 或作者自审放行。核心双路审核仍须彼此独立。
+
+
+### 统一知识路由（GPL 知识库）
+
+新项目立项先通过 `python3 scripts/webnovel_knowledge.py route --genre '仙侠+种田'` 获取题材轴及必要模板；按阶段 `search --genre ... --skill init|plan|write|review --query ...` 检索当前需求，必要时 `entry ID` 查完整原条目。详情见 [统一路由](references/webnovel/README.md)。创意/规划关注引擎、人物与冲突；正文只在需要时检索；独审仅辅助提问。不强制比例、配额或照搬示例；不由检索结果改写已批准状态、账本或审稿裁决。未解析标签可作关键词，不能静默改题材。Drive 经验库仍为独立用户资产。

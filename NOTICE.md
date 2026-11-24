@@ -8,7 +8,7 @@ The Chinese Novelist R3 integration and modifications on this development branch
 
 ## Reference knowledge source
 
-[lingfengQAQ/webnovel-writer](https://github.com/lingfengQAQ/webnovel-writer), GPL-3.0, via the author's fork [chindden/webnovel-writer, pinned commit 04e485d](https://github.com/chindden/webnovel-writer/tree/04e485d0d4d34524b83e219be5d0482557c53334). All imported knowledge files will retain their source attribution and any embedded notices. The unmodified upstream source and modification records will be documented in the knowledge import manifest; the R3 adapter is a separate integration, not an upstream runtime replacement. No upstream knowledge files are added by this license-only commit.
+[lingfengQAQ/webnovel-writer](https://github.com/lingfengQAQ/webnovel-writer), GPL-3.0, via the author's fork [chindden/webnovel-writer, pinned commit 04e485d](https://github.com/chindden/webnovel-writer/tree/04e485d0d4d34524b83e219be5d0482557c53334). Subsequent import commit 4694113 retains the 115 source knowledge files, upstream license and two standalone retrieval modules byte-for-byte. See [manifest](references/webnovel/UPSTREAM-MANIFEST.json) for every original blob and stable row ID, and [coverage](references/webnovel/coverage-matrix.md). The R3 adapter is separately authored and does not replace the upstream runtime.
 
 ## Scope
 
