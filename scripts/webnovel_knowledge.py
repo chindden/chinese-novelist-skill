@@ -51,7 +51,7 @@ def supplement_routes():
 def route(genres):
     tax = taxonomy.load_genre_taxonomy()
     overlays = {norm(label): e for e in supplement_routes() for label in [e["label"], *e["aliases"]]}
-    entries, unresolved, additions, worlds = [], [], [], []
+    entries, unresolved, additions, worlds, flow_alias_entries = [], [], [], [], []
     for raw in genres:
         tokens = [raw] if norm(raw) in tax.lookup or norm(raw) in overlays else taxonomy.split_genre_input(raw)
         for token in tokens:
@@ -67,6 +67,8 @@ def route(genres):
                 additions.append(extra)
             if e is None and extra is None:
                 unresolved.append(token)
+            if e is not None and extra and extra["kind"] == "flow" and e not in flow_alias_entries:
+                flow_alias_entries.append(e)
             if e is not None and e.label_type not in {"trope", "format"} and not (extra and extra["kind"] == "flow"):
                 if e not in worlds:
                     worlds.append(e)
@@ -76,6 +78,16 @@ def route(genres):
     if hint_only:
         canonical = unique([x.canonical_genre for x in entries] + [g for e in additions for g in e["hint"]])
     extra_paths = {e["label"]: (BASE / e["path"]).relative_to(ROOT).as_posix() for e in additions}
+    # A mechanism alias may point to a canonical genre template in the upstream
+    # taxonomy. With an explicit, incompatible world, use only the mechanism
+    # reference, not that unrelated world template.
+    template_entries = [x for x in entries if x.template_file and
+                        (x not in flow_alias_entries or x in worlds or x.canonical_genre in canonical)]
+    suppressed = [rel("templates/genres/" + x.template_file) for x in entries if
+                  x.template_file and x not in template_entries]
+    templates = unique([rel("templates/genres/" + x.template_file) for x in template_entries] +
+                       [extra_paths[e["label"]] for e in additions if e["path"].startswith("supplement/genres/")])
+    flow_refs = [{"label": e["label"], "path": extra_paths[e["label"]]} for e in additions if e["kind"] == "flow"]
     warnings = []
     if hint_only and (entries or additions):
         warnings.append("仅匹配玩法/形式；归属题材是检索提示，不代表作者已确定世界题材。")
@@ -86,8 +98,10 @@ def route(genres):
     return {"canonicalGenres": canonical,
             "matchedLabels": [{"label": x.label, "type": x.label_type, "canonical": x.canonical_genre} for x in entries] + [{"label": e["label"], "type": e["kind"], "canonical": e["hint"][0] if e["hint"] else None} for e in additions if not any(x.label == e["label"] for x in entries)],
             "unresolved": unique(unresolved),
-            "templates": unique([rel("templates/genres/" + x.template_file) for x in entries if x.template_file] + [extra_paths[e["label"]] for e in additions if e["path"].startswith("supplement/genres/")]),
-            "flowReferences": [{"label": e["label"], "path": extra_paths[e["label"]]} for e in additions if e["kind"] == "flow"],
+            "templates": templates,
+            "flowReferences": flow_refs,
+            "referencePaths": unique(templates + [x["path"] for x in flow_refs]),
+            "suppressedWorldTemplates": unique(suppressed),
             "hintOnly": hint_only,
             "upstreamWithoutDedicatedTemplate": unique(x.label for x in entries if not x.template_file),
             "withoutDedicatedTemplate": unique(x.label for x in entries if not x.template_file and x.label not in extra_paths),

@@ -103,7 +103,11 @@ class KnowledgeTests(unittest.TestCase):
         self.assertFalse(r["unresolved"])
         self.assertEqual(k.route(["科幻+穿越流"])["canonicalGenres"], ["科幻"])
         self.assertEqual(k.route(["都市+学院流"])["canonicalGenres"], ["都市"])
-        self.assertEqual(k.route(["科幻+宗门流"])["canonicalGenres"], ["科幻"])
+        sci = k.route(["科幻+宗门流"])
+        self.assertEqual(sci["canonicalGenres"], ["科幻"])
+        self.assertFalse(any(p.endswith("修仙.md") for p in sci["templates"]))
+        self.assertTrue(any(p.endswith("修仙.md") for p in sci["suppressedWorldTemplates"]))
+        self.assertTrue(any(p.endswith("修仙.md") for p in k.route(["仙侠+宗门流"])["templates"]))
         self.assertEqual(k.route(["仙侠+宗门流"])["canonicalGenres"], ["仙侠"])
         self.assertTrue(k.route(["宗门流"])["hintOnly"])
         self.assertIn("宗门经营", {x["label"] for x in k.route(["科幻+宗门流"])["flowReferences"]})
@@ -158,7 +162,12 @@ class KnowledgeTests(unittest.TestCase):
                 self.assertEqual({x["label"] for x in r["flowReferences"]}, set(case["flows"]))
                 self.assertFalse(r["unresolved"])
                 self.assertFalse(r["hintOnly"])
-                p = r["templates"] + [x["path"] for x in r["flowReferences"]]
+                p = r["referencePaths"]
+                self.assertEqual(len(p), len(set(p)))
+                self.assertEqual(set(p), set(r["templates"] + [x["path"] for x in r["flowReferences"]]))
+                if case["id"] == "C02":
+                    self.assertFalse(any(x.endswith("修仙.md") for x in p))
+                    self.assertTrue(any(x.endswith("sect-management.md") for x in p))
                 self.assertTrue(p)
                 self.assertTrue(all((ROOT / x).is_file() for x in p))
                 topic = k.topic(case["topic"])
