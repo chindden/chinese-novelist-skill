@@ -1,74 +1,52 @@
 ---
-name: chinese-novelist
-description: |
-  当用户要求写小说、创作故事、分章节写作、连续剧情、长篇小说，或需要续写/校验未完成的小说项目时使用。支持悬疑/言情/奇幻/科幻/历史等全题材中文创作。
-metadata:
-  trigger: 创作中文小说、分章节故事、长篇小说创作
-  source: 基于小说创作最佳实践设计
+name: chinese-novelist-v3
+description: 中文精品网文的创意竞标、故事规划、前三章试写与独立审稿、分卷连载、续写、跨章一致性审计。兼容中文小说多题材。仅在用户要求创作或审校小说时使用。
 ---
 
-## V3 精品创作模式（优先于下方旧版规则）
+# Chinese Novelist V3
 
-**本分支启用 V3 默认工作流。** 如果下文“第三阶段无需再次确认、必须全部写完”与本节冲突，**以本节为准**：只允许先写前三章，第三章完成后强制停审，审稿及用户放行前绝不创作第四章。若环境不具备脚本/独立审稿能力，明确报告限制，不能假装测试或审核已通过。
+目标：帮助作者产出**有辨识度、人物鲜活、逻辑可信且值得追读**的作品。流程和评分是提高质量的手段，不是精品保证。
 
-1. **创意竞标**：先读 [V3 创意实验室](references/flows/v3-creative-lab.md)，默认提出三个真正不同的故事引擎，对抗式淘汰，最终由用户选择；已有完整创意可保留。
-2. **长篇架构**：读 [四级规划与题材路由](references/flows/v3-story-architecture.md)。全书、分卷、故事弧、章节四级；反套路三锚点、人物生命力和可持续冲突。按题材定开篇，不强行套玄幻反杀公式。
-3. **计划与门禁**：沿用旧版项目文件和状态机。创建 `02-写作计划.json` 后运行 `node scripts/v3_gate.mjs init PROJECT`。每章开写前先执行 `node scripts/v3_gate.mjs check PROJECT CHAPTER`；失败就必须停止。
-4. **前三章试写与独立编辑**：仅串行写1–3章，读 [独立审稿门禁协议](references/flows/v3-opening-review.md)。第三章完成后运行 `fingerprint`，交真正独立上下文的编辑 Agent 审查，生成带原文证据的报告，运行 `record-review`。只有报告 `pass` 且用户明确同意，才执行 `approve` 解锁第四章。不可编造用户确认。
-5. **连续写作与质量审计**：沿用原版 `chapter-checklist.md`；融合 [V3 工艺](references/guides/v3-craft-principles.md)；每五章根据 [长篇审计协议](references/flows/v3-longform-audit.md) 检查人物、事实、伏笔、情绪与剧情机制重复。
-6. **持久化**：本地项目为运行时状态源，使用 [ZIP 快照与 Drive 备份协议](references/flows/v3-backup.md)；`python3 scripts/v3_snapshot.py` 负责本地创建/验证/恢复，真正的 Google Drive 上传必须使用宿主已连接的工具，下载回读校验哈希后才能标记远程有效，不得谎报同步。
+## R3 实验模式（仅显式启用）
 
-**质量优先级**：硬事实与因果 > 人物自主性与真实情绪 > 阅读期待与语言自然度；固定爽点计数、同类钩子轮换、对话字数配额是可选技巧，不是跨题材硬门槛。字数和 JSON 校验通过不等于精品作品通过。用户的作品满意度与盲测反馈才是最终验收。
+**仅当作者明确要求使用 R3，且工作项目通过 `init_v3_state.mjs --enable-r3` 显式建立 `v3.r3` 状态时**，优先读取 [R3 实验运行手册](references/v3/r3-operational-runbook.md) 与 [R3 严格分区协议](references/v3/r3-markdown-sections.md)。本文件后续 Stage 2 的 `plan_review.mjs` 整文件冻结说明仅适用于 R2/V3 旧模式；R3 改用独立的 `r3_plan.mjs` 核心与卷级审批，不可混用旧批准链。
 
+R3 继续复用原逐章独立审稿、三章弧审、Pilot 停审与事实账本。明确启用 P1 时，先读 [R3 P1 创作反馈与持续学习协议](references/v3/r3-p1-protocol.md)，用 `r3_p1.mjs PROJECT activate --project-id ID` 激活；该协议优先于后文旧 R2 的手工章节摘要、缺陷处置规则。P1 可选经验库不是正文门禁。 P1 启用后必须按协议 §4.1 在新作品立项主动检索，在 Pilot 验收、卷末、完本等自然节点主动提示模型轻量复盘，允许无新增经验；实质反馈或具体创作问题才按需触发。禁止默认逐章/逐弧学习、强制产出或使用经验；经验库不可用不阻断写作。 跨作品经验唯一权威源是用户 Google Drive 的 `[CN-R3-EXP] 跨作品创作经验库`，按 §4.2–4.5 定位、分类、回读校验和不可变索引发布；Native Memory 仅可选入口，不使用 Notebook 同步或本地在线经验库。实际工具不可用/未授权时跳过。使用 `scripts/r3_experience_drive.mjs` 离线校验、生成索引、检查基线及备份恢复；旧 `r3_experience.mjs` 仅历史离线兼容。禁止模型手工维护索引、强制使用经验或让旧经验覆盖现行协议。P2 风险分级审核、Spike 和完本精修尚未实现，不得提前宣称具备。所有 R3 正文动笔前仍以 `v3_gate.mjs --chapter N --json` 的**真实退出码 0**为准。只用独立实验项目，R2 原项目不静默迁移。
 
-# Chinese Novelist: 中文小说创作助手
+研发与完成度见 [R3 PRD](docs/R3-PRD.md)。单元测试通过不等于小说好看；须单独评估读者持续追读意愿。
 
-## 三大黄金法则
+## 执行优先级
+1. 先读本文件及 [V3 总流程](references/v3/workflow.md)。所有 V3 门禁、状态和用户确认要求优先于原版 `references/flows/` 中的“自动写完整书”指令。原版保留为技法和工具底座，**不要运行与 V3 冲突的旧流程**。
+2. 根据任务按需读取 [创意竞标](references/v3/creative-lab.md)、[题材与架构](references/v3/story-architecture.md)、[八套原创网文知识库总索引](references/webnovel/README.md)、[独立审稿](references/v3/editorial-gate.md)、[状态与备份](references/v3/state-and-backup.md)。知识库必须**先选题材/主流派及读者承诺，再按任务读取少量相关库与具体章节**；不能每次全库灌入上下文，不以套路数量代替故事质量。
+3. 原版人物、对话、章节、悬念和文风指南仍可按需读取。V2 的反套路、资源限制、对话博弈与二阶 AI 味建议已吸收到 V3 参考文档；旧版固定爽点配额并非通用硬约束。
 
-1. **展示而非讲述** - 用动作和对话表现，不要直接陈述
-2. **冲突驱动剧情** - 每章必须有冲突或转折
-3. **悬念承上启下** - 每章结尾必须留下钩子
+## 六阶段主流程
+1. **创意竞标**：先用知识库完成目标读者、题材与成熟流派定位（作者已指定则沿用），区别世界题材、主引擎、金手指、人物策略与爽点；默认比较 3 个真正不同的故事引擎；对已锁定题材提供 3 个不违背约束的展开方案。**先论证再选择**：检查主角命运是否与独特设定不可替代地耦合、人物是否具有自主行动与代价、作品是否能持续产生不同类型冲突和阶段性兑现。记录淘汰证据，用户决定最终选项；不能把凑足三案或高自评分当作创意合格。
+2. **故事架构**：遵循 [Stage 2 原生蓝图审核与修订协议](references/v3/plan-review-protocol.md)：创意诊断→完整剧透故事→四级规划及资源/时间/规则审计→冻结蓝图→架构与读者双独立审稿→定向返工及复审→作者批准。全书→分卷→故事弧→章节；按需读取人物关系、成长机制和爽点节奏库；写前先设计**人物关系与命运弧线、读者期待—铺垫—升级—兑现—余波—新期待的节奏蓝图**，明确局部兑现、重大转折、情绪高低变化以及不可逆后果。近端细化、远端保持弹性，保存角色与关系状态、规则、资源、线索、伏笔、文风指纹。参考 2–5 章局部兑现、8–15 章重大变化可作讨论起点，**绝不规定每三章/十章强制高潮**；跨度随题材、章长、故事因果调整。
+3. **前三章试写**：按题材创作并严格串行，具体场景、技法及命名问题只查对应知识库；每章初稿须由不同执行上下文的独立编辑核查，只有定向修复和复核通过后才标记完成、更新正式账本。
+4. **强制停审**：第 3 章后运行 `node scripts/prepare_pilot_review.mjs <项目目录> --json` 并禁止启动第 4 章，直到独立审稿、缺陷返工、复审与用户确认均有记录。支持隔离子 Agent；不支持时不得谎称独立审稿。
+5. **分卷连载**：相邻正文串行；每章强制独立核查，第 6、9、12……章再做最近三章整体独审；定稿后更新结构化账本，每五章执行 `node scripts/audit_story_state.mjs <项目目录> --upto N --write --json`，其发现是待人工/独立编辑核查的线索，不是文学评分。
+6. **本地快照（可选）**：可生成 ZIP 与 SHA-256 清单，验证本地恢复。**本阶段禁止自动上传 Google Drive 或其他云端**，待用户后续明确授权并通过环境实测再接入。
 
-## 特性说明
+新项目运行 `node scripts/init_v3_state.mjs <项目目录> --json` 后默认启用 R2 与 Stage 2 规划门禁；已有 V3 项目按需显式运行 `--enable-r2` 和/或 `--enable-plan-gate`。不可伪造历史审稿记录或作者批准；真实流程与命令见 [规划审核协议](references/v3/plan-review-protocol.md) 和 [运行手册](references/v3/operational-runbook.md)。
 
-- **中断续写**：自动检测未完成项目，从断点继续创作
-- **自动校验**：创作完成后自动检查字数和质量，不合格自动修复
-- **并行写作**（可选）：支持子Agent并行写作，通过 `02-写作计划.json` 协调状态
+## 不可跳过的可执行门禁
+- **正式规划 Stage 2**：运行 `node scripts/plan_review.mjs <项目目录> prepare --planner-run-id REAL_RUN --planner-context-id REAL_CONTEXT` 冻结规划；架构与目标读者编辑分别独立提交报告。发现未解决的 BLOCKER/MAJOR 必须修正后重新冻结、重新双审；两路审核通过后仍须作者明确批准并运行 `plan_review.mjs approve`。新项目不能靠直接设 `storyPlanApproved=true` 绕过门禁。脚本验证证据与版本，不证明文学质量。
+- 在**创建每一章正文前**运行：
+  `node scripts/v3_gate.mjs <项目目录> --chapter <章号> --json`
+  第 2 章起检验此前所有章节独审，第 4 章还需 Pilot 和作者确认，第 7、10、13……章还需上一组三章整体独审。最后一章定稿后必须运行 `node scripts/v3_gate.mjs <项目目录> --finalize N --json`。非 0 退出码立即停止。
+- 工程校验使用 `node scripts/validate_project.mjs <项目目录> --upto N --json`，只检查已写完的第 1 至 N 章；全书完成后才执行不带 `--upto` 的全量校验。它只验证状态和字数，**不代表文学审稿通过**。
+- 每章和每三章的审稿报告必须有原文证据、严重程度和明确返工点，并绑定正文哈希及写手/编辑运行标识。写作 Agent 不能批准自己的稿件；程序核查声明字段但不能独自证明真实上下文隔离。
+- 生产小说正文时的项目字段和门禁规则见 [状态与备份](references/v3/state-and-backup.md)、[V2 工艺红队](references/v3/craft-and-redteam.md) 和 [独立编辑模板](references/v3/review-agent-template.md)。
+- 如果无法真实操作目录、脚本或子 Agent，明确说明降级能力并保留交付记录；**不得伪造文件、执行日志、审核人或备份**。
 
-## 核心流程
+详细验收规则见 [工程与写作验收](references/v3/acceptance.md)。
 
-进入每个阶段时，先阅读对应的流程文档以获取详细执行指令。
+## 质量原则
+- 硬规则：因果、已确立事实、信息边界、重要物品及资源状态不能自相矛盾。
+- 软策略：高潮密度、章末钩子、对话篇幅、视角密度、人物理性程度视题材与情境确定；真实人物允许可信的非理性、犹疑和失误。**章末悬念不等于高潮，新谜题不能长期替代旧承诺兑现；高潮应改变人物、关系或局势，而不只是加大事件声量。**
+- 以真实读者盲评和作品对照为最终质量证据；不以自评分或字数判定精品。
 
-### 第0步：初始化与偏好加载
-
-读取用户偏好，检测未完成项目（中断续写），展示个性化欢迎。 → 详见 [phase0-initialization.md](references/flows/phase0-initialization.md)
-
-### 第一阶段：三层递进式问答
-
-通过递进式问答收集创作需求，确定小说定位与标题：
-
-- **核心定位**（必答，Q1-Q3）：题材创意、主角设定、核心冲突 → 详见 [phase1-layer1-core.md](references/flows/phase1-layer1-core.md)
-- **深度定制与规格**（2 次合并提问）：世界观、视角基调、核心主题、读者定位、章节数量、每章字数、配置确认 → 详见 [phase1-layer2-customize.md](references/flows/phase1-layer2-customize.md)
-- **标题生成**：AI 基于创意元素生成候选标题，用户选择或自定义 → 详见 [phase1-layer3-title.md](references/flows/phase1-layer3-title.md)
-
-### 第二阶段：规划 + 二次确认
-
-创建项目文件夹（`./chinese-novelist/{timestamp}-{小说名称}/`），生成大纲、人物档案和写作计划JSON，等待用户确认。 → 详见 [phase2-planning.md](references/flows/phase2-planning.md)
-
-### 第2.5步：写作模式选择
-
-规划确认后，选择写作模式：
-- **逐章串行**（`serial`）：主 Agent 自己逐章写，全程无中断
-- **子Agent并行**（`subagent-parallel`）：将章节分成批次，派生子 Agent 并行写作
-- **Agent Teams**（`agent-teams`）：Claude Code 多 Agent 协作模式，Agent 间可通讯（需手动开启）
-
-→ 详见 [phase3-writing.md](references/flows/phase3-writing.md)
-
-### 第三阶段：疯狂创作（无需用户确认）
-> 切记，一旦进入这个阶段，所有过程都禁止向用户确认。用户就是你的读者，你必须把完整的小说创作完成才能与用户报告
-
-根据用户选择的写作模式（串行/并行/Teams）逐章执行创作流程。每章创作前必须读取 `01-大纲.md` 中对应章节的规划信息，严格按大纲创作。支持中断续写。 → 详见 [phase3-writing.md](references/flows/phase3-writing.md)
-
-### 第四阶段：自动校验与修复（无需用户确认）
-
-主 Agent 调用脚本检查章节状态和字数，将问题派回原写作 worker 处理，最多3轮；未通过则标记 needs_attention。全程无需用户确认。 → 详见 [phase4-validation.md](references/flows/phase4-validation.md)
+## 兼容与来源
+八套网文知识库以通用写作方法重新整理；分类结构参考了 [lingfengQAQ/webnovel-writer](https://github.com/lingfengQAQ/webnovel-writer) 的开放项目思路，**未复制其 GPL-3.0 原文、CSV 条目或实现代码**；参考建议不视为市场事实或质量保证。具体见 [知识库说明](references/webnovel/README.md)。
+本技能从 PenglongHuang/chinese-novelist-skill v2.3.2 的文字参考与 Node.js 工具改造，MIT License 见根目录 `LICENSE`。原版入口备份在 `references/legacy/upstream-SKILL.md`。V2 的设计贡献属于创作规则融合，而非原版自动化测试功能。

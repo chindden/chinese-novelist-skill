@@ -1,5 +1,4 @@
-
-> **V3 强制覆盖规则（优先于本文件旧版“无中断写到完成”的指令）**：任何模式每次认领章节前，必须执行 `node scripts/v3_gate.mjs check PROJECT CHAPTER`。只允许先写1–3章；第3章完成后强制停止并按 [独立审稿协议](v3-opening-review.md) 获取审核、复审与用户明确放行。第4章及以后脚本未返回成功，一律禁止写作。串行/并行/Agent Teams 只是创作执行方式，不能绕过质量门禁。多 Agent 并行不得提前写第4章。
+> **V3 执行覆盖声明**：本文件来自 GitHub 原版，V3 使用时必须先遵守 `references/v3/workflow.md`、`references/v3/state-and-backup.md`。写作任何章节前运行 `node scripts/v3_gate.mjs <项目目录> --chapter N --json`；第 3 章完成必须暂停进入独立审稿和作者确认，禁止按下文“不中断连写/全部写完”的旧指令继续创作。V3 不在写作生产阶段并行创作相邻正文。
 
 # 第三阶段：疯狂创作
 

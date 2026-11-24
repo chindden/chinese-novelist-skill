@@ -1,121 +1,96 @@
 #!/usr/bin/env node
-/** V3 opening quality gate; Node >= 18; no third-party packages.
- * init PROJECT
- * fingerprint PROJECT
- * check PROJECT CHAPTER
- * record-review PROJECT REPORT.json
- * approve PROJECT --user-quote "用户实际的放行原话"
- * status PROJECT
- */
-import fs from 'node:fs/promises';
-import path from 'node:path';
-import { createHash } from 'node:crypto';
-import process from 'node:process';
+/** Deterministic chapter gate. It verifies artifacts, not literary merit or true user identity. */
+import fs from 'node:fs';
+import {p1GateIssues,p1PilotIssues} from './r3_p1_common.mjs';
+import {continuityIssues} from './r3_continuity_common.mjs';
+import {projectRoot,readPlan,safeFile,pilotHashes,sameHashes,sha256,structuredReportValid} from './v3_common.mjs';
+import {checkGate} from './r2_review_common.mjs';
+import {verifyPlanGate} from './plan_review_common.mjs';
+import {hasR3Namespace,validR3Namespace} from './r3_state_common.mjs';
+import {verifyR3Plan} from './r3_plan_common.mjs';
 
-const FILE = '04-开篇门禁.json';
-const DECISIONS = ['pass','revise','rebuild'];
-const SEVERITIES = ['blocking','major','minor'];
-const ensure = (yes,message) => { if (!yes) throw Error(message); };
-const validText = x => typeof x === 'string' && x.trim().length > 0;
-
-async function context(project) {
-  const root = await fs.realpath(path.resolve(project));
-  const plan = JSON.parse(await fs.readFile(path.join(root,'02-写作计划.json'),'utf8'));
-  ensure(Array.isArray(plan.chapters),'缺少 chapters 章节计划');
-  return {root,plan};
-}
-async function digest(root,plan) {
-  const hash=createHash('sha256');
-  for (const n of [1,2,3]) {
-    const c=plan.chapters.find(x=>x.chapterNumber===n);
-    ensure(c && c.status==='completed' && validText(c.filePath),'第'+n+'章未完成或没有正文路径');
-    const absolute=path.resolve(root,c.filePath);
-    const relative=path.relative(root,absolute);
-    ensure(relative && relative!=='..' && !relative.startsWith('..'+path.sep) && !path.isAbsolute(relative),'正文路径越界');
-    const data=await fs.readFile(absolute);
-    ensure(data.length>0,'第'+n+'章正文为空');
-    hash.update(n+'\0'+relative+'\0'); hash.update(data); hash.update('\0');
-  }
-  return hash.digest('hex');
-}
-async function load(root) {
-  const gate=JSON.parse(await fs.readFile(path.join(root,FILE),'utf8'));
-  ensure(gate.version===1 && validText(gate.status),'门禁数据无效');
-  return gate;
-}
-async function persist(root,gate) {
-  const tmp=path.join(root,'.'+FILE+'.'+process.pid+'.tmp');
-  try {
-    await fs.writeFile(tmp,JSON.stringify(gate,null,2)+'\n',{flag:'wx'});
-    await fs.rename(tmp,path.join(root,FILE));
-  } finally {await fs.rm(tmp,{force:true}).catch(()=>{});}
-}
-function validateReport(report) {
-  ensure(report && typeof report==='object' && !Array.isArray(report),'报告必须为 JSON 对象');
-  ensure(report.scope==='chapters-1-3','报告 scope 必须为 chapters-1-3');
-  ensure(validText(report.reviewer) && report.reviewer!=='writer','必须标记非写手的独立审稿角色');
-  ensure(DECISIONS.includes(report.decision),'无效 decision');
-  ensure(validText(report.openingDigest) && /^[a-f0-9]{64}$/.test(report.openingDigest),'缺少正文 SHA-256 指纹');
-  ensure(validText(report.summary) && Array.isArray(report.issues),'缺少审稿摘要或缺陷数组');
-  const ids=new Set();
-  for (const issue of report.issues) {
-    ensure(issue && validText(issue.id) && !ids.has(issue.id),'缺陷 ID 为空或重复');
-    ids.add(issue.id);
-    ensure(SEVERITIES.includes(issue.severity) && [1,2,3].includes(issue.chapter),'缺陷级别或章节无效');
-    for (const field of ['excerpt','reason','reader_impact','fix'])
-      ensure(validText(issue[field]),issue.id+' 缺少 '+field);
-    ensure(issue.excerpt.length<=500,issue.id+' 原文引用过长');
-  }
-  if (report.decision==='pass')
-    ensure(!report.issues.some(x=>x.severity!=='minor'),'含重大缺陷，禁止 pass');
-  else
-    ensure(report.issues.some(x=>x.severity!=='minor'),'返工报告必须有重大缺陷证据');
-}
-async function run(args) {
-  const [action,project,...other]=args;
-  ensure(['init','fingerprint','check','record-review','approve','status'].includes(action) && project,'无效命令');
-  const {root,plan}=await context(project);
-  if (action==='init') {
-    const value={version:1,status:'awaiting_opening',review:null,reviewHistory:[],userApproval:null,updatedAt:new Date().toISOString()};
-    await fs.writeFile(path.join(root,FILE),JSON.stringify(value,null,2)+'\n',{flag:'wx'});
-    return {status:value.status};
-  }
-  const gate=await load(root);
-  if (action==='status') return {status:gate.status,decision:gate.review?.decision??null,approved:!!gate.userApproval};
-  if (action==='fingerprint') return {openingDigest:await digest(root,plan)};
-  if (action==='check') {
-    const n=Number(other[0]);
-    ensure(Number.isSafeInteger(n) && n>=1 && plan.chapters.some(c=>c.chapterNumber===n),'无效章号');
-    if (n>3) {
-      ensure(gate.status==='approved' && gate.review?.decision==='pass' && gate.userApproval,'BLOCKED: 前三章未获独立审稿和用户放行');
-      ensure((await digest(root,plan))===gate.review.openingDigest,'BLOCKED: 前三章正文改变，旧审稿失效');
+const args=process.argv.slice(2),folder=args[0],chapterIndex=args.indexOf('--chapter');
+const finalizeIndex=args.indexOf('--finalize');
+const finalize=finalizeIndex>=0;
+const finishChapter=finalize?Number(args[finalizeIndex+1]):null;
+const chapter=finalize?finishChapter+1:chapterIndex<0?NaN:Number(args[chapterIndex+1]);
+const issues=[];
+const fail=(code,message)=>issues.push({code,message});
+const done=(status,root)=>{
+  const result={status,chapter,project:root,issues,literaryStatus:'UNVERIFIED'};
+  console.log(args.includes('--json')?JSON.stringify(result,null,2):status+': '+issues.map(x=>x.code).join(','));
+  process.exitCode=status==='allowed'?0:status==='blocked'?1:2;
+};
+if(!folder||!Number.isSafeInteger(chapter)||chapter<1||(finalize&&(!Number.isSafeInteger(finishChapter)||finishChapter<1||chapterIndex>=0)) ||
+  args.slice(1).some(x=>x.startsWith('--')&&!['--json','--chapter','--finalize'].includes(x))) {
+  fail('BAD_ARGS','Usage: v3_gate.mjs <project-dir> (--chapter N | --finalize N) [--json]');
+  done('error',folder||null);
+}else {
+  let root,plan;
+  try {root=projectRoot(folder);plan=readPlan(root);}
+  catch(e){fail('READ_ERROR',e.message);done('error',folder);}
+  if(plan){
+    // An explicitly opted-in R3 project uses an independent core and volume approval chain.
+    if(plan.v3?.schemaVersion!==1)fail('NO_V3_STATE','V3 状态缺失或版本不符');
+    if(plan.v3?.creativeDecision!=='accepted')fail('CREATIVE_NOT_APPROVED','创意未确认');
+    if(hasR3Namespace(plan)){
+      if(!validR3Namespace(plan.v3.r3))fail('R3_STATE_INVALID','R3 状态缺失或版本错误');
+      else {
+        if(plan.v3.r3.reviewPolicy!=='every_chapter')fail('R3_REVIEW_POLICY_NOT_ENABLED','风险分级模式尚未完成实验与实现');
+        try {for(const issue of verifyR3Plan(root,plan,finalize?finishChapter:chapter))
+          fail(issue,'R3 核心或卷级批准、哈希或快照不一致');}
+        catch(e){fail('R3_PLAN_CHECK_ERROR',e.message);}
+      }
+    }else{
+      if(plan.v3?.storyPlanApproved!==true)fail('STORY_PLAN_NOT_APPROVED','蓝图未确认');
+      // Legacy R2 projects use their original Stage 2 approval gate unchanged.
+      if(plan.v3?.planGate)for(const issue of verifyPlanGate(root,plan))fail(issue,'Stage 2 规划审核、版本冻结或作者批准无效');
     }
-    return {chapter:n,allowed:true,status:gate.status};
-  }
-  if (action==='record-review') {
-    ensure(other.length===1,'需要 REPORT.json 路径');
-    ensure(gate.status!=='approved','已放行的版本不能静默覆盖报告');
-    const report=JSON.parse(await fs.readFile(path.resolve(other[0]),'utf8'));
-    validateReport(report);
-    ensure(report.openingDigest===await digest(root,plan),'审稿指纹与当前前三章内容不一致');
-    const item={...report,receivedAt:new Date().toISOString()};
-    gate.review=item; gate.reviewHistory.push(item); gate.userApproval=null;
-    gate.status=report.decision==='pass'?'awaiting_user_approval':'needs_revision';
-    gate.updatedAt=new Date().toISOString();
-    await persist(root,gate);
-    return {status:gate.status,issues:report.issues.length};
-  }
-  if (action==='approve') {
-    ensure(other.length===2 && other[0]==='--user-quote' && validText(other[1]),'必须提供真实用户放行原话');
-    ensure(gate.status==='awaiting_user_approval' && gate.review?.decision==='pass','独立审稿尚未通过');
-    ensure(/批准|确认|同意|放行/.test(other[1]),'放行措辞不明确');
-    ensure(await digest(root,plan)===gate.review.openingDigest,'正文变动，需重新审稿');
-    gate.status='approved';
-    gate.userApproval={quote:other[1],recordedAt:new Date().toISOString()};
-    gate.updatedAt=new Date().toISOString();
-    await persist(root,gate);
-    return {status:gate.status};
+    if(chapter>=4){
+      const gate=plan.v3?.pilotGate||{};
+      if(gate.status!=='passed')fail('PILOT_NOT_PASSED','前三章门禁未通过');
+      if(gate.reviewDecision!=='pass_candidate')fail('NO_POSITIVE_REVIEW','审稿结果未通过');
+      if(gate.humanApproved!==true||!gate.approvedAt||!Number.isFinite(Date.parse(gate.approvedAt)))
+        fail('NO_HUMAN_APPROVAL','缺少用户明确批准记录');
+      let hashes=null;
+      try {hashes=pilotHashes(root,plan);}catch(e){fail('PILOT_CHAPTER_INCOMPLETE',e.message);}
+      if(hashes&&!sameHashes(gate.reviewedChapterHashes,hashes))fail('STALE_REVIEW','正文与提交审稿稿件不一致');
+      const reviewFile=safeFile(root,gate.reviewPath);
+      let report=null,reviewSha=null;
+      if(!reviewFile)fail('REVIEW_MISSING','审稿报告缺失或路径无效');
+      else {
+        const bytes=fs.readFileSync(reviewFile);
+        reviewSha=sha256(bytes);
+        if(reviewSha!==gate.reviewSha256)fail('REVIEW_CHANGED','审稿报告内容被修改');
+        try {report=JSON.parse(bytes.toString('utf8'));}
+        catch {fail('INVALID_REVIEW','审稿报告不是有效 JSON');}
+        if(report){
+          const errors=structuredReportValid(report,gate.revision,hashes||{});
+          for(const err of errors)fail(err,'审稿报告结构或稿件版本不符合');
+          if(report.decision!=='pass_candidate')fail('REVIEW_REJECTED','审稿尚未通过');
+        }
+      }
+      const approvalFile=safeFile(root,gate.approvalPath);
+      if(!approvalFile)fail('APPROVAL_RECORD_MISSING','没有用户确认凭据文件');
+      else{
+        const approvalBytes=fs.readFileSync(approvalFile);
+        if(sha256(approvalBytes)!==gate.approvalSha256)fail('APPROVAL_CHANGED','批准记录已变更');
+        try {
+          const approval=JSON.parse(approvalBytes.toString('utf8'));
+          if(approval.schemaVersion!==1||approval.approved!==true||
+            approval.revision!==gate.revision||approval.reviewSha256!==reviewSha||
+            approval.approvedAt!==gate.approvedAt||typeof approval.source!=='string'||!approval.source.trim()||
+            typeof approval.quote!=='string'||approval.quote.trim().length<2)
+            fail('APPROVAL_RECORD_INVALID','批准证据与当前稿件不对应');
+        }catch(e){if(e instanceof SyntaxError)fail('APPROVAL_RECORD_INVALID','批准文件 JSON 无效');else throw e;}
+      }
+    }
+    try {for(const code of checkGate(root,plan,chapter,finalize))fail(code,'R2 independent chapter/milestone review gate');}
+    catch(e){fail('R2_CHECK_ERROR',e.message);}
+    try{
+      for(const code of [...p1GateIssues(root,plan,chapter,finalize),...(chapter>=4?p1PilotIssues(root,plan):[]),
+        ...continuityIssues(root,plan,chapter-1)])fail(code,'R3 P1 source binding or arc obligation');
+    }catch(e){fail('R3_P1_CHECK_ERROR',e.message);}
+    done(issues.length?'blocked':'allowed',root);
   }
 }
-try { console.log(JSON.stringify({ok:true,...await run(process.argv.slice(2))})); }
-catch(e) {console.error(JSON.stringify({ok:false,error:e.message}));process.exitCode=1;}

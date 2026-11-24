@@ -1,6 +1,3 @@
-
-> **V3 状态恢复优先规则**：如果项目存在 `04-开篇门禁.json`，先运行 `node scripts/v3_gate.mjs status PROJECT`。状态 `awaiting_opening` 只可写前三章；`needs_revision` 必须修订/复审；`awaiting_user_approval` 必须等待用户真实放行；`approved` 可以继续第4章及以后，但每章写前仍运行 `check`。从备份恢复不代表可以跳过门禁。新作先执行 [创意竞标](v3-creative-lab.md)。
-
 # 第0步：初始化与偏好加载
 
 **每次触发SKILL时首先执行：**
