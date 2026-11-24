@@ -45,31 +45,51 @@ def topic(identifier):
             return {"status": "ok", **item, "paths": [(BASE / p).relative_to(ROOT).as_posix() for p in item["paths"]], "policy": POLICY}
     return {"status": "not_found", "id": identifier, "policy": POLICY}
 
+def supplement_routes():
+    return json.loads((BASE / "supplement/route-catalog.json").read_text(encoding="utf-8"))["entries"]
+
 def route(genres):
     tax = taxonomy.load_genre_taxonomy()
-    entries, unresolved = [], []
+    overlays = {norm(label): e for e in supplement_routes() for label in [e["label"], *e["aliases"]]}
+    entries, unresolved, additions = [], [], []
     for raw in genres:
-        tokens = [raw] if norm(raw) in tax.lookup else taxonomy.split_genre_input(raw)
+        tokens = [raw] if norm(raw) in tax.lookup or norm(raw) in overlays else taxonomy.split_genre_input(raw)
         for token in tokens:
             e = tax.lookup.get(norm(token))
-            if e is None:
-                unresolved.append(token)
-            elif e not in entries:
+            extra = overlays.get(norm(token))
+            # Preserve exact upstream labels, but a mechanism alias such as 宗门流
+            # must not introduce a world when the author has chosen another.
+            if e is not None and e not in entries:
                 entries.append(e)
-    worlds = [x for x in entries if x.label_type not in {"trope", "format"}]
-    canonical = unique(x.canonical_genre for x in (worlds or entries))
+            if e is not None:
+                extra = extra or overlays.get(norm(e.label))
+            if extra is not None and extra not in additions:
+                additions.append(extra)
+            if e is None and extra is None:
+                unresolved.append(token)
+    flow_labels = {e["label"] for e in additions if e["kind"] == "flow"}
+    worlds = [x for x in entries if x.label_type not in {"trope", "format"} and x.label not in flow_labels]
+    extra_worlds = [g for e in additions if e["kind"] == "genre" and not any(x.label == e["label"] for x in entries) for g in e["hint"]]
+    canonical = unique([x.canonical_genre for x in worlds] + extra_worlds)
+    hint_only = not canonical
+    if hint_only:
+        canonical = unique([x.canonical_genre for x in entries] + [g for e in additions for g in e["hint"]])
+    extra_paths = {e["label"]: (BASE / e["path"]).relative_to(ROOT).as_posix() for e in additions}
     warnings = []
-    if entries and not worlds:
+    if hint_only and (entries or additions):
         warnings.append("仅匹配玩法/形式；归属题材是检索提示，不代表作者已确定世界题材。")
     if unresolved:
         warnings.append("保留未解析标签，不静默映射；可作流派关键词并明确选择题材。")
     if len(canonical) > 1:
         warnings.append("保留所有题材轴，不套用固定比例；主线与融合机制由作者确认。")
     return {"canonicalGenres": canonical,
-            "matchedLabels": [{"label": x.label, "type": x.label_type, "canonical": x.canonical_genre} for x in entries],
+            "matchedLabels": [{"label": x.label, "type": x.label_type, "canonical": x.canonical_genre} for x in entries] + [{"label": e["label"], "type": e["kind"], "canonical": e["hint"][0] if e["hint"] else None} for e in additions if not any(x.label == e["label"] for x in entries)],
             "unresolved": unique(unresolved),
-            "templates": unique(rel("templates/genres/" + x.template_file) for x in entries if x.template_file),
-            "withoutDedicatedTemplate": unique(x.label for x in entries if not x.template_file),
+            "templates": unique([rel("templates/genres/" + x.template_file) for x in entries if x.template_file] + [extra_paths[e["label"]] for e in additions if e["path"].startswith("supplement/genres/")]),
+            "flowReferences": [{"label": e["label"], "path": extra_paths[e["label"]]} for e in additions if e["kind"] == "flow"],
+            "hintOnly": hint_only,
+            "upstreamWithoutDedicatedTemplate": unique(x.label for x in entries if not x.template_file),
+            "withoutDedicatedTemplate": unique(x.label for x in entries if not x.template_file and x.label not in extra_paths),
             "routeTags": unique(t for x in entries for t in x.route_tags),
             "tropeTags": unique(t for x in entries for t in x.trope_tags),
             "formatTags": unique(t for x in entries for t in x.format_tags),
@@ -150,6 +170,7 @@ def catalog():
             "supplementTables": [{"name": name, "rows": len(rows)} for name, rows in bm25.load_tables(SUPPLEMENT).items()],
             "genres": [{"label": x.label, "canonical": x.canonical_genre, "type": x.label_type,
                         "template": x.template_file, "aliases": x.aliases} for x in tax.entries],
+            "supplementRoutes": supplement_routes(),
             "topics": [{"id": t["id"], "name": t["name"], "stages": t["stages"]} for t in topic_catalog()],
             "manifest": "references/webnovel/UPSTREAM-MANIFEST.json", "policy": POLICY}
 
@@ -171,7 +192,7 @@ def main():
     try:
         if args.action == "route":
             result = {"status": "ok", **route(args.genre), "policy": POLICY}
-            if not result["canonicalGenres"]:
+            if not result["canonicalGenres"] and not result["flowReferences"]:
                 result["status"] = "unresolved_genre"
         elif args.action == "search":
             result = search(args.genre, args.skill, args.query, args.table, args.limit)

@@ -1,0 +1,288 @@
+{
+  "schemaVersion": 1,
+  "entries": [
+    {
+      "label": "都市种田",
+      "aliases": [
+        "都市经营",
+        "现代种田"
+      ],
+      "kind": "genre",
+      "hint": [
+        "都市"
+      ],
+      "path": "supplement/genres/urban-cultivation.md"
+    },
+    {
+      "label": "战神赘婿",
+      "aliases": [
+        "都市赘婿流",
+        "赘婿逆袭"
+      ],
+      "kind": "genre",
+      "hint": [
+        "都市"
+      ],
+      "path": "supplement/genres/identity-marriage.md"
+    },
+    {
+      "label": "传统玄幻",
+      "aliases": [],
+      "kind": "genre",
+      "hint": [
+        "玄幻"
+      ],
+      "path": "supplement/genres/traditional-fantasy.md"
+    },
+    {
+      "label": "玄幻脑洞",
+      "aliases": [],
+      "kind": "genre",
+      "hint": [
+        "玄幻"
+      ],
+      "path": "supplement/genres/fantasy-premise.md"
+    },
+    {
+      "label": "学院流",
+      "aliases": [
+        "校园成长",
+        "学院竞争"
+      ],
+      "kind": "flow",
+      "hint": [
+        "玄幻"
+      ],
+      "path": "supplement/genres/academy.md"
+    },
+    {
+      "label": "穿越流",
+      "aliases": [
+        "异世重开",
+        "穿书",
+        "穿越"
+      ],
+      "kind": "flow",
+      "hint": [
+        "历史"
+      ],
+      "path": "supplement/genres/transmigration.md"
+    },
+    {
+      "label": "武侠",
+      "aliases": [
+        "江湖武侠",
+        "江湖"
+      ],
+      "kind": "genre",
+      "hint": [
+        "历史"
+      ],
+      "path": "supplement/genres/wuxia.md"
+    },
+    {
+      "label": "悬疑推理",
+      "aliases": [
+        "本格推理",
+        "本格",
+        "刑侦",
+        "探案"
+      ],
+      "kind": "genre",
+      "hint": [
+        "悬疑"
+      ],
+      "path": "supplement/genres/deduction.md"
+    },
+    {
+      "label": "娱乐圈",
+      "aliases": [
+        "明星文",
+        "综艺文",
+        "演艺圈"
+      ],
+      "kind": "genre",
+      "hint": [
+        "现言"
+      ],
+      "path": "supplement/genres/showbiz.md"
+    },
+    {
+      "label": "快穿",
+      "aliases": [
+        "小世界任务",
+        "任务者",
+        "攻略系统"
+      ],
+      "kind": "genre",
+      "hint": [
+        "快穿"
+      ],
+      "path": "supplement/genres/quick-transmigration.md"
+    },
+    {
+      "label": "同人衍生",
+      "aliases": [
+        "同人文",
+        "衍生文",
+        "同人"
+      ],
+      "kind": "genre",
+      "hint": [
+        "衍生"
+      ],
+      "path": "supplement/genres/fan-derivative.md"
+    },
+    {
+      "label": "凡人流",
+      "aliases": [
+        "凡人修仙流",
+        "凡人修仙"
+      ],
+      "kind": "flow",
+      "hint": [
+        "仙侠",
+        "玄幻"
+      ],
+      "path": "supplement/flows/mortal.md"
+    },
+    {
+      "label": "苟道流",
+      "aliases": [
+        "苟道",
+        "稳健流",
+        "苟道修仙"
+      ],
+      "kind": "flow",
+      "hint": [
+        "仙侠",
+        "玄幻"
+      ],
+      "path": "supplement/flows/cautious.md"
+    },
+    {
+      "label": "长生流",
+      "aliases": [
+        "长生",
+        "长生修仙",
+        "寿命流"
+      ],
+      "kind": "flow",
+      "hint": [
+        "仙侠",
+        "玄幻"
+      ],
+      "path": "supplement/flows/longevity.md"
+    },
+    {
+      "label": "家族经营",
+      "aliases": [
+        "家族流",
+        "家族经营流",
+        "修仙家族"
+      ],
+      "kind": "flow",
+      "hint": [
+        "仙侠",
+        "种田"
+      ],
+      "path": "supplement/flows/clan-management.md"
+    },
+    {
+      "label": "宗门经营",
+      "aliases": [
+        "宗门经营流",
+        "宗门建设",
+        "掌门流",
+        "宗门流"
+      ],
+      "kind": "flow",
+      "hint": [
+        "仙侠",
+        "种田"
+      ],
+      "path": "supplement/flows/sect-management.md"
+    },
+    {
+      "label": "组织经营",
+      "aliases": [
+        "势力经营",
+        "经营流",
+        "领地建设",
+        "基建流"
+      ],
+      "kind": "flow",
+      "hint": [
+        "种田"
+      ],
+      "path": "supplement/flows/organization.md"
+    },
+    {
+      "label": "无敌流",
+      "aliases": [
+        "开局无敌",
+        "无敌文"
+      ],
+      "kind": "flow",
+      "hint": [
+        "玄幻",
+        "仙侠"
+      ],
+      "path": "supplement/flows/invincible.md"
+    },
+    {
+      "label": "幕后布局",
+      "aliases": [
+        "幕后流",
+        "幕后黑手流",
+        "幕后操盘"
+      ],
+      "kind": "flow",
+      "hint": [],
+      "path": "supplement/flows/behind-scenes.md"
+    },
+    {
+      "label": "迪化流",
+      "aliases": [
+        "迪化",
+        "误解流",
+        "脑补流"
+      ],
+      "kind": "flow",
+      "hint": [],
+      "path": "supplement/flows/misinterpretation.md"
+    },
+    {
+      "label": "重生流",
+      "aliases": [
+        "重生改命",
+        "重生文",
+        "重生"
+      ],
+      "kind": "flow",
+      "hint": [],
+      "path": "supplement/flows/rebirth.md"
+    },
+    {
+      "label": "扮猪吃虎",
+      "aliases": [
+        "隐藏实力",
+        "低调流"
+      ],
+      "kind": "flow",
+      "hint": [],
+      "path": "supplement/flows/concealed-power.md"
+    },
+    {
+      "label": "群像",
+      "aliases": [
+        "群像流",
+        "多主角",
+        "多视角"
+      ],
+      "kind": "flow",
+      "hint": [],
+      "path": "supplement/flows/ensemble.md"
+    }
+  ]
+}

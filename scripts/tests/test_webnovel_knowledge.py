@@ -54,7 +54,9 @@ class KnowledgeTests(unittest.TestCase):
         self.assertEqual(len(templates), 37)
         for e in tax.entries:
             self.assertIn(e.label, [x["label"] for x in k.route([e.label])["matchedLabels"]])
-        self.assertIn("快穿", k.route(["攻略系统"])["withoutDedicatedTemplate"])
+        self.assertIn("快穿", k.route(["攻略系统"])["upstreamWithoutDedicatedTemplate"])
+        self.assertNotIn("快穿", k.route(["攻略系统"])["withoutDedicatedTemplate"])
+        self.assertTrue(any(p.endswith("quick-transmigration.md") for p in k.route(["攻略系统"])["templates"]))
         self.assertEqual(k.route(["全球高武"])["canonicalGenres"], ["都市"])
         self.assertEqual(k.route(["仙侠+种田+系统流"])["canonicalGenres"], ["仙侠", "种田"])
         self.assertEqual(k.route(["未知虚构题材"])["unresolved"], ["未知虚构题材"])
@@ -78,6 +80,32 @@ class KnowledgeTests(unittest.TestCase):
         self.assertTrue(any(p.endswith("foreshadowing.md") for p in k.topic("foreshadowing")["paths"]))
         self.assertTrue(any(p.endswith("设定集-反派设计.md") for p in k.topic("character")["paths"]))
         self.assertEqual(k.topic("unknown-topic")["status"], "not_found")
+
+    def test_specialist_templates_and_flow_combinations(self):
+        tax = k.taxonomy.load_genre_taxonomy()
+        gaps = [e.label for e in tax.entries if not e.template_file and (e.label_type != "canonical" or e.label == "快穿")]
+        self.assertEqual(len(gaps), 11)
+        for label in gaps:
+            r = k.route([label])
+            self.assertNotIn(label, r["withoutDedicatedTemplate"])
+            self.assertTrue(r["templates"], label)
+            self.assertTrue(all((ROOT / p).is_file() for p in r["templates"]))
+        self.assertEqual(len(k.supplement_routes()), 23)
+        for row in k.supplement_routes():
+            r = k.route([row["label"]])
+            self.assertFalse(r["unresolved"], row["label"])
+            p = (k.BASE / row["path"]).relative_to(ROOT).as_posix()
+            self.assertIn(p, r["templates"] + [x["path"] for x in r["flowReferences"]])
+            self.assertIn("## 叙事引擎", (ROOT / p).read_text(encoding="utf-8"))
+        r = k.route(["仙侠+凡人流+苟道+长生+家族流"])
+        self.assertEqual(r["canonicalGenres"], ["仙侠"])
+        self.assertEqual({x["label"] for x in r["flowReferences"]}, {"凡人流","苟道流","长生流","家族经营"})
+        self.assertFalse(r["unresolved"])
+        self.assertEqual(k.route(["科幻+穿越流"])["canonicalGenres"], ["科幻"])
+        self.assertEqual(k.route(["都市+学院流"])["canonicalGenres"], ["都市"])
+        self.assertEqual(k.route(["幕后布局"])["canonicalGenres"], [])
+        self.assertTrue(k.route(["幕后布局"])["hintOnly"])
+        self.assertEqual(k.route(["同人"])["canonicalGenres"], ["衍生"])
 
     def test_cross_genre_bounded_advisory_search(self):
         r = k.search(["仙侠", "种田"], "init", "角色命名", "命名规则", 6)

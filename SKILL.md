@@ -67,3 +67,6 @@ R3 继续复用原逐章独立审稿、三章弧审、Pilot 停审与事实账�
 ### 专题知识按需调用
 
 立项、规划、正文及审稿出现具体需求时，使用 `python3 scripts/webnovel_knowledge.py topic` 加一个主题 ID（例如 `foreshadowing`、`character`、`outline`、`fusion`、`voice`、`scene`、`prose`）；读取当前问题相关的原件小节。详见 [统一知识库路由](references/webnovel/README.md)。禁止把参考模板的配额、硬规则、AI检测阈值或评分转换为新的审批门禁；事实以本书蓝图及账本为准。
+
+
+新项目 route 返回具体题材模板与 flowReferences；仅选择与作者目标相关的原件小节。仅玩法匹配时先确认世界，穿越/学院/系统等不覆盖作者明确选择的世界。具体路由见 [知识库索引](references/webnovel/README.md)。

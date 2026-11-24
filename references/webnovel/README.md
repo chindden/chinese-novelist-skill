@@ -44,6 +44,15 @@ python3 scripts/webnovel_knowledge.py topic prose
 
 [12类专题索引](supplement/topics.json) 覆盖全部52份可选创作参考，topic 返回具体路径、适用阶段及使用边界。仅取当前需要的小节，不一次读取整组。包括此前缺少明确入口的伏笔与揭示、卷节拍、主角组、反派、女主、复合题材、市场定位和感官技法。其余原件按 [全资产路由审计](supplement/ASSET-ROUTING-AUDIT.json) 标记的用途访问，状态/schema/裁决等不替代 R3 运行合同。目录外的研究取舍见 [研究审计](supplement/research-audit.md)。
 
+## R3 题材与流派补充
+
+```bash
+python3 scripts/webnovel_knowledge.py route --genre "仙侠+凡人流+苟道+长生+家族流"
+python3 scripts/webnovel_knowledge.py route --genre "科幻+穿越流"
+```
+
+[自主补充目录](supplement/README.md) 新增11套缺失专项模板、12套细分流派机制。原分类的六个无独立模板上位大类使用下属专项，而非硬套一种文风。route 返回 `flowReferences`、`upstreamWithoutDedicatedTemplate` 与当前缺口；`hintOnly` 表示仅匹配机制或形式，题材归属须经作者确认。穿越、学院等玩法不覆盖明确世界轴。按需读取实际相关的专题，不把示例或类型惯例变成强制剧情。
+
 ## 原八套自主 Markdown · 目录与加载时机
 | 编号 | 文件 | 何时读 | 首要问题 |
 |---|---|---|---|
