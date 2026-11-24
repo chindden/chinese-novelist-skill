@@ -65,6 +65,8 @@ class KnowledgeTests(unittest.TestCase):
         self.assertLessEqual(len(r["results"]), 6)
         self.assertTrue(r["results"])
         self.assertTrue(all(x["returnedCandidates"] > 0 for x in r["perGenreHits"]))
+        self.assertIn("R3-NR-002", {x["id"] for x in r["results"]})
+        self.assertEqual(k.entry("R3-NR-002")["origin"], "r3-supplement")
         self.assertEqual(len({x["id"] for x in r["results"]}), len(r["results"]))
         for x in r["results"]:
             self.assertTrue(x["advisoryOnly"])
@@ -93,6 +95,8 @@ class KnowledgeTests(unittest.TestCase):
                 self.assertEqual(r["status"], "ok")
                 self.assertTrue(r["results"], genre)
                 self.assertTrue(all(x["table"] == table for x in r["results"]))
+                if genre == "宫斗":
+                    self.assertIn("R3-NR-001", {x["id"] for x in r["results"]})
 
 if __name__ == "__main__":
     unittest.main()

@@ -19,6 +19,10 @@ TABLES = ("题材与调性推理", "桥段套路", "金手指与设定", "爽点
 SKILLS = ("init", "plan", "write", "review", "query", "learn")
 POLICY = "知识仅供参考；作者已确认的选择、R3协议与事实优先。不强制配额、评分或上游审稿裁决。"
 CSV_DIR = UPSTREAM / "references/csv"
+SUPPLEMENT = BASE / "supplement/csv"
+
+def source_path(base, table):
+    return (base / (table + ".csv")).relative_to(ROOT).as_posix()
 
 def read_manifest():
     return json.loads((BASE / "UPSTREAM-MANIFEST.json").read_text(encoding="utf-8"))
@@ -81,16 +85,28 @@ def search(genres, skill, query, table=None, limit=5):
             return {"status": "unresolved_genre", "route": resolved, "results": [], "policy": POLICY}
     per_genre = []
     for g in filters:
-        result = bm25.search(CSV_DIR, skill, query, table=table, genre=g, max_results=limit)
-        if result.get("status") != "success":
-            raise ValueError("UPSTREAM_SEARCH_FAILED")
-        per_genre.append((g, result["data"]["results"]))
+        collections = []
+        for base in (CSV_DIR, SUPPLEMENT):
+            if not base.is_dir():
+                continue
+            result = bm25.search(base, skill, query, table=table, genre=g, max_results=limit)
+            if result.get("status") != "success":
+                raise ValueError("KNOWLEDGE_SEARCH_FAILED")
+            collections.append([(base, row) for row in result["data"]["results"]])
+        # Keep source and independently authored supplements distinguishable.
+        # Interleave per-source ranks rather than comparing separately fitted scores.
+        merged = []
+        for rank in range(limit):
+            for results in collections:
+                if rank < len(results):
+                    merged.append(results[rank])
+        per_genre.append((g, merged[:limit]))
     chosen = {}
     for rank in range(limit):
         for g, rows in per_genre:
             if rank >= len(rows):
                 continue
-            row = rows[rank]
+            base, row = rows[rank]
             key = (row["表"], row["编号"])
             if key in chosen:
                 if g not in chosen[key]["matchedFor"]:
@@ -100,19 +116,21 @@ def search(genres, skill, query, table=None, limit=5):
                 continue
             chosen[key] = {"id": row["编号"], "table": row["表"], "category": row["分类"],
                            "genres": row["适用题材"], "summary": row["内容摘要"],
-                           "source": rel("references/csv/" + row["表"] + ".csv"),
+                           "source": source_path(base, row["表"]),
+                           "origin": "upstream" if base == CSV_DIR else "r3-supplement",
                            "matchedFor": [g], "advisoryOnly": True}
     return {"status": "ok", "route": resolved, "query": query, "skill": skill,
             "perGenreHits": [{"genre": g, "returnedCandidates": len(rows)} for g, rows in per_genre],
             "results": list(chosen.values()), "policy": POLICY}
 
 def entry(identifier):
-    for name in TABLES:
-        for row in bm25.load_tables(CSV_DIR, table=name).get(name, []):
-            if row["编号"] == identifier:
-                return {"status": "ok", "id": identifier, "table": name,
-                        "source": rel("references/csv/" + name + ".csv"),
-                        "reference": row, "advisoryOnly": True, "policy": POLICY}
+    for base in (CSV_DIR, SUPPLEMENT):
+        for name in TABLES:
+            for row in bm25.load_tables(base, table=name).get(name, []):
+                if row["编号"] == identifier:
+                    return {"status": "ok", "id": identifier, "table": name,
+                            "source": source_path(base, name), "origin": "upstream" if base == CSV_DIR else "r3-supplement",
+                            "reference": row, "advisoryOnly": True, "policy": POLICY}
     return {"status": "not_found", "id": identifier, "policy": POLICY}
 
 def catalog():
@@ -120,6 +138,7 @@ def catalog():
     tax = taxonomy.load_genre_taxonomy()
     return {"status": "ok", "source": manifest["source"],
             "tables": [{"name": x["table"], "rows": len(x["ids"])} for x in manifest["tables"]],
+            "supplementTables": [{"name": name, "rows": len(rows)} for name, rows in bm25.load_tables(SUPPLEMENT).items()],
             "genres": [{"label": x.label, "canonical": x.canonical_genre, "type": x.label_type,
                         "template": x.template_file, "aliases": x.aliases} for x in tax.entries],
             "manifest": "references/webnovel/UPSTREAM-MANIFEST.json", "policy": POLICY}

@@ -32,7 +32,7 @@ python3 scripts/webnovel_knowledge.py entry TR-001
 | 场景、文字、人物声线 | CSV 检索、[文风适配](upstream/skills/webnovel-write/references/style-adapter.md)、[文风变体](upstream/skills/webnovel-write/references/style-variants.md)、[命名与声线](upstream/references/shared/naming-and-voice-gaps.md)、[钩子兑现](upstream/skills/webnovel-write/references/writing/genre-hook-payoff-library.md) |
 | 去 AI 味与修订 | [anti-ai](upstream/skills/webnovel-write/references/anti-ai-guide.md)、[润色指南](upstream/skills/webnovel-write/references/polish-guide.md)、[常见问题](upstream/skills/webnovel-review/references/common-mistakes.md)、[节奏控制](upstream/skills/webnovel-review/references/pacing-control.md) |
 
-其他原件按清单定位；上游 README、运行数据流、审查 schema、状态模板及固定比例/裁决不作为 R3 执行合同。旧自主 Markdown 作为轻量概览和补充方法继续可用。
+[R3 自主补充层](supplement/README.md) 存放实际检索暴露的缺口补充，独立 ID 与来源，不修改上游原件。检索同时查上游与补充层，返回 origin/source。其他原件按清单定位；上游 README、运行数据流、审查 schema、状态模板及固定比例/裁决不作为 R3 执行合同。旧自主 Markdown 作为轻量概览和补充方法继续可用。
 
 ## 原八套自主 Markdown · 目录与加载时机
 | 编号 | 文件 | 何时读 | 首要问题 |
