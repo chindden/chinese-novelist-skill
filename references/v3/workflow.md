@@ -7,16 +7,14 @@
 - 探测实际可用的文件读写、Node.js、独立子 Agent。**此阶段不启用 Google Drive**，不申请云端权限，不触发上传。
 - 续写先查质量门禁状态，再查最近相关人物与事实账本，不要把“上一章摘要”当作全部世界事实。
 
-## Stage 1：互动共创与创意竞标
-先按 [互动共创协议](interactive-intake.md) 提取已知、只问当前实质缺口、按题材检索候选、允许明确委托。新作品在作者确认的独立目录保存单一共创草案；已有项目无需重走初始化。作者只用自然语言，工具由 Agent 调用。
-先读取 [网文知识库路由](../webnovel/README.md)，再读取 [creative-lab.md](creative-lab.md)。作者未限制时提出具体市场/题材/读者承诺方向；有明确指定时直接沿用，不反复问。按需检索 [题材调性](../webnovel/01-genre-and-tone.md)、[流派桥段](../webnovel/02-trope-patterns.md) 与 [金手指](../webnovel/03-golden-finger-setting.md)，**先选主流派驱动，再谈原创差异化**。选取机制需说明为什么会持续让目标读者获得满足，不要把“原创性”理解为脱离成熟网文类型。默认提出 3 套互不换皮的独立引擎或相容重构路线；作者已明确完整方案或只需局部规划时不强制另起竞标，仍诊断实际风险。不推翻作者锁定设定。
-- 创意卡记录目标定位、主引擎及真正服务于它的辅助机制、主角缺陷与反作用、世界/现实约束、独特矛盾、承诺给读者的体验、与作者预期篇幅相适应的持续转化机制；明确所用知识库条目编号与选择理由，数字只是策划参考而非行业实测指标。
-- 独立比较与淘汰：不仅测试设定新奇，还必须推演其如何改变关键人物命运、对手为何会主动反制、不同阶段如何产生真实后果。仅凭不断增加新线索、新敌人或巧合才可维持的方案，应指出其衍生力风险。所有方案不合格则重来，不强行选择。
-- 向作者请求创意方向确认；未确认不进入结构化正文生产。
+## Stage 1：互动共创与故事提案
+按 [互动共创协议](interactive-intake.md) 自然识别作者参与方式。先收集少数真正决定故事走向的选择；明确委托则自行推演。题材和机制只是材料，不能把“不同技术/行业/金手指”当作不同故事。
+先实际读取 [题材调性](../webnovel/01-genre-and-tone.md) 的对应题材与调性、[人物关系](../webnovel/05-characters-relationships.md) 的相关方法，以及上游 [卖点定位](../webnovel/upstream/skills/webnovel-init/references/creativity/selling-points.md) §1、§7、[人物设计](../webnovel/upstream/skills/webnovel-init/references/worldbuilding/character-design.md) §1；按需要读取 [开篇钩子](../webnovel/upstream/skills/webnovel-init/references/creativity/creativity-constraints.md) §5、[追读力](../webnovel/upstream/references/reading-power-taxonomy.md) 和 [桥段套路](../webnovel/02-trope-patterns.md)。获取 topic 路径不等于阅读。知识检索先按叙事问题，技术与世界规则在故事需要时补充；不把缺少条目当作创作阻断。
+按 [创意实验室](creative-lab.md) 构思、比较和修订故事。先呈现人物处境、行动、关系和有吸引力的变化，再解释必要差异；内部保留校验与来源，不向作者倾倒评审表。若提案只有职业、规则或升级路线，先重构故事而非润色表述。共创草案仅记录真实已知、授权和必要候选；不为字段齐全提前固化。创意方向经作者明确认可后进入 Stage 2。新项目在确认独立目录后记录草案；旧项目按状态恢复，不重走初始化。R3/P1 工程文档按实际阶段读取，保持既有门禁。
 
 ## Stage 2：精品故事架构
 按 [互动蓝图与卷纲](interactive-planning.md) 自然讨论关键取舍，将专题知识融入既有四份规划文件；R3 核心/卷级冻结使用 [R3 运行手册](r3-operational-runbook.md)，不执行旧整文件审批命令。
-**旧 V3/R2 使用 [原生蓝图审核协议](plan-review-protocol.md)，已显式启用 R3 的项目使用 [R3 运行手册](r3-operational-runbook.md) 中核心与卷级分离审批；不能混用或靠外部提示词补充核心流程。** 读取 [story-architecture.md](story-architecture.md)，按需查 [人物关系](../webnovel/05-characters-relationships.md)、[机制成长](../webnovel/03-golden-finger-setting.md)、[爽点与节奏](../webnovel/04-payoff-and-pacing.md)。先论证完整故事梗概的关键因果及结局，再规划故事弧的局部兑现，不按章数硬塞高潮。
+**旧 V3/R2 使用 [原生蓝图审核协议](plan-review-protocol.md)，已显式启用 R3 的项目使用 [R3 运行手册](r3-operational-runbook.md) 中核心与卷级分离审批；不能混用或靠外部提示词补充核心流程。** 读取 [story-architecture.md](story-architecture.md)，按需查 [人物关系](../webnovel/05-characters-relationships.md)、[机制成长](../webnovel/03-golden-finger-setting.md)、[爽点与节奏](../webnovel/04-payoff-and-pacing.md)。先讲完整的、可读的故事梗概：具体人物如何行动、事件如何改变命运、读者为何关心，再核验因果、结局与规则，规划故事弧的局部兑现。不按章数硬塞高潮；不能以通过结构审计替代文学判断。
 - 先诊断原始创意中的读者承诺、能力边界、人物命运和反派主动性；有结构性问题才进行修复路线对比，不强制重做作者指定的故事。**先写可完整剧透的故事梗概及明确结局，再进入分卷与章节规划。**
 - 先定核心承诺、终局方向、人物命运和关键关系，再定全书/卷/故事弧/章节层级；在 `01-大纲.md` 明确**故事弧节奏蓝图**：读者期待、铺垫与阻力、阶段性兑现、重大转折、高潮后的代价/余波、下一轮期待，以及相邻弧的情绪与冲突方式差异。近三章详细，后续按卷逐渐具体化；不预先把每三章小高潮、每十章大高潮设为硬配额。
 - 冻结前对主线资源/金额、生产能力、期限、修炼进展、金手指输出、人物知情、世界律法与反派应对做**跨文件可追溯审计**；阅读体验部分评估长篇密度、主角主动性、阶段性兑现和连续负反馈。任何已证实的硬性矛盾不得以自评分抵消。
