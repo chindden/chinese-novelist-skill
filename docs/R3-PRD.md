@@ -387,3 +387,16 @@ P0 成功仅证明可运行的工程保护、版本隔离与测试样本中的�
 5. 完成原 P2 7 项研发，再完成卷末（第22章）与跨卷（第23～26章）、长期资产恢复及多题材综合文学验收。P2 仍未启动。
 
 本次迁移属于独立工程任务，不混入上述缺陷修复、许可调整或知识导入；CI 尚需以迁移分支实际运行结果确认。
+
+
+### 独立仓库切换关闭与 SK-01～04 通用加固（2026-11-24）
+
+迁移工程基线 `07b60a9`：98/98 源文件在目标仓库，96/98 blob 相同，仅 README_V3 与本 PRD 按预期适配，文件模式均一致；[R3 CI 45354047666](https://github.com/chindden/chinese-novelist-skill/actions/runs/45354047666) 64/64、[V3/R2 CI 45354047734](https://github.com/chindden/chinese-novelist-skill/actions/runs/45354047734) 全部成功。真实宿主报告已切换到独立仓库根 SKILL.md、更新持久定位；实际新旧 CLI status/handoff/下一章门禁/交付与恢复检查结果逐字一致，项目前后摘要哈希不变；未新增创作或改变项目证据。宿主结论依据 Gemini 原会话报告，非 ChatGPT 独立执行原始命令日志。见 [迁移验收](https://github.com/chindden/chinese-novelist-skill/pull/2#issuecomment-7125879763) 与 [宿主切换验收](https://github.com/chindden/chinese-novelist-skill/pull/2#issuecomment-7125975020)。**迁移关闭，唯一研发权威源为独立仓库 feat/r3-migration**。历史 PR 保留，不合并。
+
+通用加固提交 [`cb987b3`](https://github.com/chindden/chinese-novelist-skill/commit/cb987b388103a935701422ebb3c46abada94934f)：
+- SK-01：保留安全冻结路径与哈希，不放松卷纲门禁；批准前固定稳定槽位文件名，标题独立于文件名，历史带标题路径不重命名。既有测试新增本卷 title 修改仍通过、filePath 修改仍拒绝。
+- SK-02：提取原计数逻辑为共用 `chapter_wordcount_common.mjs`，保持旧 CLI 输出、汉字统计和参数不变；新单章 prepare/submit 从真实正文重新计数，按计划下限判定，成功后写回实测值，拒绝不足或读取失败；历史已经通过的审稿与哈希验证、弧审不追溯重新测量，不为实验样本补字。回归覆盖假 true 拒绝且计划不变、错误元数据用实际计数更新。
+- SK-03：所有 signals 必填 chapter，精确字段报错；未知 followUps trackingId 返回字段索引，revise/reject 不进入延期池，仍允许核销真实历史延期项；回归验证错误提交不改计划及成功重试。
+- SK-04：配额下允许真实隔离编辑上下文复用，使用真实 runId/contextId，不伪造隔离，不满足即停待审；核心双评审隔离不变。此项为协议兼容加固，不声称其他宿主配额实测或文学增益。
+
+代码回归：[R3 push CI 45355161838](https://github.com/chindden/chinese-novelist-skill/actions/runs/45355161838) 实际日志 6+13+27+6+4+9=65/65（新增1个 TAP 用例及既有用例内断言），失败/跳过/取消 0；[V3/R2 CI 45355173688](https://github.com/chindden/chinese-novelist-skill/actions/runs/45355173688) 全部11组成功。四项加固工程通过，宿主复用仅按协议约束、不另起小说实验。下一步按已批准路线独立实施 GPL-3.0 许可调整、上游知识资产全量审计与引入；保留原许可声明、来源、版本；P2 未启动，项目私人数据不提交。
