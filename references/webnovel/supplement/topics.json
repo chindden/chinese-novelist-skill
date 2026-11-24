@@ -1,0 +1,196 @@
+{
+  "schemaVersion": 1,
+  "topics": [
+    {
+      "id": "genre",
+      "name": "题材定位",
+      "stages": [
+        "init",
+        "plan"
+      ],
+      "paths": [
+        "upstream/references/genre-profiles.md",
+        "upstream/skills/webnovel-init/references/genre-tropes.md"
+      ],
+      "guard": "只取当前题材对应小节；题材 profile 的配额不作门禁。"
+    },
+    {
+      "id": "market",
+      "name": "读者与卖点",
+      "stages": [
+        "init"
+      ],
+      "paths": [
+        "upstream/skills/webnovel-init/references/creativity/market-positioning.md",
+        "upstream/skills/webnovel-init/references/creativity/selling-points.md"
+      ],
+      "guard": "2025平台样例不是当前市场证据，另查当期信息；不以评分代替创意。"
+    },
+    {
+      "id": "creativity",
+      "name": "创意与反套路",
+      "stages": [
+        "init",
+        "plan"
+      ],
+      "paths": [
+        "upstream/skills/webnovel-init/references/creativity/anti-trope-game.md",
+        "upstream/skills/webnovel-init/references/creativity/anti-trope-rules-mystery.md",
+        "upstream/skills/webnovel-init/references/creativity/anti-trope-urban.md",
+        "upstream/skills/webnovel-init/references/creativity/anti-trope-xianxia.md",
+        "upstream/skills/webnovel-init/references/creativity/creative-combination.md",
+        "upstream/skills/webnovel-init/references/creativity/creativity-constraints.md",
+        "upstream/skills/webnovel-init/references/creativity/inspiration-collection.md"
+      ],
+      "guard": "选用适合的创意方法，不强制组合比例或反套路。"
+    },
+    {
+      "id": "world",
+      "name": "世界规则、能力与势力",
+      "stages": [
+        "init",
+        "plan",
+        "write",
+        "review"
+      ],
+      "paths": [
+        "upstream/skills/webnovel-init/references/worldbuilding/faction-systems.md",
+        "upstream/skills/webnovel-init/references/worldbuilding/power-systems.md",
+        "upstream/skills/webnovel-init/references/worldbuilding/setting-consistency.md",
+        "upstream/skills/webnovel-init/references/worldbuilding/world-rules.md",
+        "upstream/templates/golden-finger-templates.md",
+        "upstream/templates/output/设定集-世界观.md",
+        "upstream/templates/output/设定集-力量体系.md",
+        "upstream/templates/output/设定集-金手指.md"
+      ],
+      "guard": "借条件、代价、反制与社会反馈，已批准世界事实优先。"
+    },
+    {
+      "id": "character",
+      "name": "人物、对手与群像",
+      "stages": [
+        "init",
+        "plan",
+        "write",
+        "review"
+      ],
+      "paths": [
+        "upstream/skills/webnovel-init/references/worldbuilding/character-design.md",
+        "upstream/templates/output/设定集-主角卡.md",
+        "upstream/templates/output/设定集-主角组.md",
+        "upstream/templates/output/设定集-反派设计.md",
+        "upstream/templates/output/设定集-女主卡.md"
+      ],
+      "guard": "借人物动机、资源、对抗和自主性；不强制反派三级、女主或固定POV占比。"
+    },
+    {
+      "id": "outline",
+      "name": "故事结构、冲突与卷纲",
+      "stages": [
+        "plan"
+      ],
+      "paths": [
+        "upstream/skills/webnovel-plan/references/outlining/chapter-planning.md",
+        "upstream/skills/webnovel-plan/references/outlining/conflict-design.md",
+        "upstream/skills/webnovel-plan/references/outlining/outline-structure.md",
+        "upstream/skills/webnovel-plan/references/outlining/plot-frameworks.md",
+        "upstream/templates/output/大纲-卷时间线.md",
+        "upstream/templates/output/大纲-卷节拍表.md",
+        "upstream/templates/output/大纲-总纲.md"
+      ],
+      "guard": "借因果、选择、危机和兑现；不规定危机数、最低谷或章节配额，不新增审批工件。"
+    },
+    {
+      "id": "fusion",
+      "name": "复合题材",
+      "stages": [
+        "init",
+        "plan"
+      ],
+      "paths": [
+        "upstream/references/shared/strand-weave-pattern.md",
+        "upstream/skills/webnovel-init/references/creativity/creative-combination.md",
+        "upstream/templates/output/复合题材-融合逻辑.md"
+      ],
+      "guard": "明确共同冲突与各自作用，不固定7:3或主副线比重。"
+    },
+    {
+      "id": "payoff",
+      "name": "追读、节奏与兑现",
+      "stages": [
+        "plan",
+        "write",
+        "review"
+      ],
+      "paths": [
+        "upstream/references/reading-power-taxonomy.md",
+        "upstream/references/shared/cool-points-guide.md",
+        "upstream/references/shared/strand-weave-pattern.md",
+        "upstream/skills/webnovel-plan/references/outlining/genre-volume-pacing.md",
+        "upstream/skills/webnovel-review/references/pacing-control.md",
+        "upstream/skills/webnovel-write/references/writing/genre-hook-payoff-library.md"
+      ],
+      "guard": "参考信息差、兑现与多线交织，不强制爽点密度或章末钩子。"
+    },
+    {
+      "id": "foreshadowing",
+      "name": "伏笔、信号与揭示",
+      "stages": [
+        "plan",
+        "write",
+        "review",
+        "query"
+      ],
+      "paths": [
+        "upstream/references/outlining/plot-signal-vs-spoiler.md",
+        "upstream/skills/webnovel-query/references/advanced/foreshadowing.md"
+      ],
+      "guard": "区分作者真相、人物所知、读者可见信号；核心纲领保存完整真相，不用固定回收周期判错。"
+    },
+    {
+      "id": "voice",
+      "name": "人物声线与文风",
+      "stages": [
+        "write",
+        "review"
+      ],
+      "paths": [
+        "upstream/references/shared/naming-and-voice-gaps.md",
+        "upstream/skills/webnovel-write/references/style-adapter.md",
+        "upstream/skills/webnovel-write/references/style-variants.md",
+        "upstream/skills/webnovel-write/references/writing/dialogue-writing.md"
+      ],
+      "guard": "人物语汇随身份与情境变化；对话短转引的实质内容查写作技法CSV。"
+    },
+    {
+      "id": "scene",
+      "name": "场景、感官与情绪",
+      "stages": [
+        "write",
+        "review"
+      ],
+      "paths": [
+        "upstream/skills/webnovel-write/references/writing/combat-scenes.md",
+        "upstream/skills/webnovel-write/references/writing/desire-description.md",
+        "upstream/skills/webnovel-write/references/writing/emotion-psychology.md",
+        "upstream/skills/webnovel-write/references/writing/scene-description.md"
+      ],
+      "guard": "战斗/场景/情感短转引查对应CSV；感官与留白按作品尺度选用，不强制感官数量。"
+    },
+    {
+      "id": "prose",
+      "name": "自然语言与润色",
+      "stages": [
+        "write",
+        "review"
+      ],
+      "paths": [
+        "upstream/skills/webnovel-review/references/common-mistakes.md",
+        "upstream/skills/webnovel-write/references/anti-ai-guide.md",
+        "upstream/skills/webnovel-write/references/polish-guide.md",
+        "upstream/skills/webnovel-write/references/writing/typesetting.md"
+      ],
+      "guard": "检查机械闭环、过度解释、角色同声与无效重复；不禁词、不机械替换、不追求未经验证的检测阈值。"
+    }
+  ]
+}

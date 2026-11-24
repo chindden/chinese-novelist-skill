@@ -1,3 +1,4 @@
+import json
 import csv
 import hashlib
 import importlib.util
@@ -57,6 +58,26 @@ class KnowledgeTests(unittest.TestCase):
         self.assertEqual(k.route(["全球高武"])["canonicalGenres"], ["都市"])
         self.assertEqual(k.route(["仙侠+种田+系统流"])["canonicalGenres"], ["仙侠", "种田"])
         self.assertEqual(k.route(["未知虚构题材"])["unresolved"], ["未知虚构题材"])
+
+    def test_all_craft_references_have_topic_access(self):
+        audit = json.loads((k.BASE / "supplement/ASSET-ROUTING-AUDIT.json").read_text(encoding="utf-8"))
+        manifest = k.read_manifest()
+        self.assertEqual({f["path"] for f in audit["files"]}, {f["path"] for f in manifest["files"]})
+        self.assertEqual(len(audit["files"]), 118)
+        by_topic = {t["id"]: t for t in k.topic_catalog()}
+        self.assertEqual(len(by_topic), 12)
+        for f in audit["files"]:
+            if f["usage"] == "optional-craft-reference":
+                self.assertTrue(f["topics"], f["path"])
+            for t in f["topics"]:
+                self.assertIn("upstream/" + f["path"], by_topic[t]["paths"])
+        for name in by_topic:
+            t = k.topic(name)
+            self.assertTrue(t["guard"])
+            self.assertTrue(all((ROOT / p).is_file() for p in t["paths"]))
+        self.assertTrue(any(p.endswith("foreshadowing.md") for p in k.topic("foreshadowing")["paths"]))
+        self.assertTrue(any(p.endswith("设定集-反派设计.md") for p in k.topic("character")["paths"]))
+        self.assertEqual(k.topic("unknown-topic")["status"], "not_found")
 
     def test_cross_genre_bounded_advisory_search(self):
         r = k.search(["仙侠", "种田"], "init", "角色命名", "命名规则", 6)

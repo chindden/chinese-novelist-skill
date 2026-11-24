@@ -36,6 +36,15 @@ def norm(value):
 def unique(seq):
     return list(dict.fromkeys(seq))
 
+def topic_catalog():
+    return json.loads((BASE / "supplement/topics.json").read_text(encoding="utf-8"))["topics"]
+
+def topic(identifier):
+    for item in topic_catalog():
+        if item["id"] == identifier:
+            return {"status": "ok", **item, "paths": [(BASE / p).relative_to(ROOT).as_posix() for p in item["paths"]], "policy": POLICY}
+    return {"status": "not_found", "id": identifier, "policy": POLICY}
+
 def route(genres):
     tax = taxonomy.load_genre_taxonomy()
     entries, unresolved = [], []
@@ -141,6 +150,7 @@ def catalog():
             "supplementTables": [{"name": name, "rows": len(rows)} for name, rows in bm25.load_tables(SUPPLEMENT).items()],
             "genres": [{"label": x.label, "canonical": x.canonical_genre, "type": x.label_type,
                         "template": x.template_file, "aliases": x.aliases} for x in tax.entries],
+            "topics": [{"id": t["id"], "name": t["name"], "stages": t["stages"]} for t in topic_catalog()],
             "manifest": "references/webnovel/UPSTREAM-MANIFEST.json", "policy": POLICY}
 
 def main():
@@ -155,6 +165,7 @@ def main():
             p.add_argument("--table", choices=TABLES)
             p.add_argument("--limit", type=int, default=5)
     sub.add_parser("catalog")
+    sub.add_parser("topic").add_argument("id")
     sub.add_parser("entry").add_argument("id")
     args = parser.parse_args()
     try:
@@ -166,6 +177,8 @@ def main():
             result = search(args.genre, args.skill, args.query, args.table, args.limit)
         elif args.action == "entry":
             result = entry(args.id)
+        elif args.action == "topic":
+            result = topic(args.id)
         else:
             result = catalog()
         print(json.dumps(result, ensure_ascii=False, indent=2))

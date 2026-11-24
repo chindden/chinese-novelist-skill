@@ -62,3 +62,8 @@ R3 继续复用原逐章独立审稿、三章弧审、Pilot 停审与事实账�
 ### 统一知识路由（GPL 知识库）
 
 新项目立项先通过 `python3 scripts/webnovel_knowledge.py route --genre '仙侠+种田'` 获取题材轴及必要模板；按阶段 `search --genre ... --skill init|plan|write|review --query ...` 检索当前需求，必要时 `entry ID` 查完整原条目。详情见 [统一路由](references/webnovel/README.md)。创意/规划关注引擎、人物与冲突；正文只在需要时检索；独审仅辅助提问。不强制比例、配额或照搬示例；不由检索结果改写已批准状态、账本或审稿裁决。未解析标签可作关键词，不能静默改题材。Drive 经验库仍为独立用户资产。
+
+
+### 专题知识按需调用
+
+立项、规划、正文及审稿出现具体需求时，使用 `python3 scripts/webnovel_knowledge.py topic` 加一个主题 ID（例如 `foreshadowing`、`character`、`outline`、`fusion`、`voice`、`scene`、`prose`）；读取当前问题相关的原件小节。详见 [统一知识库路由](references/webnovel/README.md)。禁止把参考模板的配额、硬规则、AI检测阈值或评分转换为新的审批门禁；事实以本书蓝图及账本为准。

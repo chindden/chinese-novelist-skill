@@ -34,6 +34,16 @@ python3 scripts/webnovel_knowledge.py entry TR-001
 
 [R3 自主补充层](supplement/README.md) 存放实际检索暴露的缺口补充，独立 ID 与来源，不修改上游原件。检索同时查上游与补充层，返回 origin/source。其他原件按清单定位；上游 README、运行数据流、审查 schema、状态模板及固定比例/裁决不作为 R3 执行合同。旧自主 Markdown 作为轻量概览和补充方法继续可用。
 
+## 专项专题路由（完整原件使用审计）
+
+```bash
+python3 scripts/webnovel_knowledge.py topic foreshadowing
+python3 scripts/webnovel_knowledge.py topic character
+python3 scripts/webnovel_knowledge.py topic prose
+```
+
+[12类专题索引](supplement/topics.json) 覆盖全部52份可选创作参考，topic 返回具体路径、适用阶段及使用边界。仅取当前需要的小节，不一次读取整组。包括此前缺少明确入口的伏笔与揭示、卷节拍、主角组、反派、女主、复合题材、市场定位和感官技法。其余原件按 [全资产路由审计](supplement/ASSET-ROUTING-AUDIT.json) 标记的用途访问，状态/schema/裁决等不替代 R3 运行合同。目录外的研究取舍见 [研究审计](supplement/research-audit.md)。
+
 ## 原八套自主 Markdown · 目录与加载时机
 | 编号 | 文件 | 何时读 | 首要问题 |
 |---|---|---|---|
