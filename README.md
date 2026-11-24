@@ -19,3 +19,6 @@ R3 opt-in，旧项目不静默启用。当前开发阶段为 P1 实验，P2、�
 
 
 上游原件已导入：722 条创作知识 + 17 条裁决、37 套题材模板、完整专题参考及只读检索。详见 [知识库索引](references/webnovel/README.md) 与 [覆盖差异矩阵](references/webnovel/coverage-matrix.md)。不代表已证明文学收益或市场全覆盖。
+
+
+使用方式保持自然语言单入口，例如“我想写一本仙侠长生流小说”“根据已有故事规划第一卷”“继续下一章”。互动共创、知识检索、规划与恢复由 Skill 自动路由，用户无需学习内部命令。R3 仍是显式实验模式，原作者审批与独审边界不变。见 [共创协议](references/v3/interactive-intake.md) 与 [互动规划](references/v3/interactive-planning.md)。

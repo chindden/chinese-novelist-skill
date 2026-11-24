@@ -38,3 +38,6 @@ jobs:
 
       - name: Verify P1-08 Drive authority, commit pointers and portable history
         run: node --test scripts/tests/r3_experience_drive.test.mjs
+
+      - name: Verify recoverable natural-language co-creation draft and isolation
+        run: node --test scripts/tests/r3_intake.test.mjs

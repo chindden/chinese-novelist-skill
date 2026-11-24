@@ -18,6 +18,8 @@
 
 ## 2. 核心契约准备、双独审和作者批准
 
+新作品先按 [互动共创](interactive-intake.md) 与 [互动蓝图](interactive-planning.md) 完成必要取舍，再生成正式四份文件。草案不是批准；已有作品无需补建草案。内部命令由宿主执行，不要求作者输入。
+
 先由实际规划 Agent 提供真实的执行标识：
 
     node scripts/r3_plan.mjs <项目> core-prepare --planner-run-id REAL_RUN --planner-context-id REAL_CONTEXT
@@ -50,7 +52,7 @@
 
 ## 3. 卷级检查点与滚动规划
 
-核心通过后准备卷一检查点：
+核心通过后按 [互动蓝图与卷纲](interactive-planning.md) 完成当前卷节拍、时间线及近章规划，准备卷一检查点：
 
     node scripts/r3_plan.mjs <项目> volume-prepare --volume 1 --start 1 --end 22
 
