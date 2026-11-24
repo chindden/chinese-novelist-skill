@@ -51,12 +51,21 @@ def supplement_routes():
 def route(genres):
     tax = taxonomy.load_genre_taxonomy()
     overlays = {norm(label): e for e in supplement_routes() for label in [e["label"], *e["aliases"]]}
-    entries, unresolved, additions, worlds, flow_alias_entries = [], [], [], [], []
+    entries, unresolved, additions, worlds, flow_alias_entries, world_order = [], [], [], [], [], []
+    all_tokens = [token for raw in genres for token in
+                  ([raw] if norm(raw) in tax.lookup or norm(raw) in overlays else taxonomy.split_genre_input(raw))]
+    # Bare 职场 is an upstream alias for 职场婚恋. In explicitly urban/realistic
+    # context it denotes the workplace, not a romance promise.
+    urban_context = any(norm(t) in {norm(x) for x in ("都市", "现实主义", "现实题材", "现实向",
+                        "现实主义职场", "现实职场", "都市职场", "职场商战", "职场群像")} for t in all_tokens)
     for raw in genres:
         tokens = [raw] if norm(raw) in tax.lookup or norm(raw) in overlays else taxonomy.split_genre_input(raw)
         for token in tokens:
             e = tax.lookup.get(norm(token))
             extra = overlays.get(norm(token))
+            if urban_context and norm(token) == norm("职场"):
+                e = None
+                extra = overlays[norm("现实主义职场")]
             # Preserve exact upstream labels, but a mechanism alias such as 宗门流
             # must not introduce a world when the author has chosen another.
             if e is not None and e not in entries:
@@ -72,8 +81,10 @@ def route(genres):
             if e is not None and e.label_type not in {"trope", "format"} and not (extra and extra["kind"] == "flow"):
                 if e not in worlds:
                     worlds.append(e)
-    extra_worlds = [g for e in additions if e["kind"] == "genre" and not any(x.label == e["label"] for x in entries) for g in e["hint"]]
-    canonical = unique([x.canonical_genre for x in worlds] + extra_worlds)
+                world_order.append(e.canonical_genre)
+            if extra and extra["kind"] == "genre" and (e is None or e.label != extra["label"]):
+                world_order.extend(extra["hint"])
+    canonical = unique(world_order)
     hint_only = not canonical
     if hint_only:
         canonical = unique([x.canonical_genre for x in entries] + [g for e in additions for g in e["hint"]])

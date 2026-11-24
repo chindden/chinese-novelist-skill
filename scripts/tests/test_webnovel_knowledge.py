@@ -90,7 +90,7 @@ class KnowledgeTests(unittest.TestCase):
             self.assertNotIn(label, r["withoutDedicatedTemplate"])
             self.assertTrue(r["templates"], label)
             self.assertTrue(all((ROOT / p).is_file() for p in r["templates"]))
-        self.assertEqual(len(k.supplement_routes()), 23)
+        self.assertEqual(len(k.supplement_routes()), 26)
         for row in k.supplement_routes():
             r = k.route([row["label"]])
             self.assertFalse(r["unresolved"], row["label"])
@@ -181,6 +181,39 @@ class KnowledgeTests(unittest.TestCase):
         self.assertTrue(all(x["table"] not in ("题材与调性推理","裁决规则") for x in general["results"]))
         none = k.search(["仙侠"], "plan", "QZXUNMATCHABLE927", limit=5)
         self.assertEqual(none["results"], [])
+
+    def test_literary_regression_routes_and_init_recall(self):
+        urban = k.route(["都市+职场+现实主义"])
+        self.assertEqual(urban["canonicalGenres"], ["都市"])
+        self.assertFalse(urban["unresolved"])
+        self.assertTrue(any(x.endswith("realistic-workplace.md") for x in urban["templates"]))
+        self.assertFalse(any(x.endswith("职场婚恋.md") for x in urban["templates"]))
+        self.assertEqual(k.route(["职场婚恋"])["canonicalGenres"], ["现言"])
+        sci = k.route(["硬科幻+悬疑"])
+        self.assertEqual(sci["canonicalGenres"], ["科幻", "悬疑"])
+        self.assertFalse(sci["unresolved"])
+        self.assertTrue(any(x.endswith("hard-science-fiction.md") for x in sci["templates"]))
+        self.assertTrue(any(x.endswith("suspense.md") for x in sci["templates"]))
+        self.assertNotIn("悬疑", sci["withoutDedicatedTemplate"])
+        cases = [
+            (["都市"], "职场 竞争", {"R3-TR-001"}),
+            (["都市"], "职场 商业竞争 团队 创业 转型", {"R3-TR-001", "R3-TR-003"}),
+            (["都市"], "职场故事 中年职业困境 人物命运", {"R3-TR-003"}),
+            (["硬科幻", "悬疑"], "科学探索 物理规律 异常 文明命运", {"R3-TR-004"}),
+            (["悬疑"], "悬疑故事 真相 人物知情 认知反转", {"R3-TR-005"}),
+        ]
+        for genres, query, expected in cases:
+            with self.subTest(genres=genres, query=query):
+                result = k.search(genres, "init", query, "桥段套路", 5)
+                ids = [x["id"] for x in result["results"]]
+                print("LITERARY_RECALL " + json.dumps({"genres":genres,"query":query,"ids":ids}, ensure_ascii=False))
+                self.assertTrue(set(ids) & expected, ids)
+        # Original broad query no longer returns only unrelated people or names.
+        broad = k.search(["都市"], "init", "职场 商业竞争 团队 创业 转型", limit=5)
+        self.assertTrue({"R3-TR-001", "R3-TR-003"} & {x["id"] for x in broad["results"]})
+        # The supporting technical method remains accessible, not removed.
+        technical = k.search(["科幻"], "init", "科技 文明", "金手指与设定", 5)
+        self.assertIn("R3-SY-001", {x["id"] for x in technical["results"]})
 
     def test_representative_queries(self):
         cases = [

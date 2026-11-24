@@ -283,6 +283,42 @@
       "kind": "flow",
       "hint": [],
       "path": "supplement/flows/ensemble.md"
+    },
+    {
+      "label": "现实主义职场",
+      "aliases": [
+        "现实职场",
+        "都市职场",
+        "职场商战",
+        "职场群像"
+      ],
+      "kind": "genre",
+      "hint": [
+        "都市"
+      ],
+      "path": "supplement/genres/realistic-workplace.md"
+    },
+    {
+      "label": "硬科幻",
+      "aliases": [
+        "硬科学幻想",
+        "硬科幻小说",
+        "科学幻想"
+      ],
+      "kind": "genre",
+      "hint": [
+        "科幻"
+      ],
+      "path": "supplement/genres/hard-science-fiction.md"
+    },
+    {
+      "label": "悬疑",
+      "aliases": [],
+      "kind": "genre",
+      "hint": [
+        "悬疑"
+      ],
+      "path": "supplement/genres/suspense.md"
     }
   ]
 }
