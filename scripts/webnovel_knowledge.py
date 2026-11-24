@@ -51,7 +51,7 @@ def supplement_routes():
 def route(genres):
     tax = taxonomy.load_genre_taxonomy()
     overlays = {norm(label): e for e in supplement_routes() for label in [e["label"], *e["aliases"]]}
-    entries, unresolved, additions = [], [], []
+    entries, unresolved, additions, worlds = [], [], [], []
     for raw in genres:
         tokens = [raw] if norm(raw) in tax.lookup or norm(raw) in overlays else taxonomy.split_genre_input(raw)
         for token in tokens:
@@ -67,8 +67,9 @@ def route(genres):
                 additions.append(extra)
             if e is None and extra is None:
                 unresolved.append(token)
-    flow_labels = {e["label"] for e in additions if e["kind"] == "flow"}
-    worlds = [x for x in entries if x.label_type not in {"trope", "format"} and x.label not in flow_labels]
+            if e is not None and e.label_type not in {"trope", "format"} and not (extra and extra["kind"] == "flow"):
+                if e not in worlds:
+                    worlds.append(e)
     extra_worlds = [g for e in additions if e["kind"] == "genre" and not any(x.label == e["label"] for x in entries) for g in e["hint"]]
     canonical = unique([x.canonical_genre for x in worlds] + extra_worlds)
     hint_only = not canonical
