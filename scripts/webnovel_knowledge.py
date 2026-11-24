@@ -119,7 +119,8 @@ def search(genres, skill, query, table=None, limit=5):
         for base in (CSV_DIR, SUPPLEMENT):
             if not base.is_dir():
                 continue
-            result = bm25.search(base, skill, query, table=table, genre=g, max_results=limit)
+            source_skill = "story-system" if table in ("题材与调性推理", "裁决规则") else skill
+            result = bm25.search(base, source_skill, query, table=table, genre=g, max_results=limit)
             if result.get("status") != "success":
                 raise ValueError("KNOWLEDGE_SEARCH_FAILED")
             collections.append([(base, row) for row in result["data"]["results"]])

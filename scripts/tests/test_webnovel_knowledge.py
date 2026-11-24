@@ -131,6 +131,48 @@ class KnowledgeTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             k.search(["仙侠"], "write", "对话", limit=100)
 
+    def test_relevance_benchmark_positive_anchors(self):
+        bench = json.loads((k.BASE / "supplement/relevance-benchmark.json").read_text(encoding="utf-8"))
+        self.assertEqual(len(bench["cases"]), 19)
+        self.assertEqual({x["genres"][0] for x in bench["cases"][:15]}, set(k.read_manifest()["canonicalGenres"]))
+        for case in bench["cases"]:
+            with self.subTest(case=case["id"]):
+                r = k.search(case["genres"], case["stage"], case["query"], case["table"], 5)
+                ids = [x["id"] for x in r["results"]]
+                print("RELEVANCE " + json.dumps({"id":case["id"],"genre":case["genres"],"query":case["query"],"top": [{"id":x["id"],"summary":x["summary"]} for x in r["results"]]}, ensure_ascii=False))
+                self.assertEqual(r["status"], "ok")
+                self.assertTrue(set(ids[:3]) & set(case["relevant"]), ids)
+                self.assertLessEqual(len(ids), 5)
+                self.assertEqual(len(ids), len(set(ids)))
+                for item in r["results"]:
+                    self.assertTrue(item["advisoryOnly"])
+                    self.assertTrue((ROOT / item["source"]).is_file())
+                    self.assertEqual(k.entry(item["id"])["table"], case["table"])
+
+    def test_composition_routes_and_advisory_boundary(self):
+        bench = json.loads((k.BASE / "supplement/relevance-benchmark.json").read_text(encoding="utf-8"))
+        for case in bench["compositions"]:
+            with self.subTest(case=case["id"]):
+                r = k.route(case["genres"])
+                self.assertEqual(r["canonicalGenres"], case["worlds"])
+                self.assertEqual({x["label"] for x in r["flowReferences"]}, set(case["flows"]))
+                self.assertFalse(r["unresolved"])
+                self.assertFalse(r["hintOnly"])
+                p = r["templates"] + [x["path"] for x in r["flowReferences"]]
+                self.assertTrue(p)
+                self.assertTrue(all((ROOT / x).is_file() for x in p))
+                topic = k.topic(case["topic"])
+                self.assertEqual(topic["status"], "ok")
+                print("COMPOSITION " + json.dumps({"id":case["id"],"worlds":r["canonicalGenres"],"paths":p,"topic":case["topic"]},ensure_ascii=False))
+        for table in ("题材与调性推理", "裁决规则"):
+            result = k.search(["奇幻"], "init", "西方奇幻 奇幻", table, 3)
+            self.assertTrue(result["results"], table)
+            self.assertTrue(all(x["advisoryOnly"] for x in result["results"]))
+        general = k.search(["奇幻"], "init", "西方奇幻 奇幻", limit=10)
+        self.assertTrue(all(x["table"] not in ("题材与调性推理","裁决规则") for x in general["results"]))
+        none = k.search(["仙侠"], "plan", "QZXUNMATCHABLE927", limit=5)
+        self.assertEqual(none["results"], [])
+
     def test_representative_queries(self):
         cases = [
             ("全球高武", "write", "战斗描写", "场景写法"),
