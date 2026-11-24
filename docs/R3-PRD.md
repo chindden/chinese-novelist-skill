@@ -400,3 +400,8 @@ P0 成功仅证明可运行的工程保护、版本隔离与测试样本中的�
 - SK-04：配额下允许真实隔离编辑上下文复用，使用真实 runId/contextId，不伪造隔离，不满足即停待审；核心双评审隔离不变。此项为协议兼容加固，不声称其他宿主配额实测或文学增益。
 
 代码回归：[R3 push CI 45355161838](https://github.com/chindden/chinese-novelist-skill/actions/runs/45355161838) 实际日志 6+13+27+6+4+9=65/65（新增1个 TAP 用例及既有用例内断言），失败/跳过/取消 0；[V3/R2 CI 45355173688](https://github.com/chindden/chinese-novelist-skill/actions/runs/45355173688) 全部11组成功。四项加固工程通过，宿主复用仅按协议约束、不另起小说实验。下一步按已批准路线独立实施 GPL-3.0 许可调整、上游知识资产全量审计与引入；保留原许可声明、来源、版本；P2 未启动，项目私人数据不提交。
+
+
+### GPL-3.0 许可调整（2026-11-24）
+
+按作者明确决策，本集成开发版使用 GPL-3.0；根 LICENSE 使用上游原 GPL v3 全文，原 PenglongHuang 2026 MIT 全文逐字保存在 LICENSES/MIT-upstream.txt，NOTICE.md 记录来源、修改与范围。原 MIT 授权和历史分支不撤销。上游知识审计基线锁定 [chindden/webnovel-writer@04e485d](https://github.com/chindden/webnovel-writer/tree/04e485d0d4d34524b83e219be5d0482557c53334)，此许可提交不导入任何知识数据、不改变 R3 执行逻辑。下一阶段实际源文件审计、原件导入、路由隔离及覆盖验收。作品正文和私人经验库不属于 Skill 发布物。

@@ -11,8 +11,8 @@
 
 ## 来源与历史
 
-原始底座：[PenglongHuang/chinese-novelist-skill](https://github.com/PenglongHuang/chinese-novelist-skill) v2.3.2（MIT）。完整保留原版权与 [LICENSE](LICENSE)。本次迁移源：[chindden/skills R3 固定提交](https://github.com/chindden/skills/tree/7e084c5abb5d6d880abfa3c6be0e633b0914d4ad/chinese-novelist-v3)，[旧 V3/R1 独立分支](https://github.com/chindden/chinese-novelist-skill/tree/feat/v3-editorial-pipeline) 保留原 README、旧脚本及历史。旧集合仓库 PR 不合并。
+原始底座：[PenglongHuang/chinese-novelist-skill](https://github.com/PenglongHuang/chinese-novelist-skill) v2.3.2（MIT）。原 MIT 版权与许可全文保留于 [LICENSES/MIT-upstream.txt](LICENSES/MIT-upstream.txt)。本集成开发版采用 [GPL-3.0](LICENSE)，详见 [NOTICE](NOTICE.md)。本次迁移源：[chindden/skills R3 固定提交](https://github.com/chindden/skills/tree/7e084c5abb5d6d880abfa3c6be0e633b0914d4ad/chinese-novelist-v3)，[旧 V3/R1 独立分支](https://github.com/chindden/chinese-novelist-skill/tree/feat/v3-editorial-pipeline) 保留原 README、旧脚本及历史。旧集合仓库 PR 不合并。
 
 ## 验证边界
 
-R3 opt-in，旧项目不静默启用。当前开发阶段为 P1 实验，P2、跨作品学习收益及多题材文学品质仍待验收。作者私有小说正文、账本、审批证据、项目 ZIP 与经验库不得进入公开 Skill 仓库。许可证调整与知识库扩容均作为后续独立研发任务，不混入迁移。
+R3 opt-in，旧项目不静默启用。当前开发阶段为 P1 实验，P2、跨作品学习收益及多题材文学品质仍待验收。作者私有小说正文、账本、审批证据、项目 ZIP 与经验库不得进入公开 Skill 仓库。许可调整已作为独立提交实施；知识库扩容另行审计、引入与验收。

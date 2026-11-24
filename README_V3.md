@@ -7,7 +7,7 @@
 
 ## R3 实验分支
 
-本仓库是后续唯一研发源，R3 仍为未发布开发预览。迁移来源：[skills R3 固定提交](https://github.com/chindden/skills/tree/7e084c5abb5d6d880abfa3c6be0e633b0914d4ad/chinese-novelist-v3)。原分支历史保留；本次只迁移与路径适配，不变更创作协议或许可证。最新状态见 [R3 PRD](docs/R3-PRD.md)、[R3 运行手册](references/v3/r3-operational-runbook.md) 与 [P1 协议](references/v3/r3-p1-protocol.md)。历史 PRD 按时间追加，旧状态为当时记录。
+本仓库是后续唯一研发源，R3 仍为未发布开发预览。迁移来源：[skills R3 固定提交](https://github.com/chindden/skills/tree/7e084c5abb5d6d880abfa3c6be0e633b0914d4ad/chinese-novelist-v3)。原分支历史保留；迁移提交只适配路径；后续独立提交将集成版许可调整为 [GPL-3.0](LICENSE)，完整保留 [原 MIT 许可](LICENSES/MIT-upstream.txt) 与 [来源声明](NOTICE.md)。最新状态见 [R3 PRD](docs/R3-PRD.md)、[R3 运行手册](references/v3/r3-operational-runbook.md) 与 [P1 协议](references/v3/r3-p1-protocol.md)。历史 PRD 按时间追加，旧状态为当时记录。
 
 ## 主要参考
 - [总流程](references/v3/workflow.md)
@@ -30,7 +30,7 @@ python3 -m unittest discover -s scripts/tests -p 'test_snapshot.py'
 ```
 
 ## 创意与章节的知识库接入
-在创意竞标前先选目标读者、题材和主引擎，必要时组合重生、系统、苟道、反派视角等辅助机制；构思需要明确读者回报、长期冲突和失效模式。规划时查成长、人物关系和节奏库，写章时只按当前场景查场景/技法/命名库。详细路由见 [references/webnovel/README.md](references/webnovel/README.md)。这不是将上游 GPL 数据整包复制；本库是独立撰写的创作参考，也不保证自动增加文学评分。
+在创意竞标前先选目标读者、题材和主引擎，必要时组合重生、系统、苟道、反派视角等辅助机制；构思需要明确读者回报、长期冲突和失效模式。规划时查成长、人物关系和节奏库，写章时只按当前场景查场景/技法/命名库。详细路由见 [references/webnovel/README.md](references/webnovel/README.md)。现有八份 Markdown 为独立撰写的创作参考；GPL 许可调整后可直接引入上游知识原件，另行记录来源、版本与路由验收。不保证自动增加文学评分。
 
 ## Stage 2 原生规划门禁
 新建项目按 Skill 正式流程诊断创意、写出完整故事因果、完成四级规划与跨文件数值/规则审计；冻结后经架构/目标读者双独立评审。未解决的重大缺陷须定向返工、重新冻结、复审，作者批准最新版后才允许写第一章。**不是靠测试提示词临时补流程。**
