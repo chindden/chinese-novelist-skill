@@ -138,11 +138,12 @@ export function checkP1Report(root,plan,report,kind,end,packet){
     }
   }
   const known=readFeedback(root,plan).deferredIssues,followed=new Set();
-  for(const f of p.followUps){
+  for(const [idx,f] of p.followUps.entries()){
     const prior=known.find(i=>i.trackingId===f?.trackingId);
+    if(!prior)fail('R3_P1_FOLLOWUP_INVALID: p1.followUps['+idx+'].trackingId (must refer to registered deferredIssues)');
     if(!prior||prior.status!=='open'||prior.chapter>end||followed.has(f.trackingId)||keys.has(f.trackingId)||
       !['resolved','open'].includes(f.status)||!nonempty(f.reason)||!where(f.chapter,f.quote)||
-      (f.status==='resolved'&&f.chapter<prior.chapter))fail('R3_P1_FOLLOWUP_INVALID');
+      (f.status==='resolved'&&f.chapter<prior.chapter))fail('R3_P1_FOLLOWUP_INVALID: p1.followUps['+idx+']');
     followed.add(f.trackingId);
   }
   if(report.decision==='pass_candidate'&&kind!=='chapter'){
@@ -151,10 +152,13 @@ export function checkP1Report(root,plan,report,kind,end,packet){
         fail('R3_P1_ARC_FIX_DUE_'+i.trackingId);
     }
   }
-  for(const x of p.signals){
-    if(!['promise_open','promise_progress','promise_paid','negative','spark','character_progress'].includes(x?.kind)||
-      !nonempty(x.id)||!nonempty(x.description)||!where(x.chapter,x.quote))
-      fail('R3_P1_SIGNAL_INVALID');
+  for(const [idx,x] of p.signals.entries()){
+    const label='R3_P1_SIGNAL_INVALID: p1.signals['+idx+'].';
+    if(!['promise_open','promise_progress','promise_paid','negative','spark','character_progress'].includes(x?.kind))fail(label+'kind');
+    if(!nonempty(x.id))fail(label+'id');
+    if(!nonempty(x.description))fail(label+'description');
+    if(!Number.isSafeInteger(x.chapter)||!scope.includes(x.chapter))fail(label+'chapter');
+    if(!where(x.chapter,x.quote))fail(label+'quote');
   }
   const prior=packet?.priorStrengths??[];
   if(!Array.isArray(prior)||p.revisionProtection.length!==prior.length)fail('R3_P1_REVISION_PROTECTION_REQUIRED');

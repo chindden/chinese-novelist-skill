@@ -15,7 +15,7 @@ const save=p=>fs.writeFileSync(planFile,JSON.stringify(p,null,2));
 try{
   const chapters=[];
   for(let n=1;n<=3;n++){const file='chapter-'+n+'.md';fs.writeFileSync(path.join(root,file),'第'+n+'章\n正文');chapters.push({chapterNumber:n,filePath:file,status:'completed',wordCountPass:true});}
-  save({chapters,v3:{schemaVersion:1,creativeDecision:'accepted',storyPlanApproved:true,
+  save({minWordsPerChapter:2,chapters,v3:{schemaVersion:1,creativeDecision:'accepted',storyPlanApproved:true,
     pilotGate:{status:'pending',revision:0,humanApproved:false},
     r2:{schemaVersion:1,chapterReviews:{},arcReviews:{}}}});
   assert.equal(run('v3_gate','--chapter','1').code,0,'first three can be drafted');

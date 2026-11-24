@@ -54,7 +54,7 @@
 
     node scripts/r3_plan.mjs <项目> volume-prepare --volume 1 --start 1 --end 22
 
-1–22 只是《仙门大掌柜》当前结构示例；其他作品使用自己的合法卷范围。prepare 会保存该卷原文及 chapterNumber/filePath 槽位，但不锁未来章节的 title。读完实际卷纲后，由作者明确批准该卷（不能用早前的 3B 产品原则代签）。
+1–22 只是《仙门大掌柜》当前结构示例；其他作品使用自己的合法卷范围。prepare 会保存该卷原文及 chapterNumber/filePath 槽位，但不锁未来章节的 title。批准前确定稳定的项目内相对文件名（新卷推荐只含章节编号）；标题填入 title 和正文，不通过重命名修改冻结路径。历史路径按原快照保留，确需改路径须走原卷级复核及真实批准。读完实际卷纲后，由作者明确批准该卷（不能用早前的 3B 产品原则代签）。
 
 卷级证据最小结构：
 
@@ -82,7 +82,7 @@ P0/P1 阶段的 reviewPolicy 必须为 every_chapter。P1 经明确启用后遵�
 
     node scripts/v3_gate.mjs <项目> --chapter N --json
 
-仅当退出码 0 才允许写稿。稿件完成、达到字数要求并按原流程更新 chapters[n].wordCountPass/status、结构化账本后，再由真正独立编辑审稿：
+仅当退出码 0 才允许写稿。稿件完成后用正式 CLI 检查字数，单章 prepare/submit 再直接实测正文并写回 wordCount/wordCountPass；不依赖手工达标标记。审核及账本提交按原顺序完成；既有已批准历史不追溯重写。再由真正独立编辑审稿：
 
     node scripts/r2_review.mjs <项目> prepare --scope chapter --end N --writer-run-id REAL_RUN --writer-context-id REAL_CONTEXT
     node scripts/r2_review.mjs <项目> submit --scope chapter --end N --report reviews/real-chapter-editor.json

@@ -5,10 +5,23 @@ import {p1State,priorStrengths,checkP1Report,recordFeedback} from './r3_p1_commo
 import path from 'node:path';
 import {projectRoot,readPlan,atomicWritePlan,safeFile,sha256} from './v3_common.mjs';
 import {range,key,hashes,equal,validate,verify} from './r2_review_common.mjs';
+import {checkChapter} from './chapter_wordcount_common.mjs';
 import {hasR3Namespace} from './r3_state_common.mjs';
 import {prepareR3ManuscriptSnapshot,verifyR3ManuscriptSnapshot} from './r3_manuscripts.mjs';
 const a=process.argv.slice(2),flag=k=>{const i=a.indexOf(k);return i<0?null:a[i+1];};
 const nonempty=x=>typeof x==='string'&&x.trim();
+/** Only new chapter review admission is measured; previously accepted review hashes
+ * and arc admission remain backward-compatible. Never rewrite an approved history. */
+function measureChapter(root,plan,end){
+  const min=plan.minWordsPerChapter??3000;
+  if(!Number.isSafeInteger(min)||min<=0)throw new Error('R2_WORD_COUNT_MIN_INVALID');
+  const c=plan.chapters.find(x=>x.chapterNumber===end),p=safeFile(root,c?.filePath);
+  if(!p)throw new Error('R2_WORD_COUNT_READ_ERROR_'+key('chapter',end));
+  const measured=checkChapter(p,min);
+  if(measured.status==='error')throw new Error('R2_WORD_COUNT_READ_ERROR_'+key('chapter',end));
+  if(measured.status!=='pass')throw new Error('R2_WORD_COUNT_LOW_'+key('chapter',end)+': actual='+measured.word_count+' min='+min);
+  c.wordCount=measured.word_count;c.wordCountPass=true;
+}
 try{
   const [folder,action]=a;
   if(!folder||!['prepare','submit'].includes(action))throw new Error('R2_USAGE');
@@ -21,10 +34,11 @@ try{
   if(numbers.some(n=>!plan.chapters.some(c=>c.chapterNumber===n)))throw new Error('R2_CHAPTER_NOT_IN_PLAN');
   const records=kind==='chapter'?state.chapterReviews:state.arcReviews,old=records[String(end)];
   if(action==='prepare'){
-    if(numbers.some(n=>{
+    if(kind==='arc'&&numbers.some(n=>{
       const c=plan.chapters.find(c=>c.chapterNumber===n);
-      return c.wordCountPass!==true||(kind==='arc'&&c.status!=='completed');
+      return c.wordCountPass!==true||c.status!=='completed';
     }))throw new Error('R2_CHAPTER_NOT_READY');
+    if(kind==='chapter')measureChapter(root,plan,end);
     const writers=kind==='chapter'?
       [{chapter:end,runId:flag('--writer-run-id'),contextId:flag('--writer-context-id')}]:
       numbers.map(n=>{
@@ -57,6 +71,7 @@ try{
     if(packet.kind!==kind||packet.end!==end||packet.revision!==old.revision||
         !equal(hashes(root,plan,numbers),packet.manuscriptHashes))
       throw new Error('R2_PREPARED_MANUSCRIPT_CHANGED');
+    if(kind==='chapter')measureChapter(root,plan,end);
     if(hasR3Namespace(plan)){
       const snapError=verifyR3ManuscriptSnapshot(root,plan,kind,end,old,packet);
       if(snapError)throw new Error(snapError);

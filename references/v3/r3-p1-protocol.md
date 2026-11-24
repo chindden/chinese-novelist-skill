@@ -75,11 +75,11 @@ B 类增加 reverseDefense: {"chapter":1,"quote":"真实原文","reason":"现有
       "followUps":[],"revisionProtection":[]
     }
 
-signals 可为 promise_open / promise_progress / promise_paid / negative / spark / character_progress；同一期待使用同一稳定 ID；core:true 仅用于实际确认需要跟踪的核心角色。叙事动能为已登记观察，不是实际读者行为统计；长期未记录推进只是软提醒，没有强制高潮周期、数量或连续负面硬指标。
+所有 `signals[]` 项（包括 `character_progress`）必须有审核范围内的整数 `chapter`、`kind`、`id`、`description` 和该章逐字原文 `quote`；`core:true` 不替代 `chapter`。例如 `{"kind":"character_progress","id":"CHAR-1","chapter":1,"quote":"实际原文","description":"角色本章变化","core":true}`。错误返回 `R3_P1_SIGNAL_INVALID: p1.signals[索引].字段`，按字段修正，不绕过校验。signals 可为 promise_open / promise_progress / promise_paid / negative / spark / character_progress；同一期待使用同一稳定 ID；core:true 仅用于实际确认需要跟踪的核心角色。叙事动能为已登记观察，不是实际读者行为统计；长期未记录推进只是软提醒，没有强制高潮周期、数量或连续负面硬指标。
 
 当 input packet 含 priorStrengths，revisionProtection 必须逐项覆盖其 ID，status 为 preserved / changed / removed，附修订后的真实章号、引文与原因。修订的任务是保住有效人物、节奏、文风和新鲜感，不等于禁止一切改变。
 
-status/handoff 自动从不可覆盖的已登记审稿历史派生 deferredIssues；同章、同具体属性/事实与同原文锚点的重复观察合并引用，不重复抄写台账。报告使用 followUps: [{"trackingId":"从 status 得到的真实 ID","status":"resolved","chapter":3,"quote":"本轮审核范围实际原文","reason":"实际如何补强"}]。三章弧末的 B 必须真实关闭，不能用 C 类或 accepted 绕过；C 只记录并可在后续确认修复。原文锚点变化但确属同一问题时由编辑显式复核跟进，不做同名自动归并。到完本仍有 B 应先修复；C 留给 P2 的独立完本精修，不提前假称精修模块已实现。
+只有 `pass_candidate` 历史报告中的延期问题进入 `deferredIssues`；`revise` / `reject` 报告的当轮返工问题不入池，修订版依据真实修订稿和 `revisionProtection` 核验。`followUps` 仅引用 status/handoff 中真实存在且 open 的 trackingId；没有历史延期项要跟进时填 `[]`（不是所有复审一律为空）。未知 ID 返回具体 `p1.followUps[索引].trackingId`。status/handoff 自动从不可覆盖的已登记审稿历史派生 deferredIssues；同章、同具体属性/事实与同原文锚点的重复观察合并引用，不重复抄写台账。报告使用 followUps: [{"trackingId":"从 status 得到的真实 ID","status":"resolved","chapter":3,"quote":"本轮审核范围实际原文","reason":"实际如何补强"}]。三章弧末的 B 必须真实关闭，不能用 C 类或 accepted 绕过；C 只记录并可在后续确认修复。原文锚点变化但确属同一问题时由编辑显式复核跟进，不做同名自动归并。到完本仍有 B 应先修复；C 留给 P2 的独立完本精修，不提前假称精修模块已实现。
 
 ## 3. 结构化检查与卷末复盘
 
@@ -174,7 +174,7 @@ seal 生成独立 SHA-256/字节数清单；verify 重新解析当前与全部�
 - R3_LEDGER_BINDING_STALE_OR_MISSING_N：回查定稿源及具体投影，不只重算 hash。
 - R3_P1_ARC_FIX_DUE_ID：当前弧尚未关闭的实质风险，要求独立确认处理，非强制每章高潮。
 - R3_P1_*_EVIDENCE / *_INVALID：按真实输入字段、原文证据修正。不得直接改审批状态。
-- 原字数工具仍是 `node scripts/check_chapter_wordcount.mjs CHAPTER MIN_WORDS --json`；结果 `results[0].word_count`，plan `wordCount`、`wordCountPass`。不得混用字段或静默改旧 CLI。
+- 原字数工具仍是 `node scripts/check_chapter_wordcount.mjs CHAPTER MIN_WORDS --json`；结果 `results[0].word_count`，plan `wordCount`、`wordCountPass`。不得混用字段或静默改旧 CLI。单章审稿 prepare/submit 重新读取正文、共用正式计数函数；未达最低字数返回 R2_WORD_COUNT_LOW，成功才写回实测值。历史已通过审稿继续由原哈希/状态验证，弧审不追溯重测已完成章节。
 - 使用完整 R3 delivery ZIP 交付含 P1 状态、账本绑定和审核历史；另行按授权导出用户经验库，不把私人库混入小说/Skill 仓库。
 - 回归命令：`node --test scripts/tests/r3_plan_protocol.test.mjs`、`node --test scripts/tests/r3_experience.test.mjs`，`node --test scripts/tests/r3_experience_drive.test.mjs`，以及现有 R3、R2/V3 测试。
 

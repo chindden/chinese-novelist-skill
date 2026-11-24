@@ -33,7 +33,7 @@ const submitReview=(scope,end,decision,issues,reviewerRun)=>{
   return run('r2_review','submit','--scope',scope,'--end',String(end),'--report',src);
 };
 try{
-  save({chapters:Array.from({length:6},(_,i)=>({
+  save({minWordsPerChapter:4,chapters:Array.from({length:6},(_,i)=>({
     chapterNumber:i+1,filePath:'chapter'+(i+1)+'.md',status:i===0?'completed':'pending',wordCountPass:true
   }))});
   for(let n=1;n<=6;n++)fs.writeFileSync(path.join(root,'chapter'+n+'.md'),'第'+n+'章。这是章节正文。');
@@ -45,8 +45,20 @@ try{
   p.v3.creativeDecision='accepted';p.v3.storyPlanApproved=true;save(p);
   assert.equal(run('v3_gate','--chapter','1').code,0);
   assert.ok(run('v3_gate','--chapter','2').out.issues.some(i=>i.code==='R2_REVIEW_NOT_PASSED_ch001'));
+  // A stale true flag cannot admit a short draft. Failure leaves plan and reviews untouched.
+  const original=fs.readFileSync(path.join(root,'chapter1.md'),'utf8');
+  fs.writeFileSync(path.join(root,'chapter1.md'),'# 第1章 很长的标题\n甲。');
+  const before=fs.readFileSync(planPath);
+  const short=prepare('chapter',1);
+  assert.equal(short.code,2);assert.match(short.out.error,/R2_WORD_COUNT_LOW_ch001: actual=1 min=4/);
+  assert.deepEqual(fs.readFileSync(planPath),before);
+  assert.equal(fs.existsSync(path.join(root,'reviews/r2/input-ch001-v1.json')),false);
+  fs.writeFileSync(path.join(root,'chapter1.md'),original);
+  p=plan();p.chapters[0].wordCount=9999;p.chapters[0].wordCountPass=false;save(p);
   const first=prepare('chapter',1);
   assert.equal(first.code,0);
+  assert.equal(plan().chapters[0].wordCount,8);
+  assert.equal(plan().chapters[0].wordCountPass,true);
   assert.equal(submit('chapter',1,'pass_candidate',[],'writer-run-1').code,2,'author cannot approve own draft');
   const issue={id:'X',severity:'BLOCKER',status:'open',chapter:1,
     quote:'这是章节正文',reason:'fixture unresolved blocker',suggestion:'fix locally'};

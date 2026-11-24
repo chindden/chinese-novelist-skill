@@ -21,7 +21,7 @@ const style='# 文风基准\n## 文风指纹\n烟火气，人物有私心。\n##
 function fixture(t){
   const root=fs.mkdtempSync(path.join(os.tmpdir(),'r3-protocol-'));
   t.after(()=>fs.rmSync(root,{recursive:true,force:true}));
-  const plan={novelName:'测试卷',writingMode:'serial',minWordsPerChapter:1000,totalChapters:4,
+  const plan={novelName:'测试卷',writingMode:'serial',minWordsPerChapter:5,totalChapters:4,
     chapters:[1,2,3,4].map(n=>({chapterNumber:n,title:'第'+n+'章',filePath:'chapters/'+n+'.md',status:'pending'})),
     v3:{schemaVersion:1,creativeDecision:'accepted',storyPlanApproved:false,
       r2:{schemaVersion:1,chapterReviews:{},arcReviews:{}},pilotGate:{status:'pending'},
@@ -137,7 +137,9 @@ test('volume slots enforce file paths and chapter-number boundaries',t=>{
   assert.equal(invalid.code,2);
   assert.equal(invalid.data.error,'R3_VOLUME_RANGE_GAP');
   approvedVolume(root,1,1,2);
-  const plan=read(root);plan.chapters[0].filePath='chapters/changed.md';save(root,plan);
+  const plan=read(root);plan.chapters[0].title='改进后的本卷章节标题';save(root,plan);
+  assert.equal(run(root,'verify','--chapter','1').code,0,'title is mutable; approved slot path is immutable');
+  plan.chapters[0].filePath='chapters/changed.md';save(root,plan);
   const result=run(root,'verify','--chapter','1');
   assert.equal(result.code,1);
   assert.ok(result.data.issues.includes('VOLUME_CHECKPOINT_CHANGED'));
@@ -626,6 +628,18 @@ test('P1 Pilot closes due B at arc boundary, deduplicates C, retains real author
   jsonBad(p1gate(root,4),/PILOT_NOT_PASSED/);
   writePilotApproval(root);jsonOk(cli('record_pilot_approval',root,'--evidence','pilot-approval.json'));
   jsonOk(p1gate(root,4));
+});
+test('P1 report errors identify exact field and unregistered follow-up; retries do not mutate history',t=>{
+  const root=p1New(t),r=p1Chapter(root,1);
+  const original=fs.readFileSync(path.join(root,'02-写作计划.json'));
+  r.p1.signals=[{kind:'character_progress',id:'CORE',core:true,quote:chapterQuote(1),description:'角色进展'}];
+  jsonBad(p1Submit(root,r),/R3_P1_SIGNAL_INVALID: p1\.signals\[0\]\.chapter/);
+  assert.deepEqual(fs.readFileSync(path.join(root,'02-写作计划.json')),original);
+  r.p1.signals[0].chapter=1;
+  r.p1.followUps=[{trackingId:'not-registered',status:'resolved',chapter:1,quote:chapterQuote(1),reason:'修订'}];
+  jsonBad(p1Submit(root,r),/R3_P1_FOLLOWUP_INVALID: p1\.followUps\[0\]\.trackingId/);
+  assert.deepEqual(fs.readFileSync(path.join(root,'02-写作计划.json')),original);
+  r.p1.followUps=[];jsonOk(p1Submit(root,r));
 });
 test('P1 revision requires explicit preservation review and rebinds manuscript/ledger; prior feedback retained',t=>{
   const root=p1New(t),r=p1Chapter(root,1);
