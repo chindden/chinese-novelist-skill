@@ -1,9 +1,9 @@
 # R3 审核体系 v3 · P0 受控研发实施管理 PRD
 
-> **文档版本**：`P0-PRD v1.0.1 (Resubmitted / READY_FOR_REVIEW after GPT-6 CHANGES_REQUESTED)`  
-> **所属分支**：`feat/r3-p0-controlled`（基于 `feat/r3-migration` @ `b5572a943f9157cda07faa7910dcbfd20b1a3ba5`；本目录初始化 Commit `95b0951d021eddf5d23a1710944550ccc38ca1ff`，GitHub 提交时间 `2026-11-25T17:12:50Z`）  
+> **文档版本**：`P0-PRD v1.0.1 (Metadata Traceability Completed / READY_FOR_REVIEW)`  
+> **所属分支**：`feat/r3-p0-controlled`（基于 `feat/r3-migration` @ `b5572a943f9157cda07faa7910dcbfd20b1a3ba5`；初始化 Commit `95b0951d021eddf5d23a1710944550ccc38ca1ff` [GitHub 提交时间 `2026-11-25T17:12:50Z`]；`v1.0.1` 内容修订 Commit `a12774f50956c5081252fe1722333893331ded5e` [GitHub 提交时间 `2026-11-25T17:23:04Z`]，*均非实际研发开始时间*）  
 > **架构冻结基线**：`docs/r3/review-v3/` `v1.2.3 (Freeze-Ready Final)`（PR #3 Merge Commit `b5572a943f9157cda07faa7910dcbfd20b1a3ba5`）  
-> **实施授权状态**：**本管理 PRD `v1.0` 经 GPT-6 审核退回（`CHANGES_REQUESTED`）后已完成两项定点修正（`v1.0.1`）并重新提交 GPT-6 审核（`READY_FOR_REVIEW`）；尚未获批启动，`P0-0` ~ `P0-6` 全部继续保持 `NOT_STARTED`，严禁擅自开始编码、修改 Skill/R2/测试或开展新的小说实验。**
+> **实施授权状态**：**本管理 PRD `v1.0.1` 两项主要内容整改已通过复审，现补齐 `v1.0.1` 内容修订 Commit 追溯元数据并提交 GPT-6 最终复审（`READY_FOR_REVIEW`）；尚未获批启动，`P0-0` ~ `P0-6` 全部继续保持 `NOT_STARTED`，严禁擅自开始编码、修改 Skill/R2/测试或开展新的小说实验。**
 
 ---
 
@@ -609,7 +609,7 @@ flowchart LR
 | 验收对象 | 当前状态 | 提交 Commit SHA | 提审日期 | GPT-6 验收结论 | 验收日期 | 审核要点 / 退回整改要求 |
 |---|---|---|---|---|---|---|
 | **P0 实施管理 PRD `v1.0`（初始化建档）** | `CHANGES_REQUESTED` | `95b0951d021eddf5d23a1710944550ccc38ca1ff` | `2026-11-25T17:12:50Z` *(GitHub 提交时间)* | **`CHANGES_REQUESTED`** | `2026-11-25` | 整体结构与管理机制认可；要求修正两处（`RW-PRD-001`）：① 统一 `P0-2` 末尾顺序为“倒数第二：本书文风锚点示范 → 最末位：上一章结尾原文（500–900 字）”；② 补齐初始化 Commit 完整 40 位 SHA 与 GitHub 提交时间 |
-| **P0 实施管理 PRD `v1.0.1`（整改重提）** | `READY_FOR_REVIEW` | *本次 `v1.0.1` 独立整改提交（见交付报告与 Git 历史）* | `2026-11-25` | `PENDING` | `—` | 已逐项完成 `RW-PRD-001` 两项修正并重新提交 GPT-6 复审；通过并获作者授权后方可启动 `P0-0` |
+| **P0 实施管理 PRD `v1.0.1`（内容整改提交）** | `READY_FOR_REVIEW` | `a12774f50956c5081252fe1722333893331ded5e` | `2026-11-25T17:23:04Z` *(GitHub 提交时间，非实际研发开始时间)* | `PENDING` | `—` | 两项主要内容整改（`P0-2` 末尾顺序 & 初始化 Commit SHA）已通过复审；现已补齐本 `v1.0.1` 完整 SHA 与提交时间，提交 GPT-6 最终复审；通过并获作者授权后方可启动 `P0-0` |
 | **`P0-0` · 研发基线审计与实施准备** | `NOT_STARTED` | `—` | `—` | `NOT_SUBMITTED` | `—` | — |
 | **`P0-1` · S1 四级枚举及下游兼容** | `NOT_STARTED` | `—` | `—` | `NOT_SUBMITTED` | `—` | — |
 | **`P0-2` · 写手语域防火墙** | `NOT_STARTED` | `—` | `—` | `NOT_SUBMITTED` | `—` | — |

@@ -32,14 +32,15 @@
 
 | 字段 | 记录内容 |
 |---|---|
+| **GitHub 提交时间（UTC）** | `2026-11-25T17:23:04Z`（*仅记录 `v1.0.1` 内容修订在 GitHub 的提交时间，不代表实际研发开始时间*） |
 | **关联任务** | `P0-MGMT-REV1`（响应 GPT-6 对 `P0-PRD v1.0` 的 `CHANGES_REQUESTED`；`P0-0` ~ `P0-6` 继续保持 `NOT_STARTED`） |
-| **状态变更** | 管理 PRD：`CHANGES_REQUESTED` → **`READY_FOR_REVIEW`**（重新提交 GPT-6 审核）；`P0-0` ~ `P0-6` 全部保持 `NOT_STARTED` |
+| **状态变更** | 管理 PRD：`CHANGES_REQUESTED` → **`READY_FOR_REVIEW`**（提交 GPT-6 复审，两项主要整改通过，要求补齐本 `v1.0.1` 内容修订 Commit SHA 追溯记录后进入最终复审）；`P0-0` ~ `P0-6` 全部保持 `NOT_STARTED` |
 | **整改内容** | ① 统一修正 `README.md` 与 `P0-Implementation-PRD.md` 中 `P0-2` 写手任务卡末尾顺序表述，严格与 `03` 第 2.1 节一致（倒数第二部分：本书文风锚点示范；最后一部分/最末位：上一章结尾原文 500–900 字）；<br>② 在三份管理文档中补齐初始化 Commit 完整 40 位 SHA `95b0951d021eddf5d23a1710944550ccc38ca1ff` 与 GitHub 提交时间 `2026-11-25T17:12:50Z`（明确区分其非实际研发开始时间）；<br>③ 登记 `CHANGES_REQUESTED` 审核结论及返工台账 `RW-PRD-001` |
 | **修改文件** | 仅修改上述 3 份管理文档（`docs/r3/p0-implementation/{README.md,P0-Implementation-PRD.md,P0-Progress-Log.md}`），其余文件 0 改动 |
-| **Commit SHA** | 本次 `v1.0.1` 整改提交（提交完成后详见交付报告与 Git 历史；后续将在 GPT-6 复审通过后追加固化） |
+| **Commit SHA** | `a12774f50956c5081252fe1722333893331ded5e`（区分于初始化 Commit `95b0951d021eddf5d23a1710944550ccc38ca1ff`） |
 | **边界核验** | 0 冻结架构文档改动、0 生产代码/Skill/R2/测试/实验基线改动、未启动 `P0-0` 或任何 P0 任务、未创建或合并代码 PR |
-| **GPT-6 审核结论** | `PENDING`（已重新提交 `READY_FOR_REVIEW`，等待 GPT-6 复审） |
-| **返工及复审记录** | 对应 **`RW-PRD-001`** 整改重提 |
+| **GPT-6 审核结论** | 两项内容整改通过，要求补齐 `v1.0.1` 内容修订 Commit 追溯元数据后进行最终复审（现已补齐并重新提交 `READY_FOR_REVIEW`） |
+| **返工及复审记录** | 对应 **`RW-PRD-001`** 整改与元数据追溯补齐 |
 
 ---
 
@@ -66,9 +67,9 @@
 
 > 当任意任务被 GPT-6 置为 `CHANGES_REQUESTED` 时，必须在此逐条登记，直至复审确认 `ACCEPTED` 方可关闭该返工项。
 
-| 返工编号 | 关联任务 | 退回日期 | 被退回 Commit SHA | GPT-6 退回原因与必须整改项 | 整改状态 / 说明 | 整改后复测结果 | 复审结论（GPT-6） | 关闭状态 |
+| 返工编号 | 关联任务 | 退回日期 | 被退回 Commit SHA | GPT-6 退回原因与必须整改项 | 整改 Commit SHA | 整改后复测结果 | 复审结论（GPT-6） | 关闭状态 |
 |---|---|---|---|---|---|---|---|---|
-| **`RW-PRD-001`** | `P0-MGMT-INIT`（P0 实施管理 PRD `v1.0`） | `2026-11-25` | `95b0951d021eddf5d23a1710944550ccc38ca1ff` | ① `README.md` 与 `P0-Implementation-PRD.md` 中 `P0-2` 末尾顺序表述存在歧义，须严格按 `03` 2.1 节明确“倒数第二部分：本书文风锚点示范；最后一部分（最末位）：上一章结尾原文（500–900 字）”；② 补齐初始化 Commit 完整 40 位 SHA 与 GitHub 提交时间 `2026-11-25T17:12:50Z`（不误写为研发开始时间） | 已在 `v1.0.1` 整改提交中逐项完成并重新提交 `READY_FOR_REVIEW` | 三份管理文档边界与链接核验通过；其余文件 0 改动；`P0-0` ~ `P0-6` 全部保持 `NOT_STARTED` | `PENDING`（待 GPT-6 复审） | `OPEN_PENDING_REREVIEW` |
+| **`RW-PRD-001`** | `P0-MGMT-INIT`（P0 实施管理 PRD `v1.0`） | `2026-11-25` | `95b0951d021eddf5d23a1710944550ccc38ca1ff` | ① `README.md` 与 `P0-Implementation-PRD.md` 中 `P0-2` 末尾顺序表述存在歧义，须严格按 `03` 2.1 节明确“倒数第二部分：本书文风锚点示范；最后一部分（最末位）：上一章结尾原文（500–900 字）”；② 补齐初始化 Commit 完整 40 位 SHA 与 GitHub 提交时间 `2026-11-25T17:12:50Z`（不误写为研发开始时间） | `a12774f50956c5081252fe1722333893331ded5e`（GitHub 提交时间 `2026-11-25T17:23:04Z`；另以独立元数据补齐 Commit 完善本台账追溯） | 两项内容整改已通过复审；三份管理文档边界与链接核验通过；其余文件 0 改动；`P0-0` ~ `P0-6` 全部保持 `NOT_STARTED` | `PENDING`（已补齐 `v1.0.1` SHA，待 GPT-6 最终复审） | `OPEN_PENDING_FINAL_REREVIEW` |
 
 ---
 
