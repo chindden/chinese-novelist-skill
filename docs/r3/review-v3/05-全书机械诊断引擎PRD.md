@@ -1,9 +1,9 @@
 # 05 · L0 全书机械诊断引擎 PRD（`diagnose_book.mjs`）
 
-> **文档版本**：`v1.2.2 (Freeze-Ready Final Candidate)`  
+> **文档版本**：`v1.2.3 (Freeze-Ready Final)`  
 > **层级定位**：**L0 是贯穿整个创作周期的 100% 纯只读监测层（Continuous Read-Only Monitoring Layer）**，**不是**第五个强制文学审核关卡；L1–L4 才是四层文学质量审核流程。  
 > **核心铁律**：
-> 1. **绝对零写入与三重验证**：`diagnose_book.mjs` 与 `audit_story_state.mjs --readonly` 本身**严格只读、只输出 stdout、不含任何直接/间接写盘能力**，且**静态扫描绝不等同于运行期零写入**，二者必须分别独立通过**全量静态代码审计 + 只读环境实际运行（首选只读 bind mount / Docker `:ro` 卷；采用 `chmod` 时须以独立非特权、非文件所有者 UID 运行且测试临时路径外置）+ 全项目 Manifest/SHA-256 前后比对**三重验证——**任何一项未通过，均不得宣称 L0 已证明零写入**；**`r3_ops.mjs` 是唯一允许承接诊断缓存落盘的编排层，绝不因此放宽 L0 自身的只读要求**。
+> 1. **绝对零写入与三重验证**：`diagnose_book.mjs` 与 `audit_story_state.mjs --readonly` 本身**严格只读、只输出 stdout、不含任何直接/间接写盘能力**，且**静态扫描绝不等同于运行期零写入**，二者必须分别独立通过**全量静态代码审计 + 只读环境实际运行（被测项目目录通过只读 bind mount / Docker `:ro` 卷挂载给被测进程；回退 `chmod -R a-w` 时严格区分权限准备阶段与被测程序运行阶段，设置权限后被测程序须以独立非特权、非文件所有者 UID 执行，且测试临时路径外置）+ 宿主机侧对同一底层项目目录执行运行前后 Manifest/SHA-256 比对（不得用另一个可写副本替代）**三重验证——**任何一项未通过，均不得宣称 L0 已证明零写入**；**`r3_ops.mjs` 是唯一允许承接诊断缓存落盘的编排层，绝不因此放宽 L0 自身的只读要求**。
 > 2. **防机械误伤与两类阻断态物理分离**：完全重复段落、引号不配对、字数异常、对话占比偏低、人物暂未出场默认绝不能当成文学硬伤或阻断；`FACT_CONFLICT_CANDIDATE` 进入**等待核实的临时安全门**（可核实误报/合法叙事后解除）；`STALE_REVIEW_AFTER_EDIT` 属于**工程完整性破损（`integrity_alert`）**，必须**立即阻断新章写入**且严禁标误报解除（须显式 `retcon`/回滚 + 重审 + 更新指纹）。
 > 3. **内容完整性优先于字数指标**：**严禁为了死磕字数（凑字数下限或压字数上限）牺牲情节与内容的完整性。**
 
@@ -20,7 +20,7 @@
 1. **绝对只读无副作用（三重验证闭环，绝不把静态扫描等同于运行期零写入）**：
    - `node scripts/diagnose_book.mjs <project> [--upto N] [--format json|md]` 与 `node scripts/audit_story_state.mjs <project> --upto N --readonly` **只读磁盘、只向 stdout 输出**，源码内严禁任何直接/间接文件写入 API、写标志 `open`、复制/重命名/链接或子进程写入；不提供任何输出/缓存写路径参数。
    - **派生缓存由编排层单独处理**：`r3_ops.mjs` 是**唯一允许承接诊断缓存写入的编排层**——仅在外部捕获 `diagnose_book.mjs` 的 stdout 后写入隔离派生路径 `reviews/r3/diagnostics/.cache/book-diagnostics-latest.json`（可随时删除，永不计入故事真源哈希），**绝不因此放宽 L0 自身的只读要求**。
-   - **严苛沙箱权限边界**：单独对目录执行 `chmod -R a-w`（由文件所有者本人运行）**不能单独证明不可写**（文件所有者仍可通过 `chmod` 恢复权限）。第四节强制要求首选只读 bind mount / Docker `:ro` 卷，退而采用 `chmod` 方案时必须以**独立的非特权、非文件所有者 UID**运行且所有测试临时文件/缓存位于项目目录之外，任何一项未通过均不得宣称 L0 已证明零写入。
+   - **严苛沙箱权限边界与同一文件树一致性**：单独对目录执行 `chmod -R a-w`（由文件所有者本人运行）**不能单独证明不可写**（文件所有者仍可通过 `chmod` 恢复权限）。第四节强制要求首选只读 bind mount / Docker `:ro` 卷并将运行前后 Manifest/SHA-256 严格作用于**宿主机侧同一个底层项目目录**（不得用另一份可写副本替代）；退而采用 `chmod -R a-w` 时必须严格区分**权限准备阶段**与**被测程序运行阶段**（准备阶段设权后，被测程序须以独立非特权、非文件所有者 UID 执行，测试临时路径外置），任何一项未通过均不得宣称 L0 已证明零写入。
 2. **仅产客观证据，绝不做文学裁决**：所有报告显式携带 `"literaryStatus": "UNVERIFIED"`；`FACT_CONFLICT_CANDIDATE` 仅触发**等待核实的临时安全门（非自动文学判决）**；`STALE_REVIEW_AFTER_EDIT` 仅判定**工程完整性破损（非文学判决）**；所有文风/节奏/字数/重复/引号/在场指标均以**本书自身中位数或基准章**为相对参照。
 3. **默认非硬伤原则（防误判核心修正）**：
    - **完全重复段落**：在时间循环、罗生门多视角、书信/布告原文复引或文学回环意象中属合法手法 → 默认归 **`advise`**（疑似误粘贴候选），永不自动判文学硬伤或阻断；
@@ -120,12 +120,14 @@
      - 间接写入与子进程逃逸：`child_process`（`exec*`、`spawn*`、`fork`）、动态 `import()`、`eval`、`new Function`，以及对 `r3_atomic_ops.mjs` 等写盘模块的引用。
      - 注：`audit_story_state.mjs` 在 `--readonly` 模式下必须通过独立只读执行分支隔离，严禁触及任何写路径。
   2. **第二重 · 只读环境实际运行（严格沙箱权限边界）**：
-     - **首选机制（内核级只读强制）**：使用 Linux **只读 bind mount（`mount -o ro,bind`）** 或 **Docker 只读卷（`-v <project>:/workspace/project:ro`）**；
-     - **次选替代机制（仅在宿主无内核只读挂载权限时使用）**：若采用 `chmod -R a-w`，**必须以独立的非特权、非文件所有者 UID（non-root, non-owner UID）运行**，彻底阻断脚本通过 `fs.chmodSync` 恢复写权限的可能（**以文件所有者或 root 身份运行 `chmod -R a-w` 视为无效验收**）；
-     - **外部临时路径隔离**：项目目录全程保持只读，测试框架所需的全部临时文件、stdout 捕获缓存与运行环境均置于**项目目录之外**的独立临时路径（如 `/tmp/r3-l0-verify-*`）；
-     - **双脚本分别独立验证**：分别独立运行 `node scripts/diagnose_book.mjs <ro-project> --format json|md` 与 `node scripts/audit_story_state.mjs <ro-project> --upto N --readonly`，要求均返回 **exit code `0`**、完整输出 stdout、**零 `EROFS` / `EACCES` 写入异常**。
-  3. **第三重 · 全项目目录 Manifest / SHA-256 前后比对**：
-     - 在可写副本中分别运行两个脚本前后，递归计算整个项目目录（含隐藏文件、子目录结构、逐文件大小与 SHA-256）的完整 `manifest_sha256`，确认 **0 新增文件、0 删除文件、0 字节改动**。
+     - **首选机制（内核级只读强制）**：被测项目目录通过 Linux **只读 bind mount（`mount -o ro,bind`）** 或 **Docker 只读卷（`-v <project>:/workspace/project:ro`）** 挂载给被测进程；
+     - **双脚本直接在该只读挂载环境中分别执行**：`node scripts/diagnose_book.mjs <ro-mount> --format json|md` 与 `node scripts/audit_story_state.mjs <ro-mount> --upto N --readonly` 分别直接在该只读挂载环境中执行，要求均返回 **exit code `0`**、完整输出 stdout、**零 `EROFS` / `EACCES` 写入异常**；
+     - **次选 `chmod` 回退方案（严格区分两阶段）**：仅在宿主无内核只读挂载权限时允许使用 `chmod -R a-w`，且必须明确区分**权限准备阶段**与**被测程序运行阶段**——由准备阶段设置目录与文件只读权限后，**被测程序必须以独立的非特权、非文件所有者 UID（non-root, non-owner UID）执行**，彻底阻断程序以所有者身份通过 `fs.chmodSync` 恢复写权限（**以文件所有者或 root 身份运行 `chmod -R a-w` 测试一律判无效**）；
+     - **外部临时路径隔离**：被测项目目录全程保持只读，测试框架所需的全部临时文件、stdout 捕获缓存与运行环境均置于**项目目录之外**的独立临时路径（如 `/tmp/r3-l0-verify-*`）。
+  3. **第三重 · 同一底层项目目录的宿主机侧 Manifest / SHA-256 前后比对**：
+     - **宿主机侧同树校验**：由宿主机侧在第二重只读执行运行前后，直接对**同一个底层项目目录**递归计算完整 `manifest_sha256`（含隐藏文件、子目录结构、逐文件大小与 SHA-256），确认 **0 新增文件、0 删除文件、0 字节改动**；
+     - **严禁替换目录**：必须保证运行前后哈希检查的对象与实际被测进程访问的是**同一个底层文件树**，**严禁用另一个可写副本代替**；
+     - **可写副本仅作辅助**：如果额外使用可写副本进行补充测试（例如排查潜在隐性写尝试行为），**只能作为辅助测试，绝不能替代只读挂载验收与上述同树 Manifest 校验**。
   4. **编排层缓存边界独立验证**：单独验证 `r3_ops.mjs` 是唯一允许承接诊断缓存落盘的编排层（仅捕获 `diagnose_book.mjs` stdout 写至隔离派生路径 `reviews/r3/diagnostics/.cache/book-diagnostics-latest.json`），绝不因此放宽 L0 自身的只读要求。
 - **功能与状态机专项验收**：
   - 防误判专项：合法重复段、合规中文跨段引语、紧凑章略低于参考字数 → 全部输出 `advise/pass` 且 **0 触发阻断**；
