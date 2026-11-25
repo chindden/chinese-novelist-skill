@@ -1,15 +1,15 @@
 # 05 · L0 全书机械诊断引擎 PRD（`diagnose_book.mjs`）
 
-> **文档版本**：`v1.1 (Freeze-Ready Candidate)`  
-> **层级定位**：**L0 是贯穿整个创作周期的 100% 只读监测层（Continuous Read-Only Monitoring Layer）**，**不是**第五个强制文学审核关卡；L1–L4 才是四层文学质量审核流程。  
+> **文档版本**：`v1.2 (Freeze-Ready Candidate)`  
+> **层级定位**：**L0 是贯穿整个创作周期的 100% 纯只读监测层（Continuous Read-Only Monitoring Layer）**，**不是**第五个强制文学审核关卡；L1–L4 才是四层文学质量审核流程。  
 > **核心铁律**：
-> 1. **默认零磁盘写入**：纯 Node ESM，默认仅向 stdout 输出 JSON/Markdown，零副作用。
-> 2. **防机械误伤文学红线**：**完全重复段落、引号不配对、字数异常、对话占比偏低、人物暂未出场等默认绝不能直接被当成文学硬伤或触发阻断！** 只有**客观工程文件破损**或**作者明确设定的硬约束**才允许触发确定性阻断。
+> 1. **脚本级绝对零写入（Pure Stdout Only）**：`diagnose_book.mjs` 本身**严格只读、只输出 stdout、源码内不含任何磁盘写入 API 或写路径参数**；若编排层需要持久化派生缓存，由 `r3_ops.mjs` 捕获 stdout 后单独处理。
+> 2. **防机械误伤文学红线**：**完全重复段落、引号不配对、字数异常、对话占比偏低、人物暂未出场等默认绝不能直接被当成文学硬伤或触发阻断！** 只有**客观工程文件破损**或**作者明确设定的硬约束**才允许触发确定性阻断；高危事实候选触发的也仅是**等待核实的临时安全门**，绝非自动文学判决。
 > 3. **内容完整性优先于字数指标**：**严禁为了死磕字数（凑字数下限或压字数上限）牺牲情节与内容的完整性。**
 
 ---
 
-## 一、产品目标、只读边界与误判防护原则
+## 一、产品目标、绝对只读边界与误判防护原则
 
 ### 1. 解决什么问题？
 - **跨章统计盲区**：单章独立审稿看不到“某核心配角连续 6 章未出场”“口头禅写了 15 章 0 次使用”“第 8 章起对话占比从 28% 暴跌至 6% 且长句超过 50%”“某 6 字短语全书机械重复 14 次”。
@@ -17,11 +17,11 @@
 - **版本过期监测**：秒级发现审稿后正文被修改、摘要或卷摘要与正文哈希脱节等工程状态漂移。
 
 ### 2. 四条不可突破的硬边界
-1. **默认 100% 只读无副作用（Zero-Write Default）**：
-   - `node scripts/diagnose_book.mjs <project> [--upto N] [--format json|md]` **严格执行 0 字节磁盘写入**，绝不修改正文、大纲、计划、账本或摘要。
-   - 若编排层（`r3_ops.mjs`）需要加速复用，仅可通过显式参数 `--cache-file reviews/r3/diagnostics/.cache/book-diagnostics-latest.json` 将只读派生快照写入受隔离缓存目录（可随时删除，永不计入故事真源哈希）。
-   - 每 5 章滚动核查调用 `audit_story_state.mjs --readonly`（无 `--write`）+ `diagnose_book.mjs`，与事务层归档彻底解耦。
-2. **仅产客观证据，绝不做文学裁决**：所有报告显式携带 `"literaryStatus": "UNVERIFIED"`；所有文风/节奏/字数/重复/引号/在场指标均以**本书自身中位数或基准章**为相对参照。
+1. **代码级绝对只读无副作用（Zero-Write by Construction）**：
+   - `node scripts/diagnose_book.mjs <project> [--upto N] [--format json|md]` **只读磁盘、只向 stdout 输出 JSON 或 Markdown**，源码内**严禁调用 `fs.writeFile*`/`appendFile*`/`mkdir`/`rm` 等任何写盘接口**，不提供 `--cache-file` 或任何输出路径参数。
+   - **派生缓存由编排层单独处理**：若 `r3_ops.mjs` 需要缓存诊断结果供后续复用，由 `r3_ops.mjs` 在外部捕获 `diagnose_book.mjs` 的 stdout，写入受隔离且可随时删除的派生路径 `reviews/r3/diagnostics/.cache/book-diagnostics-latest.json`（永不计入故事真源哈希）。
+   - 每 5 章滚动核查调用 `audit_story_state.mjs --readonly`（无 `--write`）+ `diagnose_book.mjs`，与事务层归档物理隔离。
+2. **仅产客观证据，绝不做文学裁决**：所有报告显式携带 `"literaryStatus": "UNVERIFIED"`；高危事实候选仅触发**等待核实的临时安全门（非自动文学判决）**；所有文风/节奏/字数/重复/引号/在场指标均以**本书自身中位数或基准章**为相对参照。
 3. **默认非硬伤原则（防误判核心修正）**：
    - **完全重复段落**：在时间循环、罗生门多视角、书信/布告原文复引或文学回环意象中属合法手法 → 默认归 **`advise`**（疑似误粘贴候选），永不自动判文学硬伤或阻断；
    - **引号不配对**：中文长独白/书信分段引用时，规范标点本身就是“前段只有开引号、末段才有闭引号”（跨段多段引语）→ 引擎必须内建**中文跨段引语白名单**，对剩余疑似不配对项也仅标 **`advise`**（排版复核提醒），永不自动判文学硬伤或阻断；
@@ -34,14 +34,14 @@
 
 为防止工程告警与文学缺陷混淆，L0 诊断结果采用 **6 档无歧义展示态**（均不代表文学质量判决）：
 
-| L0 输出级别 | 语义定义 | 是否自动阻断创作 | 下游流转动作 |
-|---|---|:---:|---|
-| **`integrity_alert`** | **100% 客观工程/状态机破损**：章节文件缺失或 0 字节空文件、章号断档/重复、JSON 语法损坏、伏笔 `payoffChapter < chapter` 账本时间倒挂、`D9` 已定稿正文审后被外部篡改（`STALE_REVIEW_AFTER_EDIT`） | 仅工程门禁层拦截（非文学判决） | 立即报宿主修复工程完整性或走显式 `retcon` / 重审 |
-| **`high_risk_fact_alert`** | **高危跨章事实冲突候选**：与 `audit_story_state --readonly` 联动检出的同主体同键客观事实互斥（`FACT_CONFLICT_CANDIDATE`）、结构化整数守恒失配 | **是（即时触发当章核查，绝不等到下一次 L2 弧审！）** | 阻断开启第 $N+1$ 章，立即进入当章事实核验或升级为 `PLANNING_CONFLICT_BLOCK` |
-| **`advise`** | **高价值待人工/编辑复核线索**：重复段落候选、跨段排查后的引号异常候选、字数偏离、对话占比骤降、人物断档、口头禅未落实/复读、长句/文风漂移、缺摘要、上下文过期 | **否（永不阻断）** | 随诊断摘要透传给紧邻的 L2 弧审或 L3 卷审作背景参考 |
-| **`note`** | **低噪趋势参考**：高频短语 Top 榜、轻度波动 | **否（永不阻断）** | 仅存档备查，默认不打扰创作流 |
-| **`pass`** | 本维度当前无异常线索 | **否** | — |
-| **`skip`** | 缺少前置档案或章数不足（如无 `00-人物档案.md` 或不足 4 章） | **否** | 显式标注原因，绝不冒充 `pass` |
+| L0 输出级别 | 语义定义 | 门禁性质 | 下游流转动作 |
+|---|---|---|---|
+| **`integrity_alert`** | **100% 客观工程/状态机破损**：章节文件缺失或 0 字节空文件、章号断档/重复、JSON 语法损坏、伏笔 `payoffChapter < chapter` 账本时间倒挂、`D9` 已定稿正文审后被外部篡改（`STALE_REVIEW_AFTER_EDIT`） | 工程完整性拦截（非文学判决） | 立即报宿主修复工程完整性或走显式 `retcon` / 重审 |
+| **`high_risk_fact_alert`** | **高危跨章事实冲突候选**：与 `audit_story_state --readonly` 联动检出的同主体同键客观事实互斥候选（`FACT_CONFLICT_CANDIDATE`）、结构化整数守恒失配候选 | **等待核实的临时安全门（非自动文学判决，不等 L2）** | 暂停开启第 $N+1$ 章直至独立核实或作者确认：核实为误报/刻意手法即刻解除放行；核实为真错误则路由至当章修复或 `PLANNING_CONFLICT_BLOCK` |
+| **`advise`** | **高价值待人工/编辑复核线索**：重复段落候选、跨段排查后的引号异常候选、字数偏离、对话占比骤降、人物断档、口头禅未落实/复读、长句/文风漂移、缺摘要、上下文过期 | **永不阻断** | 随诊断摘要透传给紧邻的 L2 弧审或 L3 卷审作背景参考 |
+| **`note`** | **低噪趋势参考**：高频短语 Top 榜、轻度波动 | **永不阻断** | 仅存档备查，默认不打扰创作流 |
+| **`pass`** | 本维度当前无异常线索 | **永不阻断** | — |
+| **`skip`** | 缺少前置档案或章数不足（如无 `00-人物档案.md` 或不足 4 章） | **永不阻断** | 显式标注原因，绝不冒充 `pass` |
 
 ---
 
@@ -57,21 +57,22 @@
 | **D4** | **对话占比与引号排版核查** | ⑨ 章节对话占比骤降；⑩ 引号配对排查（含中文跨段引语白名单） | 各章正文（同时兼容 `「…」`/`『…』` 与 `“…”`/`‘…’`） | 以全书（≥5 章）对话占比中位数为参照：中位数 ≥12% 时单章 `< 中位数 × 0.4` 或 `< 8%` 标 `advise`（冷硬/日志体全书中位 <12% 自动静默）；**引号排查先应用中文跨段多段引语白名单（段首开引号跨段续引至末段闭引号视为合规），剩余疑似不配对也仅标 `advise`（排版提示，绝非默认文学硬伤）** | **`advise`** / `note` | L1 软提醒、L2/L3 |
 | **D5** | **高频短语、重复段落与桥段线索** | ⑪ 高频重复短语（4–12 字）；⑫ 整段字面重复候选（≥60 规范汉字）；⑬ 账本 `mechanisms` 重复线索 | 全部正文 + `story-ledger.json` | ① O(N) 两段式种子一致延展算法提取 Top 15 高频短语（剔除专名），≥8 次标 `note`；<br>② **整段字面重复（复用 `check_repetition.mjs`）：默认标 `advise`（疑似误粘贴候选，兼容循环叙事/回环意象/原文复引），仅当作者在配置中显式开启硬约束时才由 L1 `precheck` 拦截**；<br>③ `mechanisms` 同 `(strategy, opposition)` 高频复现标 `advise` 交 L2 语义核查 | **`advise`** / `note` | L2 弧审、L3 卷审 |
 | **D6** | **章节摘要完整性与冲突** | ⑭ 完结章摘要缺失/空壳/多源冲突 | `99-章节摘要.md` + `02-写作计划.json` + 历史兼容源 | 核查所有 `status = completed` 章节是否存在非空可读摘要、是否存在多源冲突、摘要指纹是否滞后正文 | `advise` | L2/L3 卷摘要前置校验 |
-| **D7** | **伏笔状态与事实冲突联动** | ⑮ 伏笔状态倒挂与超期未推进；⑯ 只读账本事实冲突/守恒失配联动 | `story-ledger.json` + `r3_feedback_view.mjs` + `audit_story_state --readonly` | ① `paid` 且 `payoffChapter < chapter` → `integrity_alert`；<br>② 同主体同键客观事实互斥（`FACT_CONFLICT_CANDIDATE`）或结构化整数失配 → **`high_risk_fact_alert`**（触发当章即时核查，绝不等 L2）；<br>③ `open` 超 10 章未推进或跨预期卷仍 `open` → `advise`（非配额提醒） | 倒挂 `integrity_alert`；高危事实冲突 **`high_risk_fact_alert`**；超期 `advise` | 即时分流闸、L2、L3、L4 |
+| **D7** | **伏笔状态与事实冲突联动** | ⑮ 伏笔状态倒挂与超期未推进；⑯ 只读账本事实冲突/守恒失配联动 | `story-ledger.json` + `r3_feedback_view.mjs` + `audit_story_state --readonly` | ① `paid` 且 `payoffChapter < chapter` → `integrity_alert`；<br>② 同主体同键客观事实互斥候选（`FACT_CONFLICT_CANDIDATE`）或结构化整数失配候选 → **`high_risk_fact_alert`**（触发等待核实的临时安全门，绝不等 L2，非自动文学判决）；<br>③ `open` 超 10 章未推进或跨预期卷仍 `open` → `advise`（非配额提醒） | 倒挂 `integrity_alert`；高危事实候选 **`high_risk_fact_alert`**；超期 `advise` | 临时安全门、L2、L3、L4 |
 | **D8** | **全书文风漂移指标（R3 专属）** | （综合文体指纹：>40 字长句占比、平均句长、正文圆括号、高频突发副词、章末形态） | 各章正文 + `03-文风基准.md`（及第 1–3 章基线） | 相对本书自身基准：若连续 3 章 `>40` 字长句占比上升 `>= +15pp` 或正文出现规则圆括号 → `advise`（预警防红队说明书化回潮），绝不按统一题材硬配额一刀切 | `advise` / `note` | L1 软提醒、L2/L3、L4 |
-| **D9** | **审核结论、摘要与指纹过期检测** | （正文审后修改、规划/账本上下文漂移检测） | `02-写作计划.json` + `reviews/r2/*` + `reviews/r3/*` + 磁盘实际 SHA-256 | ① 已定稿章正文在终审后被修改（未走 `retcon`）→ `integrity_alert`（`STALE_REVIEW_AFTER_EDIT`，触发即时阻断重审）；<br>② 关联规划或账本升版但旧审稿未覆盖 → `advise`（`STALE_CONTEXT_VERIFY`） | 审后改文 `integrity_alert`；上下文漂移 `advise` | 即时分流闸、`r3_ops`、L3、L4 |
+| **D9** | **审核结论、摘要与指纹过期检测** | （正文审后修改、规划/账本上下文漂移检测） | `02-写作计划.json` + `reviews/r2/*` + `reviews/r3/*` + 磁盘实际 SHA-256 | ① 已定稿章正文在终审后被修改（未走 `retcon`）→ `integrity_alert`（`STALE_REVIEW_AFTER_EDIT`，触发工程完整性阻断）；<br>② 关联规划或账本升版但旧审稿未覆盖 → `advise`（`STALE_CONTEXT_VERIFY`） | 审后改文 `integrity_alert`；上下文漂移 `advise` | 临时安全门、`r3_ops`、L3、L4 |
 
 ---
 
 ## 四、数据契约与性能验收边界
 
-### 1. 标准输出 JSON 结构（默认纯 stdout，零写入）
+### 1. 标准输出 JSON 结构（`diagnose_book.mjs` 纯 stdout 输出，绝对零写入）
 ```json
 {
   "schemaVersion": 2,
   "layer": "L0_READONLY_MONITOR",
   "literaryStatus": "UNVERIFIED",
   "writeSideEffects": false,
+  "outputChannel": "stdout_only",
   "generatedAt": "2026-11-25T14:00:00Z",
   "projectFingerprint": "<sha256 of chapter paths/mtimes/sizes + plan + profile + ledger>",
   "uptoChapter": 12,
@@ -112,6 +113,6 @@
 - **新增 Agent 调用**：**`0`**（100% 纯 Node ESM 确定性脚本）。
 - **实现成本**：低（约 450–650 行纯 ESM + 单元测试，属于 P1-1 任务）。
 - **核心验收用例**：
-  1. **零写入验证**：默认运行前后对比整个项目目录（含 `reviews/`）的 `manifest_sha256`，确认 **0 字节改动**；
-  2. **防误判专项测试**：构造含① 悬疑时间循环合法重复段、② 合规中文跨段多段引语（前段无闭引号）、③ 略低于参考字数但内容完整的紧凑章节的夹具，验证全部输出为 `advise/pass` 且 **0 触发 `integrity_alert` 或阻断**；
-  3. **高危事实联动与性能测试**：在 50 章合成夹具中验证运行耗时 `< 500ms`，注入 `FACT_CONFLICT_CANDIDATE` 与审后改文，验证 100% 输出 `high_risk_fact_alert` / `integrity_alert`。
+  1. **代码级与运行期双重零写入验证**：① 静态断言 `diagnose_book.mjs` 源码内 `writeFile/appendFile/mkdir/rm` 命中数为 `0`；② 运行前后对比整个项目目录的 `manifest_sha256`，确认 **0 字节改动**；缓存落盘仅由 `r3_ops.mjs` 外部承接并单独测试；
+  2. **防误判专项测试**：构造含① 悬疑时间循环合法重复段、② 合规中文跨段多段引语（前段无闭引号）、③ 紧凑章略低于参考字数的夹具，验证全部输出为 `advise/pass` 且 **0 触发 `integrity_alert` 或阻断**；
+  3. **临时安全门与性能测试**：在 50 章合成夹具中验证运行耗时 `< 500ms`，注入 `FACT_CONFLICT_CANDIDATE` 验证输出 `high_risk_fact_alert`（触发等待核实的临时安全门，并测试“核实误报直接放行”与“核实真错转修复”两条路径）。
