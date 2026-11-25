@@ -3,8 +3,9 @@
 本独立仓库承接 Chinese Novelist V3 / R2 / R3 的持续研发。当前分支仍为实验开发版，不是正式发布版。
 
 - [项目长期上下文档案（全仓库历史、决策、实验证据与跨会话恢复入口）](docs/PROJECT-CONTEXT.md)
-- [研发资产管理规范与跨 Agent 接续恢复架构（资产边界、P1-08 迁移审计与恢复验收标准）](docs/RESEARCH-ASSET-POLICY.md)
-- [项目资产总索引（7 大类资产清单与 5 维独立状态矩阵）](docs/PROJECT-ASSET-INDEX.md)
+- [新 Agent 接管协议（接管检查、恢复必答、权限边界与交接模板）](docs/AGENT-HANDOFF.md)
+- [研发资产管理规范（按需保全原则、公私边界与四级分级）](docs/RESEARCH-ASSET-POLICY.md)
+- [项目关键资产索引（主流程必需项与关键参考按需定位）](docs/PROJECT-ASSET-INDEX.md)
 - [安装、使用及测试](README_V3.md)
 - [Skill 入口](SKILL.md)
 - [R3 研发 PRD](docs/R3-PRD.md)

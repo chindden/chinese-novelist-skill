@@ -1,35 +1,34 @@
 # Chinese Novelist Skill — Project Context
 
-> **版本**：`1.1`（研发资产治理与跨 Agent 接续架构修订版，等待 GPT-6 独立审核） ｜ **范围**：`chindden/chinese-novelist-skill` 全仓库长期上下文档案（覆盖原始 Skill → R2 → R3 → 未来 R4，不属于 R3 专项或 P0 专项）  
+> **版本**：`1.2`（接管机制收尾与 P0 启动前稳定版，等待 GPT-6 独立验收） ｜ **范围**：`chindden/chinese-novelist-skill` 全仓库长期上下文档案（覆盖原始 Skill → R2 → R3 → 未来 R4，不属于 R3 专项或 P0 专项）  
 > **核验基线（严格区分历史审核基线与后续文档提交）**：  
 > - **P0 PRD 最近 GPT-6 审核基线**：`feat/r3-p0-controlled` @ `e52105adca3f994fca3cbdeef9aa935479ceaf9b`（`2026-11-25T17:44:23Z`）  
-> - **PROJECT-CONTEXT v1.0 创建 / 同步 / Drive 只读核验提交**：`15245e785535f83bf11fad684b3ae6dc980a9c0e`（`18:18:08Z`）→ `bb01bbd070c7ec4edf0852ac6213bc4196ecd51a`（`18:38:56Z`）→ `c6ac24bd0d2296645cb15cc906fe5538691cbc72`（`18:51:48Z`）  
+> - **上下文与治理演进提交**：`15245e78`（v1.0 初建）→ `bb01bbd0`（状态同步）→ `c6ac24bd`（Drive 只读核验）→ `e9c9befc464f75b86aa9e1f6f4cd31872a1f13ff`（`2026-11-25T19:13:13Z`，`RESEARCH-ASSET-POLICY v1.0`）→ *本次收尾提交*  
 > - **R3 冻结架构合并基线**：`feat/r3-migration` @ `b5572a943f9157cda07faa7910dcbfd20b1a3ba5`（PR #3）  
-> **配套治理档案**：[`docs/RESEARCH-ASSET-POLICY.md`](./RESEARCH-ASSET-POLICY.md)（全仓库研发资产治理规范、P1-08 迁移审计、本地分支保全与跨 Agent 恢复验收标准） ｜ [`docs/PROJECT-ASSET-INDEX.md`](./PROJECT-ASSET-INDEX.md)（7 大类资产清单与 5 维独立状态矩阵）  
-> **角色定位**：全仓库历史背景、核心决策、实验证据、创作理念与当前状态的统一恢复入口。**不取代**专项 PRD，**不复制**专项任务细则。
+> **配套核心档案**：[`docs/AGENT-HANDOFF.md`](./AGENT-HANDOFF.md)（新 Agent 长期接管协议） ｜ [`docs/RESEARCH-ASSET-POLICY.md`](./RESEARCH-ASSET-POLICY.md)（按需保全与公私资产边界） ｜ [`docs/PROJECT-ASSET-INDEX.md`](./PROJECT-ASSET-INDEX.md)（关键资产分级索引）  
+> **角色定位**：全仓库历史背景、核心决策、关键实验结论、创作理念与当前状态的统一恢复入口。**不取代**专项 PRD，**不复制**专项任务细则，**不追求收录全部历史流水账**。
 
 ---
 
 ## Quick Start · 跨会话快速恢复指南（2 分钟上手）
 
 ### 1. 标准恢复读取顺序（任何新 ChatGPT / Gemini / Agent 会话必须按序执行）
-1. **读本文**：[`docs/PROJECT-CONTEXT.md`](./PROJECT-CONTEXT.md)（恢复全仓库历史、作者原则、决策边界与证据等级）
-2. **读资产治理与索引**：[`docs/RESEARCH-ASSET-POLICY.md`](./RESEARCH-ASSET-POLICY.md) 与 [`docs/PROJECT-ASSET-INDEX.md`](./PROJECT-ASSET-INDEX.md)（明确研发资产与成品作品边界、当前跨环境恢复缺口与待批项）
-3. **读仓库入口与路线**：根目录 [`README.md`](../README.md)、[`README_V3.md`](../README_V3.md) 与 [`ROADMAP.md`](../ROADMAP.md)
-4. **核对实时 GitHub 分支 HEAD**：切勿把本文历史快照当作永久实时状态，先查当前目标分支最新 Commit
-5. **读当前专项管理文档**：例如 P0 专项 [`docs/r3/p0-implementation/README.md`](./r3/p0-implementation/README.md)、[`P0-Implementation-PRD.md`](./r3/p0-implementation/P0-Implementation-PRD.md) 与 [`P0-Progress-Log.md`](./r3/p0-implementation/P0-Progress-Log.md)
-6. **按需查阅冻结架构与历史台账**：[`docs/r3/review-v3/`](./r3/review-v3/README.md) 与 [`docs/R3-PRD.md`](./R3-PRD.md)
+1. **读接管协议**：[`docs/AGENT-HANDOFF.md`](./AGENT-HANDOFF.md)（执行接管前检查、核对分支/HEAD、明确 8 项必答与权限红线）
+2. **读本文**：[`docs/PROJECT-CONTEXT.md`](./PROJECT-CONTEXT.md)（恢复全仓库历史、作者原则、决策边界与证据等级）
+3. **读资产规范与索引**：[`docs/RESEARCH-ASSET-POLICY.md`](./RESEARCH-ASSET-POLICY.md) 与 [`docs/PROJECT-ASSET-INDEX.md`](./PROJECT-ASSET-INDEX.md)（按当前任务依赖保全，不把无关历史缺失当阻塞）
+4. **读仓库入口与当前专项管理文档**：根目录 [`README.md`](../README.md)、[`README_V3.md`](../README_V3.md) 及 P0 专项 [`docs/r3/p0-implementation/README.md`](./r3/p0-implementation/README.md)、[`P0-Implementation-PRD.md`](./r3/p0-implementation/P0-Implementation-PRD.md)、[`P0-Progress-Log.md`](./r3/p0-implementation/P0-Progress-Log.md)
+5. **按需查阅冻结架构与历史台账**：[`docs/r3/review-v3/`](./r3/review-v3/README.md) 与 [`docs/R3-PRD.md`](./R3-PRD.md)（严禁无必要地重新研究已冻结架构）
 
 ### 2. 新会话恢复后必须向作者汇报的 7 项内容
 1. **项目整体目标**：让中文小说创作 Skill 从“能完结”演进为“持续写出让读者愿意追读的长篇作品”，统筹创作能力、文学质量、长期记忆、知识资产、审核系统与工程效率。
-2. **历史重要决策**：作者创作原则、R2/R3 边界、两级冻结+滚动双环+完本精修、GPL-3.0 知识资产导入、R3 审核体系 v3 架构冻结，以及最新确立的 **研发资产去 Google Drive / 去单账号依赖原则（`DEC-10`）**。
-3. **当前阶段**：架构冻结已完成（`v1.2.3`）；P0 实施管理 PRD（`v1.0.1`）已获 GPT-6 验收；**研发资产治理规范（`RESEARCH-ASSET-POLICY v1.0`）、7 类 5 维资产索引（`PROJECT-ASSET-INDEX v2.0`）与 `PROJECT-CONTEXT v1.1` 已建立，等待 GPT-6 独立审核**。
-4. **已完成并验收的工作**：R3 独立仓库迁移、GPL-3.0 许可调整、上游 722 条知识与 37 套题材模板导入、P1-08 历史 Drive-only 宿主终验（现按 `DEC-10` 登记迁移待批）、R3 审核体系 v3 架构冻结（PR #3 已合入）、P0 管理 PRD `v1.0.1` 验收。
-5. **未完成和阻塞事项**：`P0-0` ~ `P0-6` 全部 `NOT_STARTED`；`G2-B Independent Holdout` 处于 `underpowered`（当前就绪 `0` 章 / `0` 案例）；**跨环境资产恢复存在明确缺口**（两本地未推送实验分支、本会话 VM 原始实验报告/原稿/遥测、Drive 历史实验快照与 ChatGPT 聊天文件库历史包均尚未纳入统一私有研发存储；`P1-08` Drive-only 冲突待作者批准迁移）。
-6. **上一会话留下的下一步指令**：等待 **GPT-6** 对本轮研发资产治理与跨 Agent 接续修订（`RESEARCH-ASSET-POLICY v1.0`、`PROJECT-ASSET-INDEX v2.0`、`PROJECT-CONTEXT v1.1`）的独立审核；审核通过后等待作者逐项审批后续动作。
-7. **需要作者决策的事项**：私有版本化研发仓库建仓与选型（含大文件策略）；两本地实验分支与 VM 原始实验证据归档授权；`P1-08` 迁离 Google Drive 方案批准；后续建立 `AGENT-HANDOFF.md` 与跨环境实测授权；`P0-0` 正式启动授权。
+2. **历史重要决策**：作者创作原则、R2/R3 边界、两级冻结+滚动双环+完本精修、GPL-3.0 知识资产导入、R3 审核体系 v3 架构冻结，以及 **公开主仓唯一、按需保全、默认公开测试小说（许可 `REVIEW`）与正式个人小说私有分离（`DEC-11`）**。
+3. **当前阶段**：审核架构已冻结（`v1.2.3`）；P0 实施管理 PRD（`v1.0.1`）已获 GPT-6 `ACCEPTED`；**`PROJECT-CONTEXT v1.2` 与 `AGENT-HANDOFF v1.0` 已收尾，等待 GPT-6 独立验收；验收通过后立即启动 `P0-0`**。
+4. **已完成并验收的工作**：R3 独立仓库迁移、GPL-3.0 许可调整、上游 722 条知识与 37 套题材模板导入、`P1-08` 离线纯 Markdown 校验脚本与历史宿主测试、R3 审核体系 v3 架构冻结（PR #3 已合入）、P0 管理 PRD `v1.0.1` 验收。
+5. **未完成和阻塞事项**：`P0-0` ~ `P0-6` 当前均为 `NOT_STARTED`；`G2-B Independent Holdout` 处于 `underpowered`（当前就绪 `0` 章 / `0` 案例，需在 `P0-0` 实测核查）；A/B/C 三方案待离线对照；`G6` 跨题材 Holdout 待建设；P1 审核新架构与原 R3 P2 七项待实施。
+6. **上一会话留下的下一步指令**：等待 **GPT-6** 对 `PROJECT-CONTEXT v1.2`、`AGENT-HANDOFF v1.0`、`RESEARCH-ASSET-POLICY v1.1` 与 `PROJECT-ASSET-INDEX v2.1` 的独立验收；**验收通过后 Neon 获作者预先授权直接启动纯只读 `P0-0`（无需再单独申请 `P0-0` 授权）**。
+7. **需要作者决策的事项**：`P0-0` 启动已获预授权（无需重复请示）；后续待拍板项仅在 `P0-0` 审计报告中按真实依赖提出（如测试小说许可证 `REVIEW` 最终定性、若 `G2-B` 需新增样本来源等）。
 
-> **防重复劳动铁律**：严禁无必要地重新研究已冻结的 `v1.2.3` 审核架构，严禁要求作者重复交代本文与仓库已记录的历史背景与原则。
+> **防重复劳动铁律**：严禁无必要地重新研究已冻结的 `v1.2.3` 审核架构，严禁回到全量历史资产考古，严禁要求作者重复交代本文与仓库已记录的历史背景与原则。
 
 ---
 
@@ -64,9 +63,10 @@
 | 根目录 [`README.md`](../README.md) | 仓库总入口、安装/许可/来源与导航 |
 | [`README_V3.md`](../README_V3.md) | V3 / R2 / R3 使用说明、命令与测试入口 |
 | [`ROADMAP.md`](../ROADMAP.md) | 上游继承与项目整体演进路线 |
-| [`docs/PROJECT-CONTEXT.md`](./PROJECT-CONTEXT.md) | **全仓库长期历史、知识、决策、证据与跨会话恢复上下文**（本文） |
-| [`docs/RESEARCH-ASSET-POLICY.md`](./RESEARCH-ASSET-POLICY.md) | **全仓库研发资产管理规范、P1-08 架构冲突审计、本地分支保全与跨 Agent 恢复验收标准** |
-| [`docs/PROJECT-ASSET-INDEX.md`](./PROJECT-ASSET-INDEX.md) | **全仓库 7 大类资产清单与 5 维独立状态矩阵（严禁混淆已找到/完整/可访/可恢复/已入统一仓）** |
+| [`docs/PROJECT-CONTEXT.md`](./PROJECT-CONTEXT.md) | **全仓库长期历史、知识、决策、关键证据与跨会话恢复上下文**（本文） |
+| [`docs/AGENT-HANDOFF.md`](./AGENT-HANDOFF.md) | **新 Agent 长期接管协议、8 项恢复必答、研发权限边界与轻量模拟验收清单** |
+| [`docs/RESEARCH-ASSET-POLICY.md`](./RESEARCH-ASSET-POLICY.md) | **全仓库研发资产按需保全规范、公私边界（测试小说 `REVIEW` vs 正式个人小说）与四级分级** |
+| [`docs/PROJECT-ASSET-INDEX.md`](./PROJECT-ASSET-INDEX.md) | **全仓库关键资产四级索引（聚焦主流程必需与关键证据，不追全量历史收录）** |
 | [`docs/R3-PRD.md`](./R3-PRD.md) | R3 早期至迁移、知识库导入、P1-08 与 LIT 重构的历史主 PRD 台账 |
 | [`docs/r3/review-v3/`](./r3/review-v3/README.md) | 已冻结的 R3 审核体系 v3 架构设计蓝图（`v1.2.3`，只读权威） |
 | [`docs/r3/p0-implementation/`](./r3/p0-implementation/README.md) | P0 受控研发专项实施 PRD、状态面板与进度验收日志 |
@@ -82,12 +82,12 @@
 2. **V3 / R2 阶段（`feat/v3-editorial-pipeline` @ `1c59b269`；旧集合仓 `chindden/skills` R2 分支）[`VERIFIED`]**：围绕“从能写完到可信连载”引入创意竞标、Stage 2 原生整文件蓝图双独审、前三章 Pilot 强制停审、独立编辑单章/三章弧审（`r2_review.mjs`）与 Python ZIP 完整快照备份。暴露的新矛盾：整文件刚性冻结限制远期演化、审稿过严导致返工与正文说明书化、缺乏跨书经验沉淀。
 3. **R3 启动与独立仓库迁移（`feat/r3-migration`）[`VERIFIED`]**：
    - **启动动因（`CONFIRMED`）**：核心目标从“能够完成小说”升级为**“持续创作让读者愿意追读的长篇中文网文”**，确立 **“两级冻结（核心契约 + 卷级滚动检查点）· 滚动双环 · 完本精修”** 架构；
-   - **早期研发与迁移（2026-11-24）[`VERIFIED`]**：在旧集合仓完成 R3 早期 P0（9/9 + 补漏 2/2）、P1（8/8 工程验收 + `P1-08` Drive-only 经验库宿主终验）及《仙门大掌柜》1–12 章连载实验后，于提交 `f7b65e6` / `07b60a9` 正式迁回独立仓库 `chindden/chinese-novelist-skill` 作为唯一研发权威源；
+   - **早期研发与迁移（2026-11-24）[`VERIFIED`]**：在旧集合仓完成 R3 早期 P0（9/9 + 补漏 2/2）、P1（8/8 工程验收 + `P1-08` 离线校验与历史宿主测试）及《仙门大掌柜》1–12 章连载实验后，于提交 `f7b65e6` / `07b60a9` 正式迁回独立仓库 `chindden/chinese-novelist-skill` 作为唯一研发权威源；
    - **许可与知识资产扩容（2026-11-24）[`VERIFIED`]**：独立提交调整本集成开发版为 GPL-3.0（完整保留原 MIT 文本于 [`LICENSES/MIT-upstream.txt`](../LICENSES/MIT-upstream.txt) 与 [`NOTICE.md`](../NOTICE.md)），导入固定版本 `chindden/webnovel-writer@04e485d` 知识原件（115 份参考/模板、8 套 CSV 722 条 + 17 条裁决、37 套题材模板）并补齐 11 套缺失专项模板、12 套流派机制与 12 类专题只读 BM25 路由，落地自然语言互动共创（`INIT-01/02`、`PLAN-01/02`）与 LIT 故事性优先重构（提交 `7bd3b20`、`b32e928`）。
 4. **实测暴露的文学与效率瓶颈 → 审核体系 v3 重设计（2026-11-24 至 11-25）[`VERIFIED`]**：
    - 零干预实测与 M1–M4 / Phase 1 吞吐实验暴露出 **57.4% `MAJOR` 过度定级**、返工引发防杠说明书补丁、单章端到端耗时 `17–22m` / `24–31m` 等症结；审稿 Prompt 离线校准至 `v2.2` 触发预设停止条件（FPR `15.15% > 15.0%` + 跨题材漏检 + `OR6` 漂白）；
    - 经深度对标外部双项目全生命周期机制，完成 R3 审核体系 v3 架构重设计（`v1.2.3`）并经 PR #3 合入 `feat/r3-migration`（`b5572a94`），随后在 `feat/r3-p0-controlled` 建立 P0 受控研发管理 PRD（`v1.0.1` 获 GPT-6 验收）。
-5. **未来演进（R3 P0/P1/Perf-Track/P2-OptIn → 未来 R4）[`PENDING_AUTHOR_DECISION`]**：先完成统一研发资产治理与跨 Agent 独立恢复能力建设，再推进 P0 单章破局、P1 跨章 L0/L2/L3 闭环、独立 5 分钟系统性能轨道、多题材真实文学盲评与长期小说资产体系，最终迈向下一代全链路创作引擎（R4）。
+5. **当前聚焦与未来演进（立即推进 R3 P0 → P1 / `Perf-Track` / `P2-OptIn` → 未来 R4）**：完成 `PROJECT-CONTEXT` 与 `AGENT-HANDOFF` 收尾并经 GPT-6 验收后，**立即启动 `P0-0` 进入 R3 P0 受控研发主流程**；资产按研发实际依赖动态补充，不再停留在全量历史文件归集阶段。
 
 ### 2. 当前仓库主要目录与资产结构（`VERIFIED`：严格区分各提交引入时点）
 - `SKILL.md`：统一自然语言单入口路由规范（已存在于 `e52105ad`）。
@@ -98,8 +98,9 @@
 - `docs/`：
   - 已存在于 `e52105ad`：历史台账 `docs/R3-PRD.md`、冻结审核架构 `docs/r3/review-v3/`、P0 专项管理 `docs/r3/p0-implementation/`；
   - 新增于 `15245e78`：全仓库长期上下文 `docs/PROJECT-CONTEXT.md`；
-  - 新增于 `bb01bbd0`（`c6ac24bd` 补充 Drive 只读核验，本次重构为 `v2.0`）：全仓库资产索引 [`docs/PROJECT-ASSET-INDEX.md`](./PROJECT-ASSET-INDEX.md)；
-  - 新增于本次资产治理修订提交：全仓库研发资产管理规范 [`docs/RESEARCH-ASSET-POLICY.md`](./RESEARCH-ASSET-POLICY.md)。
+  - 新增于 `bb01bbd0`：关键资产索引 [`docs/PROJECT-ASSET-INDEX.md`](./PROJECT-ASSET-INDEX.md)；
+  - 新增于 `e9c9befc`：研发资产管理规范 [`docs/RESEARCH-ASSET-POLICY.md`](./RESEARCH-ASSET-POLICY.md)；
+  - 新增于本次收尾提交：新 Agent 长期接管协议 [`docs/AGENT-HANDOFF.md`](./AGENT-HANDOFF.md)。
 
 ---
 
@@ -120,15 +121,15 @@
 
 ## 三、独立实验与文学质量证据总账
 
-> **铁律**：保留原始产物位置与证据局限，绝不把单次实验的积极结果外推为普遍文学质量提升。私有小说正文、项目 ZIP 与非公开记忆不提交公开 Skill 仓库（`CONFIRMED`）。
+> **铁律**：保留关键结论与证据局限，绝不把单次实验的积极结果外推为普遍文学质量提升。**公私与按需原则（`DEC-11`）**：研发测试小说、实验正文、审稿记录与评估数据原则上属公开研发资产（测试小说许可证状态为 `REVIEW`，不擅自选定许可证），但按当前任务实际依赖按需保全、不强行倒灌历史废弃稿；作者**正式个人创作阶段的小说及其草稿、设定与修改记录**属私人资产，严禁提交公开仓库。
 
 | 实验体系 / 样本 | 目的 | 核心输入与输出 | 原始证据位置 | 核心实测结论（分级） | 证据局限与未解决问题 |
 |---|---|---|---|---|---|
-| **1. 早期 Gemini R3 试跑与《仙门大掌柜》Ch 1–12**（2026-11-24） | 验证 R3 两级冻结、Pilot 停审、P1 反馈/账本绑定与长篇连载流程 | 独立项目《仙门大掌柜》Ch 1–3 Pilot（11,510 字）及续写 Ch 4–12（9 章审稿+3 次弧审）；交付 ZIP `xianmen-dazhanggui-r3-pilot-delivery.zip` / `complete-20261124.zip`（私有未入仓） | [`docs/R3-PRD.md`](./R3-PRD.md)（216–380 行）；Drive 私有备份 | `VERIFIED`：P0/P1 工程门禁与逐章独审跑通（Ch 3 真实时间线硬伤被拦截），ChatGPT 非盲评 Ch 1–3 约 7.9/10；暴露 `P0-F01/F02`、`P1-F01`、`SK-01~04` 及引文语义偏弱 | 无同条件 R2 正文对照与陌生读者盲评；卷末（Ch 22）与跨卷（Ch 23–26）及跨会话项目恢复仍 `PENDING_VALIDATION` |
-| **2. 零干预双题材 Live Eval：《残器长生》vs《降本增笑》**（2026-11-24） | 评估 `feat/r3-migration`（`b32e928`）真实零干预端到端创作能力与文病 | 同宿主 `novelist_eval_agent` 跑仙侠 R3（《残器长生》3 章 12,749 字，17 次审稿，~95m）与职场默认（《降本增笑》3 章 20,098 字，19 次审稿，~96m） | 会话 Artifact `skill-live-eval-report.md`（未入公开仓） | `VERIFIED`：拉高写作上下限（职场 8.6/10 活人感强、仙侠 7.8/10 逻辑硬），但明确暴露四大痛点：审稿返工说明书化/括号补丁、仙侠前三章零阶段兑现、文风基准确立不闭环、单章字数飙至 7,584 字 | 单次双案例观测，无多评委匿名盲评；知识库 ID 在成稿规划中 0 显式命中 |
-| **3. M1–M4 文学专项优化体系（Step 1 / Step 2 / Step 3）**（2026-11-24） | 针对上述 4 痛点做 M1（反说明书化）、M2（前三章回报）、M3（双节奏 H3 示范+Ch1 回填）、M4（可选非阻断字数软上限） | 本地分支 `feat/r3-m1-m4-craft-refinement`（`0bf1798`→`c45d4c6`，未合并）：Step 1 工程改造（12 文件）；Step 2 《残器长生》Ch 3 零泄漏定点返工重放；Step 3 《器痕录》全新对照试跑（Ch 1–3 共 13,460 字，23 次全冷独审，174.8m） | 本地分支 `c45d4c6`；Artifact `step1-m1-m4-delivery.md`、`step2-m1-replay-report.md`、`step3-r3-trial-report.md`、`step3-qihenlu-manuscript-ch1-3.md`（未入公开仓） | `VERIFIED`：Step 2 验证 M1 编辑端可拦截括号/免责旁白，Ch 3 终稿括号清零；Step 3 《器痕录》作者反馈“整体质量不错，字数不要苛求”，M3/M4 全部落盘闭环；但单章耗时仍 17–22m 且审稿返工重 | `step3-qihenlu` 未入公开仓；缺少子代理原始 `transcript.jsonl`（早期读档顺序标 `UNKNOWN`）；不可外推普遍文学提升 |
-| **4. Phase 1 吞吐实验与独立三路盲审（Blind Audit A/B/C）**（2026-11-25） | 测量 O1（热复用+30% 熔断）、O2（简报+预检）、O3（原子流水线+遥测）对耗时、漏检与文学质量的影响 | 本地分支 `feat/r3-phase1-throughput-o1-o3`（`c0966b1`，未合并）；《器痕录》冻结规划下 Arm 0/1/2 × 3 章 = 9 章终稿 + 9 位冷启动盲审代理（Blind A 红队漏检 / B 文学盲评 / C 47 项首审 MAJOR 尺度校准） | 本地分支 `c0966b1`；Artifact `r3-phase1-midterm-report.md`、`r3-phase1-blind-audit-and-qa-report.md`；汇总写入 [`docs/r3/review-v3/01`](r3/review-v3/01-R3当前审核能力真实实现审计.md) | `VERIFIED`：① **57.4%（27/47）首审 `MAJOR` 属过度定级**，直接撑爆修改面触发冷重置并诱发次生硬伤（如 `BX-03` 反派降智与 Ch 3 65 字说明书补丁）；② O3 稳定省 `5.58m/ch` 且文学无退化（Arm 0 `8.40` vs Arm 1 `8.33`）；③ O1 9 章内未见特有漏检恶化（`2 MAJOR` 平基线），但 Arm 2 文学均分预警（`7.80`） | 仅单题材 9 章小样本；O1 单热会话未跑满无重置 3 章闭环（长期安全 `PENDING_VALIDATION`）；O2 尚未证明降返工轮次 |
-| **5. 审稿尺度校准离线实验（v1 → v2 → v2.1 → v2.2）**（2026-11-25） | 试图仅靠单轮 Prompt 精修同时压低 FPR 并保持高召回 | 73 项定案 Track 2 回归 + 7 章已知回归 + 4 故事线×3 题材跨题材 Holdout（全在沙箱执行，仓库零改动） | Artifact `r3-review-calibration-v2.2-final-offline-validation-report.md`；汇总写入 [`docs/r3/review-v3/01`](r3/review-v3/01-R3当前审核能力真实实现审计.md) & [`08`](r3/review-v3/08-工程效率与文学质量双重验收方案.md) | `VERIFIED` / `REJECTED`（继续单轮调参）：v2.2 触发预设停止条件（FPR `15.15% > 15.0%`、单轮全能 Prompt 陷入 Recall vs FPR 跷跷板、跨题材深层漏检与 `OR6` 漂白大纲死锁），直接催生审核体系 v3 重设计 | 历史 Holdout（`NH-1..5`、`V22-H1..4`）已揭盲退役，不得再充当独立 Holdout |
+| **1. 早期 Gemini R3 试跑与《仙门大掌柜》Ch 1–12**（2026-11-24） | 验证 R3 两级冻结、Pilot 停审、P1 反馈/账本绑定与长篇连载流程 | 测试连载项目《仙门大掌柜》Ch 1–3 Pilot（11,510 字）及续写 Ch 4–12（9 章审稿+3 次弧审）；历史实验包（测试小说许可 `REVIEW`，按需留存原位） | [`docs/R3-PRD.md`](./R3-PRD.md)（216–380 行）；Drive 历史实验快照（Tier 3 参考） | `VERIFIED`：P0/P1 工程门禁与逐章独审跑通（Ch 3 真实时间线硬伤被拦截），ChatGPT 非盲评 Ch 1–3 约 7.9/10；暴露 `P0-F01/F02`、`P1-F01`、`SK-01~04` 及引文语义偏弱 | 无同条件 R2 正文对照与陌生读者盲评；卷末（Ch 22）与跨卷（Ch 23–26）及跨会话项目恢复仍 `PENDING_VALIDATION` |
+| **2. 零干预双题材 Live Eval：《残器长生》vs《降本增笑》**（2026-11-24） | 评估 `feat/r3-migration`（`b32e928`）真实零干预端到端创作能力与文病 | 同宿主 `novelist_eval_agent` 跑仙侠 R3（《残器长生》3 章 12,749 字，17 次审稿，~95m）与职场默认（《降本增笑》3 章 20,098 字，19 次审稿，~96m） | 会话 Artifact `skill-live-eval-report.md`（Tier 3 历史参考） | `VERIFIED`：拉高写作上下限（职场 8.6/10 活人感强、仙侠 7.8/10 逻辑硬），但明确暴露四大痛点：审稿返工说明书化/括号补丁、仙侠前三章零阶段兑现、文风基准确立不闭环、单章字数飙至 7,584 字 | 单次双案例观测，无多评委匿名盲评；知识库 ID 在成稿规划中 0 显式命中 |
+| **3. M1–M4 文学专项优化体系（Step 1 / Step 2 / Step 3）**（2026-11-24） | 针对上述 4 痛点做 M1（反说明书化）、M2（前三章回报）、M3（双节奏 H3 示范+Ch1 回填）、M4（可选非阻断字数软上限） | 本地分支 `feat/r3-m1-m4-craft-refinement`（`0bf1798`→`c45d4c6`，未合并）：Step 1 工程改造（12 文件）；Step 2 《残器长生》Ch 3 零泄漏定点返工重放；Step 3 《器痕录》全新对照试跑（Ch 1–3 共 13,460 字，23 次全冷独审，174.8m） | 本地分支 `c45d4c6`；VM Artifact `step1..3` 报告与测试稿（Tier 3 历史参考，测试小说许可 `REVIEW`） | `VERIFIED`：Step 2 验证 M1 编辑端可拦截括号/免责旁白，Ch 3 终稿括号清零；Step 3 《器痕录》作者反馈“整体质量不错，字数不要苛求”，M3/M4 全部落盘闭环；但单章耗时仍 17–22m 且审稿返工重 | 缺少子代理原始 `transcript.jsonl`（早期读档顺序标 `UNKNOWN`，不追查恢复）；不可外推普遍文学提升 |
+| **4. Phase 1 吞吐实验与独立三路盲审（Blind Audit A/B/C）**（2026-11-25） | 测量 O1（热复用+30% 熔断）、O2（简报+预检）、O3（原子流水线+遥测）对耗时、漏检与文学质量的影响 | 本地分支 `feat/r3-phase1-throughput-o1-o3`（`c0966b1`，未合并）；《器痕录》冻结规划下 Arm 0/1/2 × 3 章 = 9 章终稿 + 9 位冷启动盲审代理（Blind A 红队漏检 / B 文学盲评 / C 47 项首审 MAJOR 尺度校准） | 核心结论已固化入 [`docs/r3/review-v3/01`](r3/review-v3/01-R3当前审核能力真实实现审计.md)；本地分支 `c0966b1` 供 `P0-0` 只读核查差异 | `VERIFIED`：① **57.4%（27/47）首审 `MAJOR` 属过度定级**，直接撑爆修改面触发冷重置并诱发次生硬伤（如 `BX-03` 反派降智与 Ch 3 65 字说明书补丁）；② O3 稳定省 `5.58m/ch` 且文学无退化（Arm 0 `8.40` vs Arm 1 `8.33`）；③ O1 9 章内未见特有漏检恶化（`2 MAJOR` 平基线），但 Arm 2 文学均分预警（`7.80`） | 仅单题材 9 章小样本；O1 单热会话未跑满无重置 3 章闭环（长期安全 `PENDING_VALIDATION`）；O2 尚未证明降返工轮次 |
+| **5. 审稿尺度校准离线实验（v1 → v2 → v2.1 → v2.2）**（2026-11-25） | 试图仅靠单轮 Prompt 精修同时压低 FPR 并保持高召回 | 73 项定案 Track 2 回归 + 7 章已知回归 + 4 故事线×3 题材跨题材 Holdout（全在沙箱执行，仓库零改动） | 核心结论已固化入 [`docs/r3/review-v3/01`](r3/review-v3/01-R3当前审核能力真实实现审计.md) & [`08`](r3/review-v3/08-工程效率与文学质量双重验收方案.md) | `VERIFIED` / `REJECTED`（继续单轮调参）：v2.2 触发预设停止条件（FPR `15.15% > 15.0%`、单轮全能 Prompt 陷入 Recall vs FPR 跷跷板、跨题材深层漏检与 `OR6` 漂白大纲死锁），直接催生审核体系 v3 重设计 | 历史 Holdout（`NH-1..5`、`V22-H1..4`）已揭盲退役，不得再充当独立 Holdout |
 
 ---
 
@@ -142,12 +143,12 @@
 - **严格区分模型记忆与外部持久化知识资产**：宿主原生 Memory 仅作为可选定位指针（不可用时静默降级、不阻断创作），绝不充当唯一真源；Notebook 因单载体无法可靠全文读写与导出已被**否决退出在线主架构**（`REJECTED`，仅保留 `ASSET-05` 条件性待验）。
 
 ### 2. `gemini-memory-literary-gain-exp.zip` 与 `P1-08` 实际核对现状
-- **Gemini 原生记忆与文学增益实验（`gemini-memory-literary-gain-exp.zip`，私有未入仓；核对依据 [`docs/R3-PRD.md`](./R3-PRD.md) 250–258 行）[`VERIFIED`]**：
+- **Gemini 原生记忆与文学增益实验（`gemini-memory-literary-gain-exp.zip`，Tier 3 历史参考；核对依据 [`docs/R3-PRD.md`](./R3-PRD.md) 250–258 行）[`VERIFIED`]**：
   - 主动记忆创建、语义召回 `6/6`、双虚构作品隔离 `6/6`、原地更新后新会话召回获小样本支持；后台自动记忆首次无工具测试 `0/3`（因存在检索活动不能据此否定机制）；
   - 6 篇成稿（3 场景 × A/B 对照）SHA-256 校验通过：三方描述性均分 A=`43.83` vs B=`47.50`（差 `+3.67`，满分 60），但明确标注**非统计学显著结论**（每场景仅 1 对样本、账号级自动记忆无法完全关闭、3 篇 B 稿均自发使用物件情感意象出现结构趋同风险）。
-- **`P1-08` Drive-only 历史实现与新旧存储冲突审计（[`scripts/r3_experience_drive.mjs`](../scripts/r3_experience_drive.mjs)、[`docs/R3-PRD.md`](./R3-PRD.md) 326–365 行）**：
-  - **历史已验证（`VERIFIED`）**：原按 `DEC-02` 以 Google Drive 独立目录 `[CN-R3-EXP] 跨作品创作经验库` 作为唯一权威源（六主题聚合文档 + `00-INDEX-vN.md` + `staging/` + `archive/`）；`r3_experience_drive.mjs` 工程回归（R3 CI 64/64）、隔离 Drive v1→v2 发布/回读/归档/离线导出恢复及新独立会话定位读取已通过；正式空库初始化完成（`themes=6, entries=0`）。
-  - **新旧存储架构冲突与待批迁移（`DEC-10` · `PENDING_AUTHOR_DECISION`）**：作者最新原则 `DEC-10` 明确研发资产不得依赖 Google Drive 或单一 Gemini 账号（Google Drive 仅作完本作品备份）。经源码审计，`scripts/r3_experience_drive.mjs` 为 **100% 离线确定性纯 Markdown 校验脚本**（零 Drive API 耦合），且正式 Drive 经验库当前仍为空库（`entries=0`）；已于 [`docs/RESEARCH-ASSET-POLICY.md`](./RESEARCH-ASSET-POLICY.md) §三 登记 6 项审计结论与迁往作者私有 Git 仓库方案（M1/M2/M3），**待作者明确批准前保持现有代码、冻结架构与 Drive 原件零改动**。
+- **`P1-08` 历史实现与去 Drive 延期处理（[`scripts/r3_experience_drive.mjs`](../scripts/r3_experience_drive.mjs)、[`docs/R3-PRD.md`](./R3-PRD.md) 326–365 行）**：
+  - **历史已验证（`VERIFIED`）**：原按 `DEC-02` 在 Google Drive 独立目录 `[CN-R3-EXP]` 验证了六主题聚合文档 + `00-INDEX-vN.md` + `archive/` 闭环，正式空库初始化完成（`themes=6, entries=0`）；源码审计确认 `scripts/r3_experience_drive.mjs` 为 **100% 离线确定性纯 Markdown 校验脚本**（零 Drive API 耦合）。
+  - **现行处置（`DEC-11` · 不阻塞 P0）**：依据 `DEC-10`/`DEC-11`，Google Drive 不再承担研发资产权威存储，但**本轮不新建第二仓库、不提前改动 `P1-08` 代码或现有 Drive 空库**；待进入 P1 涉及跨作品经验库实跑时再按需重构存储层。
   - **尚未验证（`PENDING_VALIDATION`）**：真实长篇连载中的自然节点主动触发、跨多本小说真实文学增益与防结构趋同效果，以及单书长期资产 `ASSET-01` ~ `ASSET-05` 的跨会话完整闭环。
 
 ---
@@ -217,7 +218,7 @@
 | `review.mjs` | 单章审稿流程脚本（历史/概念简称） | 当前仓库**无**独立的 `scripts/review.mjs` 文件；实际脚本为 [`scripts/r2_review.mjs`](../scripts/r2_review.mjs) 与 [`scripts/r2_review_common.mjs`](../scripts/r2_review_common.mjs)（Pilot 另配 `prepare_pilot_review.mjs` / `submit_pilot_review.mjs`） |
 | `chapter-editor` | 单章独立审稿 Agent 角色 | 在宿主运行期派发为独立隔离只读编辑子代理（实测曾用角色名 `r2-chapter-editor` / `chapter-editor`），非仓库硬编码二进制 |
 | `review-agent-template.md` | 审稿规范模板 | 仓库实际包含两份：[`references/v3/review-agent-template.md`](../references/v3/review-agent-template.md)（Pilot/综合审稿模板）与 [`references/v3/r2-review-agent-template.md`](../references/v3/r2-review-agent-template.md)（单章与三章窗口审稿模板） |
-| `reviews/` | 项目内单章/规划/Pilot 审稿记录目录 | 生成于各独立小说项目目录下（细分 `reviews/r2/`、`reviews/r3/`、`reviews/pilot-review-vN.json`），**私有小说审稿记录不提交公开 Skill 仓库** |
+| `reviews/` | 项目内单章/规划/Pilot 审稿记录目录 | 生成于各独立小说项目目录下（细分 `reviews/r2/`、`reviews/r3/`、`reviews/pilot-review-vN.json`）；**正式个人创作小说的审稿记录属私人资产不得提交公开仓库**，研发测试小说的审稿评估记录原则上属公开研发资产并按需保全 |
 
 ---
 
@@ -244,27 +245,26 @@
 | `feat/v3-editorial-pipeline`（PR #1 `OPEN`） | `1c59b26990816b600365a0a32a861a6a897c2e3e` | 旧 V3/R2 独立分支历史（保留不动） |
 | `feat/r3-migration`（PR #2 `OPEN` Draft） | **`b5572a943f9157cda07faa7910dcbfd20b1a3ba5`** | R3 主开发基线；**已合入 PR #3（`v1.2.3` 审核体系冻结架构）** |
 | `docs/r3-review-v3-architecture`（**PR #3 `MERGED`**） | `b63c0b82f220ccba202d63ed66f5bccdc39ba825` | 2026-11-25T16:56:42Z 合并至 `feat/r3-migration`（Merge SHA `b5572a94`，CI 全绿） |
-| **`feat/r3-p0-controlled`**（当前活跃研发分支） | • P0 PRD 验收审核基线：`e52105adca3f994fca3cbdeef9aa935479ceaf9b`（`2026-11-25T17:44:23Z`）<br>• `PROJECT-CONTEXT v1.0` 创建：`15245e785535f83bf11fad684b3ae6dc980a9c0e`（`18:18:08Z`）<br>• 状态同步与资产索引初建：`bb01bbd070c7ec4edf0852ac6213bc4196ecd51a`（`18:38:56Z`）<br>• Drive 只读核验脱敏更新：`c6ac24bd0d2296645cb15cc906fe5538691cbc72`（`18:51:48Z`）<br>• 本次资产治理规范修订：*见本次独立文档提交* | P0 受控研发分支；已固化 P0 管理 PRD `v1.0.1`（`ACCEPTED`），正在提交研发资产治理规范与跨 Agent 接续修订待 GPT-6 审核 |
-| *本地未推送实验分支*：`feat/r3-m1-m4-craft-refinement` | `c45d4c66eee1584b2be4cef0b7879d62e524bfda`（仅本地 VM，`git fsck` 正常，干跑 Bundle `21,441 B`） | M1–M4 工程与 Step 1–3 代码分支（**不含实验报告与原稿**），未推送、未合并；保全风险与归档提案见 [`RESEARCH-ASSET-POLICY.md`](./RESEARCH-ASSET-POLICY.md) §四 |
-| *本地未推送实验分支*：`feat/r3-phase1-throughput-o1-o3` | `c0966b129135b8ec0d2fd38f90d8b34d2f92f6e9`（仅本地 VM，`git fsck` 正常，干跑 Bundle `52,991 B`） | Phase 1 O1–O3 吞吐代码分支（完整包含 M1–M4 基底，**不含实验报告、原稿与遥测**），未推送、未合并；保全风险与归档提案见 [`RESEARCH-ASSET-POLICY.md`](./RESEARCH-ASSET-POLICY.md) §四 |
+| **`feat/r3-p0-controlled`**（当前活跃研发分支） | • P0 PRD 验收审核基线：`e52105adca3f994fca3cbdeef9aa935479ceaf9b`（`2026-11-25T17:44:23Z`）<br>• 上下文与治理演进：`15245e78` → `bb01bbd0` → `c6ac24bd` → `e9c9befc464f75b86aa9e1f6f4cd31872a1f13ff`（`2026-11-25T19:13:13Z`）<br>• 本次上下文与接管协议收尾：*见本次独立文档提交* | P0 受控研发分支；P0 管理 PRD `v1.0.1` 已 `ACCEPTED`，正提交 `PROJECT-CONTEXT v1.2` + `AGENT-HANDOFF v1.0` 待 GPT-6 验收 |
+| *本地未推送实验分支*：`feat/r3-m1-m4-craft-refinement` | `c45d4c66eee1584b2be4cef0b7879d62e524bfda`（仅本地 VM，`git fsck` 正常） | M1–M4 历史代码分支（Tier 3 参考），**不强制推送或迁移** |
+| *本地未推送实验分支*：`feat/r3-phase1-throughput-o1-o3` | `c0966b129135b8ec0d2fd38f90d8b34d2f92f6e9`（仅本地 VM，`git fsck` 正常） | Phase 1 O1–O3 代码分支（含 M1–M4 基底），**不强制迁移**；`P0-0` 按 PRD 只读核查其与 `feat/r3-p0-controlled` 的必要差异 |
 
-### 2. 各专项当前状态与阻塞项（`VERIFIED`）
+### 2. 各专项当前状态与真实依赖（`VERIFIED`）
 - **R3 审核体系 v3 架构设计（`docs/r3/review-v3/`）**：`v1.2.3` 正式冻结并已合入 `feat/r3-migration`（`VERIFIED`）。
-- **P0 实施管理 PRD（`docs/r3/p0-implementation/`）**：`v1.0.1` 已于 `2026-11-26` 基于 `e52105ad` 获 **GPT-6 最终验收（`ACCEPTED`）**（`VERIFIED`）；**管理 PRD 验收通过不代表 `P0-0` 已获启动授权**。
-- **研发资产治理与跨 Agent 接续架构（`docs/RESEARCH-ASSET-POLICY.md`、`docs/PROJECT-ASSET-INDEX.md` v2.0、`docs/PROJECT-CONTEXT.md` v1.1）**：已完成只读审计、7 类 5 维资产重构、`P1-08` 冲突迁移提案、双实验分支保全报告与 `REC-01`~`REC-08` 恢复验收标准设计，等待 **GPT-6** 独立审核与作者拍板授权。
-- **跨环境独立恢复能力现状（严禁夸大）**：
-  - ✅ **已具备**：公开仓代码、冻结架构、`P0` 管理 PRD、长期上下文、基线单测（`REC-01`、`REC-02`、`REC-07`）；
-  - ❌ **尚未具备**：两未推送实验分支（`LOC-BR-01/02`）、本会话 VM 16 份实验报告/原稿/遥测与盲审密钥（`LOC-RPT-*`、`LOC-MS-01`、`LOC-SCR-01`）、ChatGPT 文件库历史包（`CHAT-ZIP-01/02`）、Drive 历史实验快照（`GD-EXP-01~03`）及 `P1-08` 经验库（`PRIV-01`）均**尚未纳入统一私有研发存储**（`REC-03`~`REC-06` 与 `REC-08` 未达标）。
-- **P0 研发任务（`P0-0` ~ `P0-6`）**：**全部 7 项均为 `NOT_STARTED`**；`P0-0` 尚未获得作者正式启动授权（`PENDING_AUTHOR_DECISION`）。
+- **P0 实施管理 PRD（`docs/r3/p0-implementation/`）**：`v1.0.1` 已于 `2026-11-26` 基于 `e52105ad` 获 **GPT-6 最终验收（`ACCEPTED`）**（`VERIFIED`）。
+- **上下文与接管体系（`PROJECT-CONTEXT v1.2`、`AGENT-HANDOFF v1.0`、`RESEARCH-ASSET-POLICY v1.1`、`PROJECT-ASSET-INDEX v2.1`）**：已按 `DEC-11` 收尾（主仓唯一、不建第二仓、按需保全、停止全量历史考古），当前等待 **GPT-6** 独立验收。
+- **P0 研发任务实时状态（`P0-0` ~ `P0-6`）**：
+  - `P0-0`（研发基线审计与实施准备）：`NOT_STARTED` — **已获作者预先授权：上述文档经 GPT-6 验收通过后直接启动，无需再次请示授权**（纯只读审计，严禁修改生产代码，完成后输出 `P0-0-Baseline-Audit-Report.md` 并置为 `READY_FOR_REVIEW`）；
+  - `P0-1` ~ `P0-6`：均为 `NOT_STARTED`，仍严格遵守 `P0-Implementation-PRD v1.0.1` 依赖链、逐项独立 Commit 与 GPT-6 验收制度。
 - **P0-6 预登记硬缺口（`CONFIRMED` / `PENDING_VALIDATION`）**：
   - `G2-A Regression/Calibration`（历史 `9` 章 / `33` 案例）与 **`G2-B Independent Holdout`**（全新未见 `>=20` 章 / `>=60` 案例、单章 `<=3` 条、`>=3` 题材、`0` 章重叠）必须严格分开；
-  - **`G2-B` 当前保持 `underpowered`**（已核实就绪 `0` 章 / `0` 案例，缺口 `+20 章 / +60 案例`，具体可用候选来源需在 `P0-0` 进一步核验）；
-  - A / B / C 三方案尚待离线独立对照；`G6`（12–16 章跨题材 Holdout）尚待建设。
-- **P1 审核新架构 / `Perf-Track` / `P2-OptIn` / 原 R3 P2 七项 / LIT-06 对照**：均尚未启动（`NOT_STARTED` / `PENDING_VALIDATION`）。
+  - **`G2-B` 当前保持 `underpowered`**（已核实就绪 `0` 章 / `0` 案例，缺口 `+20 章 / +60 案例`），须在 `P0-0` 重点核查样本就绪度与缺口；
+  - 历史资产是否需要补充，**只依据 `P0-0` 的实际发现决定**；不阻塞 P0 的历史文件不扩大任务。
+- **P1 审核新架构 / `Perf-Track` / `P2-OptIn` / 原 R3 P2 七项 / LIT-06 对照 / `P1-08` 存储重构**：均尚未启动（`NOT_STARTED` / `PENDING_VALIDATION`），不阻塞 P0。
 
-### 3. 下一步行动（严格等待审核与作者决策）
-1. **等待 GPT-6 独立审核**本轮研发资产治理与跨 Agent 接续修订（`docs/RESEARCH-ASSET-POLICY.md`、`docs/PROJECT-ASSET-INDEX.md` v2.0、`docs/PROJECT-CONTEXT.md` v1.1 与根目录 `README.md`）；
-2. **审核通过后，等待作者逐项审批**：① 私有研发存储建仓与大文件策略；② 两未推送实验分支与 VM 原始实验证据归档方案；③ `P1-08` 迁离 Google Drive 方案；④ 后续建立 `AGENT-HANDOFF.md` 与跨环境实测；⑤ 是否正式启动 `P0-0`（严禁提前越权执行任何一项）。
+### 3. 下一步唯一优先行动（严格执行）
+1. **当前步**：提交本轮 `PROJECT-CONTEXT v1.2`、`AGENT-HANDOFF v1.0`、`RESEARCH-ASSET-POLICY v1.1`、`PROJECT-ASSET-INDEX v2.1` 与根目录 `README.md` 同步，等待 **GPT-6 独立验收**；
+2. **验收通过后立即执行（已获作者预授权）**：直接启动纯只读 **`P0-0：研发基线审计与实施准备`**（审计 `feat/r3-p0-controlled` 基线、核查与 `feat/r3-phase1-throughput-o1-o3` 必要差异、固化 Node/Python 测试基线、全仓 S1 消费者普查、核查 G1–G6 样本就绪度与 `G2-B` 缺口、输出 `P0-0-Baseline-Audit-Report.md`、提交独立 Commit 并置为 `READY_FOR_REVIEW`），**不再回到全量历史资产搜集工作**。
 
 ---
 
@@ -272,9 +272,9 @@
 
 | 角色 | 长期维护职责与边界 |
 |---|---|
-| **Neon（Antigravity）—— 第一责任维护者** | ① 每次重大研发活动、实验验收、架构决策或阶段切换后，主动检查并更新本文、[`RESEARCH-ASSET-POLICY.md`](./RESEARCH-ASSET-POLICY.md) 与 [`PROJECT-ASSET-INDEX.md`](./PROJECT-ASSET-INDEX.md)，**不等待作者提醒**；② 完整保留历史决策、原始文件路径、Commit/PR 与证据分级；③ 严禁静默覆盖历史决策，严禁擅自改变作者已确认的产品原则。 |
-| **GPT-6 —— 知识治理与独立审核者** | ① 从跨会话深度讨论中提炼值得长期沉淀的决策与教训，向 Neon 下达更新指令；② 独立审核本文重大更新的完整性、事实准确性与历史一致性，拦截未经验证的结论进入正式知识档案；③ **每个 P0 / P1 / P2 里程碑完成后执行一次上下文档案一致性检查**。 |
-| **作者 —— 最终决策者** | ① 确立与修订产品方向、创作理念及长期原则；② 批准重大架构、研发存储体系与路线变更；③ 拥有所有研发阶段、资产迁移、代码合并与真实创作实验的最终启动授权权。 |
+| **Neon（Antigravity）—— 研发执行与档案第一维护者** | ① 承担研发、实现、自测、提交证据；② 每次重大阶段切换或验收后主动更新本文、[`AGENT-HANDOFF.md`](./AGENT-HANDOFF.md)、[`RESEARCH-ASSET-POLICY.md`](./RESEARCH-ASSET-POLICY.md) 与 [`PROJECT-ASSET-INDEX.md`](./PROJECT-ASSET-INDEX.md)；③ **最高可置为 `READY_FOR_REVIEW`，严禁自行标记 `ACCEPTED`**，严禁静默覆盖历史决策。 |
+| **GPT-6 —— 独立审核与知识治理者** | ① 独立审核代码/文档/实验证据，提出整改（`CHANGES_REQUESTED`）并确认 `ACCEPTED`；② 拦截未经验证结论进入正式档案；③ 每个 P0 / P1 / P2 里程碑完成后执行上下文档案一致性检查。 |
+| **作者 —— 最终决策者** | ① 确立产品原则与研发目标；② 批准重大架构、许可证定性及范围变更；③ 授予关键阶段启动权限。 |
 
 ---
 
@@ -283,7 +283,7 @@
 | 编号 | 日期 | 核心决策 | 状态 | 权威来源 |
 |---|---|---|---|---|
 | `DEC-01` | 2026-11-24 | 确立 R3 产品原则：小说吸引力与内容完整性优先、创作自由（两级冻结+滚动双环）、完本精修、独立实验可对照回滚 | `CONFIRMED` | [`docs/R3-PRD.md`](./R3-PRD.md) §1 |
-| `DEC-02` | 2026-11-24 | `P1-08` 跨作品经验库锁定 **Google Drive-only** 唯一权威源，否决 Notebook 作为在线主载体，Memory 仅可选定位（*历史记录保留；后受 `DEC-10` 新原则约束，已登记迁离 Drive 提案待作者审批*） | `CONFIRMED` / `VERIFIED`（历史宿主）→ 迁移 `PENDING_AUTHOR_DECISION` | [`docs/R3-PRD.md`](./R3-PRD.md) §4 & 326–365 行；[`docs/RESEARCH-ASSET-POLICY.md`](./RESEARCH-ASSET-POLICY.md) §三 |
+| `DEC-02` | 2026-11-24 | `P1-08` 跨作品经验库锁定 **Google Drive-only** 唯一权威源，否决 Notebook 作为在线主载体，Memory 仅可选定位（*历史记录保留；后受 `DEC-10`/`DEC-11` 约束，Drive 不再作研发权威存储，P1-08 存储重构延至 P1 按需实施*） | `CONFIRMED` / `VERIFIED`（历史宿主）→ P1 按需重构 | [`docs/R3-PRD.md`](./R3-PRD.md) §4 & 326–365 行；[`docs/RESEARCH-ASSET-POLICY.md`](./RESEARCH-ASSET-POLICY.md) §五 |
 | `DEC-03` | 2026-11-24 | R3 唯一研发权威源迁回独立仓库 `chindden/chinese-novelist-skill`（`feat/r3-migration`）；集成开发版许可调整为 GPL-3.0 并保留 MIT 原文 | `CONFIRMED` / `VERIFIED` | [`README.md`](../README.md)、[`NOTICE.md`](../NOTICE.md)、PR #2 |
 | `DEC-04` | 2026-11-24 | 全量审计并按需只读导入 `webnovel-writer@04e485d` 知识原件 + 自主补充层，不引入上游运行时与硬配额 | `CONFIRMED` / `VERIFIED`（工程检索） | [`references/webnovel/README.md`](../references/webnovel/README.md) |
 | `DEC-05` | 2026-11-24 | 作者确立《器痕录》实测原则：字数控制不要苛求，严禁为死磕字数牺牲内容完整性 | `CONFIRMED` | 本文 §二、[`docs/r3/review-v3/05`](./r3/review-v3/05-全书机械诊断引擎PRD.md) |
@@ -291,7 +291,8 @@
 | `DEC-07` | 2026-11-25 | 冻结并合并 R3 审核体系 v3 `v1.2.3`（PR #3）：A/B/C 三方案对照、写手语域防火墙、L0 三重零写入同树校验、`STALE_REVIEW_AFTER_EDIT` 硬阻断分轨、`G2-A`/`G2-B` 严格分离（`G2-B` 标 `underpowered`）、5 分钟 `Perf-Track` 与可选 L4 `P2-OptIn` 彻底解耦 | `CONFIRMED` / `VERIFIED`（文档冻结） | PR #3 (`b5572a94`)、[`docs/r3/review-v3/`](./r3/review-v3/README.md) |
 | `DEC-08` | 2026-11-26 | 建立并验收独立 P0 实施管理 PRD `v1.0.1`（6 态验收分权、Neon 最高提审 `READY_FOR_REVIEW`、`ACCEPTED` 仅限 GPT-6、一任务一 Commit） | `CONFIRMED` / `VERIFIED` | [`docs/r3/p0-implementation/`](./r3/p0-implementation/README.md) |
 | `DEC-09` | 2026-11-25 | 确立 `docs/PROJECT-CONTEXT.md` 为全仓库长期上下文档案（独立于 R3/P0 专项）并配套 [`docs/PROJECT-ASSET-INDEX.md`](./PROJECT-ASSET-INDEX.md)，建立三方长期维护责任制 | `CONFIRMED` | 本文（`v1.0`） |
-| `DEC-10` | 2026-11-25 | **研发资产去 Google Drive / 去单账号依赖原则**：整个 Skill 研发资产不得依赖 Google Drive、单一 Gemini 账号、单次会话或临时 VM，须纳入作者控制的跨 Agent 可访问版本化研发存储；Google Drive 定位收缩为“已正式完本交付小说的研发外备份”（早期 Pilot / Ch 1–12 均属研发资产而非完本作品）；同步立项 `RESEARCH-ASSET-POLICY v1.0`、`P1-08` 迁移审计、双分支保全审计与 `REC-01`~`REC-08` 恢复验收标准 | `CONFIRMED`（原则）/ 迁移实施 `PENDING_AUTHOR_DECISION` | [`docs/RESEARCH-ASSET-POLICY.md`](./RESEARCH-ASSET-POLICY.md)、[`docs/PROJECT-ASSET-INDEX.md`](./PROJECT-ASSET-INDEX.md) |
+| `DEC-10` | 2026-11-25 | **研发资产去 Google Drive / 去单账号依赖原则**：研发资产不得依赖 Google Drive、单一 Gemini 账号、单次会话或临时 VM；Google Drive 收缩为已完成正式个人小说备份（*注：原 v1.0 中新建第二仓库与全量历史归集规划已由 `DEC-11` 修正取消*） | `CONFIRMED`（核心原则）/ 执行范围由 `DEC-11` 修正 | [`docs/RESEARCH-ASSET-POLICY.md`](./RESEARCH-ASSET-POLICY.md) |
+| `DEC-11` | 2026-11-25 | **务实按需保全与立即转入 P0 决策（优先于全量历史归集）**：① 公开主仓 `chindden/chinese-novelist-skill` 为唯一研发入口，**不新建第二个仓库**；② 研发测试小说/实验评估原则上属公开研发资产（测试小说许可证状态 `REVIEW`），正式个人创作小说及其草稿属私人资产；③ **停止全量历史考古**（按四级依赖保全，仅 Tier 1/2 优先可恢复，不强制迁移历史分支/Drive/ChatGPT 包）；④ 建立 [`docs/AGENT-HANDOFF.md`](./AGENT-HANDOFF.md)；⑤ **作者预先授权**：`PROJECT-CONTEXT` 与 `AGENT-HANDOFF` 获 GPT-6 验收后立即启动纯只读 `P0-0`，无需二次申请 | `CONFIRMED` | [`docs/AGENT-HANDOFF.md`](./AGENT-HANDOFF.md)、[`docs/RESEARCH-ASSET-POLICY.md`](./RESEARCH-ASSET-POLICY.md) `v1.1` |
 
 ---
 
@@ -302,4 +303,5 @@
 | **`v1.0`（初建）** | `15245e785535f83bf11fad684b3ae6dc980a9c0e` | `2026-11-25T18:18:08Z` | 首次创建 `docs/PROJECT-CONTEXT.md`，补齐根目录/P0 导航入口并固化 P0 PRD `v1.0.1` `ACCEPTED` 状态（GitHub 统计：`6 files changed, 322 additions, 12 deletions`） | 初步审核认可结构，要求状态同步与新增资产索引 |
 | **`v1.0`（状态同步与资产索引初建）** | `bb01bbd070c7ec4edf0852ac6213bc4196ecd51a` | `2026-11-25T18:38:56Z` | 区分审核基线 `e52105ad` 与 `v1.0` 创建提交 `15245e78`；同步 Quick Start、目录基线、§十及 P0 README 当前状态；新增 `docs/PROJECT-ASSET-INDEX.md` | 资产基础设施审计触发 `DEC-10` 治理升级 |
 | **资产索引 Drive 只读核验** | `c6ac24bd0d2296645cb15cc906fe5538691cbc72` | `2026-11-25T18:51:48Z` | 只读核验 Google Drive 三份《仙门大掌柜》ZIP 与 `[CN-R3-EXP]` 空库并将脱敏大小与 SHA-256 登记入索引 | 已并入 `DEC-10` 全仓资产治理修订 |
-| **`v1.1`（研发资产治理与跨 Agent 接续修订）** | *本次独立文档提交（见 Git 历史与交付报告）* | *提交时由 GitHub 记录* | 新增 [`docs/RESEARCH-ASSET-POLICY.md`](./RESEARCH-ASSET-POLICY.md)；按 7 大类 + 5 维状态矩阵重构 [`docs/PROJECT-ASSET-INDEX.md`](./PROJECT-ASSET-INDEX.md) `v2.0`；新增 `DEC-10` 并保留 `DEC-02` 演变轨迹；补充 `P1-08` 冲突审计、双未推送分支保全报告与 `REC-01`~`REC-08` 恢复验收标准；补齐根目录 README 入口 | `PENDING`（等待 GPT-6 独立审核） |
+| **`v1.1`（研发资产治理修订）** | `e9c9befc464f75b86aa9e1f6f4cd31872a1f13ff` | `2026-11-25T19:13:13Z` | 新增 `docs/RESEARCH-ASSET-POLICY.md` `v1.0`；重构 `docs/PROJECT-ASSET-INDEX.md` `v2.0`；登记 `DEC-10`、`P1-08` 审计与本地分支保全报告 | 作者据此修正收缩范围，确立 `DEC-11` |
+| **`v1.2`（接管机制收尾与 P0 启动前稳定版）** | *本次收尾独立提交（见 Git 历史与交付报告）* | *提交时由 GitHub 记录* | 新增 [`docs/AGENT-HANDOFF.md`](./AGENT-HANDOFF.md)；登记 `DEC-11`（不建第二仓、按需保全、停止历史考古、明确公开测试小说 `REVIEW` 与正式个人小说边界、固化 `P0-0` 过审直启预授权）；同步更新 `RESEARCH-ASSET-POLICY v1.1`、`PROJECT-ASSET-INDEX v2.1` 与根目录 `README.md` | `PENDING`（等待 GPT-6 独立验收；通过后即启 `P0-0`） |
