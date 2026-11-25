@@ -43,16 +43,18 @@
 
 ---
 
-## 三、外部私有压缩包与 Google Drive 私有资产（当前 VM 不存在原件）
+## 三、外部私有压缩包与 Google Drive 私有资产（已通过只读 `gdrive` 现场核验）
 
-> **诚实声明**：经全盘检索当前 VM `/home/antigravity`，以下外部私有 ZIP 均**不在本 VM 内**，且未连接或保存私有 Google Drive 直链。以下如实标注 `UNKNOWN`，绝不编造链接或 SHA-256；历史复核摘要可查公开 [`docs/R3-PRD.md`](./R3-PRD.md)。
+> **只读核验与隐私脱敏说明（2026-11-25 现场核验）**：经作者授权连接 Google Drive 后执行只读检索与临时下载哈希校验（临时文件校验后已立即删除）。因本仓库 `chindden/chinese-novelist-skill` 为**公开仓库（`visibility: public`）**，本表仅同步脱敏后的**规范目录名、文件名、字节数、完整性与实算 SHA-256**，**严禁公开私有 Drive File/Folder ID、直链、个人邮箱或上传私人 ZIP/小说正文**。
 
-| Asset ID | 名称 | 类型 | 存储位置 | 完整路径或链接 | SHA-256 | Git Commit | 隐私等级 | 新 Agent 可访问性 | 恢复说明 |
+| Asset ID | 名称 | 类型 | 存储位置 | 完整路径或链接（脱敏） | SHA-256 | Git Commit | 隐私等级 | 新 Agent 可访问性 | 恢复说明 |
 |---|---|---|---|---|---|---|---|---|---|
-| `EXT-ZIP-01` | `gemini-memory-literary-gain-exp.zip` | Gemini 原生记忆与文学增益实验包（6 篇成稿+盲审+揭晓） | 作者本地 / 早期聊天上传（不在本 VM，不在公开仓） | `UNKNOWN`（历史复核摘要见 `docs/R3-PRD.md` 250–258 行） | `UNKNOWN` | 无（严禁入公开 Git） | **私有 / 含实验正文** | `NO`（需作者重新上传） | 由作者从本地备份或历史上传记录提供；新 Agent 无法自行获取 |
-| `EXT-ZIP-02` | `xianmen-dazhanggui-r3-pilot-delivery.zip` | 《仙门大掌柜》首次 R3 Pilot 精简交付包（22 文件） | 作者本地 / 早期聊天上传（不在本 VM，不在公开仓） | `UNKNOWN`（历史复核摘要见 `docs/R3-PRD.md` 225–231 行） | `UNKNOWN` | 无（严禁入公开 Git） | **含小说正文（严禁公开）** | `NO`（需作者提供） | 历史审阅精简包（缺快照目录，不可独立复现全门禁）；由作者私有保管 |
-| `EXT-ZIP-03` | `xianmen-dazhanggui-r3-pilot-complete-20261124.zip`（`complete-20261124.zip`） | 《仙门大掌柜》完整 R3 Pilot 交付快照 ZIP（197,711 B，74 文件+清单）及后续 P1 激活版（210,038 B，78 文件+清单） | 作者 Google Drive / 本地私有备份（不在本 VM，不在公开仓） | `UNKNOWN`（私有 Drive ID 不入公开仓；复核摘要见 `docs/R3-PRD.md` 364、371、380 行） | `UNKNOWN` | 无（严禁入公开 Git） | **含小说正文（严禁公开）** | `UNKNOWN`（取决于宿主是否获作者 Drive 授权） | 须在获作者 Drive 授权或作者手动提供 ZIP 后，用 `scripts/r3_delivery.py verify` 与 `restore_snapshot.py` 隔离恢复 |
-| `EXT-DRV-01` | `[CN-R3-EXP] 跨作品创作经验库` | Google Drive 唯一权威跨作品经验库（6 主题 + `00-INDEX-vN.md` + `staging/` + `archive/`） | 作者个人 Google Drive 根目录 | 规范目录名 `[CN-R3-EXP] 跨作品创作经验库`（实际 Drive Folder ID 私有：`UNKNOWN`） | 动态演进 | 无（仅脚本 `scripts/r3_experience_drive.mjs` 在公开仓） | 私有 | `UNKNOWN`（需作者授权 Drive 权限） | 仅在宿主获得作者 Google Drive 读写授权后按 `references/v3/r3-p1-protocol.md` 定位；无授权时静默降级不阻断创作 |
+| `EXT-ZIP-01` | `gemini-memory-literary-gain-exp.zip` | Gemini 原生记忆与文学增益实验包（6 篇成稿+盲审+揭晓） | 作者本地 / 早期聊天上传（**不在本 VM、不在公开仓、亦未在 Google Drive 检出**） | `UNKNOWN`（历史复核摘要见 `docs/R3-PRD.md` 250–258 行） | `UNKNOWN` | 无（严禁入公开 Git） | **私有 / 含实验正文** | `NO`（需作者重新上传） | 由作者从本地备份或历史聊天记录提供；新 Agent 无法自行获取 |
+| `EXT-ZIP-02` | `xianmen-dazhanggui-r3-pilot-delivery.zip` | 《仙门大掌柜》首次 R3 Pilot 精简交付包（22 文件） | 作者本地 / 早期聊天上传（**不在本 VM、不在公开仓、亦未在 Google Drive 检出**） | `UNKNOWN`（历史复核摘要见 `docs/R3-PRD.md` 225–231 行） | `UNKNOWN` | 无（严禁入公开 Git） | **含小说正文（严禁公开）** | `NO`（需作者提供） | 历史审阅精简包（已被下方完整备份取代）；如需原包须由作者本地提供 |
+| `EXT-ZIP-03A` | `xianmen-dazhanggui-r3-pilot-complete-20261124.zip` | 《仙门大掌柜》完整 R3 Pilot 交付快照 ZIP（`197,711 B`，75 项含清单，`testzip = OK`） | **Google Drive（私有，`Shared: false`，已实测核验）** | `Google Drive / [CN-R3-BACKUP] 仙门大掌柜 / xianmen-dazhanggui-r3-pilot-complete-20261124.zip`（*私有 File ID 不公开*） | `70b1c4c0ec5693864d0d0dceeef53d06809bb8a6d63370afe9f9cec7aead2221` | 无（严禁入公开 Git） | **含小说正文（严禁公开）** | **有条件 `YES`（宿主获作者 `gdrive` 授权即可只读定位下载）** | 宿主连接 `gdrive` 后按目录名 `[CN-R3-BACKUP] 仙门大掌柜` 检索下载，再用 `scripts/r3_delivery.py verify` 与 `restore_snapshot.py` 隔离恢复 |
+| `EXT-ZIP-03B` | `xianmen-dazhanggui-r3-p1-activated-20261124.zip` | 《仙门大掌柜》P1 激活后完整交付快照 ZIP（`210,038 B`，79 项含清单，`testzip = OK`） | **Google Drive（私有，`Shared: false`，已实测核验）** | `Google Drive / [CN-R3-BACKUP] 仙门大掌柜 / xianmen-dazhanggui-r3-p1-activated-20261124.zip`（*私有 File ID 不公开*） | `8796bfeeedb706fd02770a45f5694b1019283c153c92af93c5e4e3408fb50d08` | 无（严禁入公开 Git） | **含小说正文（严禁公开）** | **有条件 `YES`（宿主获作者 `gdrive` 授权即可只读定位下载）** | 同上（对应 `docs/R3-PRD.md` 371 行 P1 激活核验版） |
+| `EXT-ZIP-03C` | `xianmen-dazhanggui-r3-ch12-complete-20261124.zip` | 《仙门大掌柜》Ch 1–12 完整交付快照 ZIP（`591,326 B`，177 项含清单，`testzip = OK`） | **Google Drive（私有，`Shared: false`，已实测核验）** | `Google Drive / [CN-R3-BACKUP] 仙门大掌柜 / xianmen-dazhanggui-r3-ch12-complete-20261124.zip`（*私有 File ID 不公开*） | `d0295a5f713a896669dbd7f4eaf4ec181536a77ca774d35ac8a496762ee4ebf5` | 无（严禁入公开 Git） | **含小说正文（严禁公开）** | **有条件 `YES`（宿主获作者 `gdrive` 授权即可只读定位下载）** | 同上（对应 `docs/R3-PRD.md` 380 行 Ch 1–12 连载实验完整备份） |
+| `EXT-DRV-01` | `[CN-R3-EXP] 跨作品创作经验库` | Google Drive 唯一权威跨作品经验库（实测含 `00-INDEX-v1.md.docx` + `01`–`06` 六主题 `.docx` + `archive/` + `staging/`） | **Google Drive（私有，`Shared: false`，已实测核验）** | `Google Drive / [CN-R3-EXP] 跨作品创作经验库`（*私有 Folder ID 不公开*） | 动态演进（7 文件 + 2 子目录） | 无（配套脚本 `scripts/r3_experience_drive.mjs` 在公开仓） | 私有 | **有条件 `YES`（宿主获作者 `gdrive` 授权即可定位读取）** | 宿主连接 `gdrive` 后按规范目录名 `[CN-R3-EXP] 跨作品创作经验库` 定位并遵循 `references/v3/r3-p1-protocol.md`；无授权时静默降级不阻断创作 |
 
 ---
 
@@ -67,11 +69,9 @@
 
 ---
 
-## 五、当前无法在 VM 中定位原始文件的资产清单（透明留痕）
+## 五、当前仍无法在 VM 与 Google Drive 定位原始文件的资产清单（透明留痕）
 
-以下资产在历史文档中存在复核结论，但**原始文件当前不在本 VM 文件系统也不在公开 GitHub 仓库**，新会话如需核验原始字节，必须由作者重新提供或授予对应云端权限：
-1. `EXT-ZIP-01`：`gemini-memory-literary-gain-exp.zip`（路径 `UNKNOWN`，SHA-256 `UNKNOWN`）
-2. `EXT-ZIP-02`：`xianmen-dazhanggui-r3-pilot-delivery.zip`（路径 `UNKNOWN`，SHA-256 `UNKNOWN`）
-3. `EXT-ZIP-03`：`xianmen-dazhanggui-r3-pilot-complete-20261124.zip`（及 P1 激活版 ZIP，路径 `UNKNOWN`，SHA-256 `UNKNOWN`）
-4. `EXT-DRV-01`：Google Drive `[CN-R3-EXP] 跨作品创作经验库`（Folder ID 私有 `UNKNOWN`，视宿主 Drive 授权而定）
-5. `Step 3` 与早期 Gemini 会话的子代理原始 `transcript.jsonl`（未落盘至本仓库或可访问日志，标 `UNKNOWN`）
+经同时检索当前 VM 文件系统、公开 GitHub 仓库与已授权 Google Drive，以下资产目前仍无法定位原始文件，如需核验原始字节须由作者从本地补充提供：
+1. `EXT-ZIP-01`：`gemini-memory-literary-gain-exp.zip`（VM 与 Google Drive 均未检出，路径与 SHA-256 保持 `UNKNOWN`）
+2. `EXT-ZIP-02`：`xianmen-dazhanggui-r3-pilot-delivery.zip`（早期 22 文件精简审阅包，VM 与 Google Drive 均未检出，已被 Drive 上已核验的 `EXT-ZIP-03A/B/C` 完整备份取代；原精简包路径与 SHA-256 保持 `UNKNOWN`）
+3. `Step 3` 与早期 Gemini 会话的子代理原始 `transcript.jsonl`（未落盘至本仓库、VM 或 Google Drive，保持 `UNKNOWN`）
