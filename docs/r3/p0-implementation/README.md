@@ -11,7 +11,7 @@
 基于已冻结的 R3 审核体系 v3 架构（`v1.2.3`），在不破坏 R2 既有行为与现有 R3 基线契约的前提下，完成以下受控研发闭环：
 1. **基线对齐与实施准备（`P0-0`）**：审计主基线与本地实验分支差异、固化自动化测试基线、盘点下游枚举消费者清单、核查 `G2-B Independent Holdout` 当前 `underpowered` 样本缺口。
 2. **S1 四级枚举与下游兼容（`P0-1`）**：落地正式 `SUGGESTION` 枚举与 `ENG-FIX-P1` 遗留字段校验，确保 R2 三级历史报告 100% 向后兼容、`SUGGESTION` 0% 触发阻断或必改闭环。
-3. **写手语域防火墙（`P0-2`）**：实现纯叙事写手任务卡与返工修订卡编译，确保写手上下文零治理元数据、零 `reverseDefense`、零限时压迫词，末段强制为“上章结尾 + 文风锚点”。
+3. **写手语域防火墙（`P0-2`）**：实现纯叙事写手任务卡与返工修订卡编译，确保写手上下文零治理元数据、零 `reverseDefense`、零限时压迫词，并严格锁定写手任务卡末尾先后顺序：**倒数第二部分为本书文风锚点示范（紧邻上章结尾之前），最后一部分（最末位）为上一章结尾原文（500–900 字）**。
 4. **确定性预检 `precheck v2`（`P0-3`）**：仅工程文件破损与作者显式硬约束允许阻断送审；字数/重复段/跨段引语默认非阻断；自动提取算术、日期、账目、道具编号与高潮信息差线索进入 `NEEDS_SEMANTIC_AUDIT`。
 5. **复合审读指纹与 Fail-Closed（`P0-4`）**：落地五元组 `reviewFingerprint`、6 维 `dimensionAuditSlots` 与 `NEEDS_SEMANTIC_AUDIT` 完备性硬拒收，修复预检自修空增 `revision` Bug。
 6. **A/B/C 三方案审稿原型与 `PLANNING_CONFLICT_BLOCK`（`P0-5`）**：在隔离沙箱中完成方案 A（增强单阶段）、方案 B（Pass 1 发现 + Pass 2 独立轻量定级）、方案 C（单阶段高召回 + 独立轻量定级复核）原型及 `impactScope` 硬拦截，**不提前替换生产主审稿模板**。
@@ -33,8 +33,9 @@
 | **架构冻结 Merge Commit SHA** | `b5572a943f9157cda07faa7910dcbfd20b1a3ba5`（源 PR 最终提交 `b63c0b82f220ccba202d63ed66f5bccdc39ba825`） |
 | **P0 受控研发分支** | **`feat/r3-p0-controlled`**（直接基于 `origin/feat/r3-migration` @ `b5572a943f9157cda07faa7910dcbfd20b1a3ba5` 创建） |
 | **基线分支 / SHA** | `feat/r3-migration` @ **`b5572a943f9157cda07faa7910dcbfd20b1a3ba5`** |
+| **实施管理文档初始化 Commit SHA** | **`95b0951d021eddf5d23a1710944550ccc38ca1ff`**（GitHub 提交时间 `2026-11-25T17:12:50Z`，*仅为管理文档初始化提交时间，非实际研发开始时间*） |
 | **历史本地实验参考（未合入基线）** | `feat/r3-phase1-throughput-o1-o3` @ `c0966b1`（仅作 `P0-0` 只读差异审计参考，严禁整枝盲目合入） |
-| **当前阶段** | **P0 实施管理 PRD 建档完成 → 等待 GPT-6 审核本实施 PRD 及作者正式授权启动 `P0-0`** |
+| **当前阶段** | **P0 实施管理 PRD `v1.0` 收到 GPT-6 `CHANGES_REQUESTED` → 已完成两项定点修订（`v1.0.1`）并重新提交 GPT-6 审核（`READY_FOR_REVIEW`）；尚未启动 `P0-0`** |
 | **总体进度** | **`0 / 7` 任务已验收（`0%`）**（`P0-0` ~ `P0-6` 全部为 `NOT_STARTED`） |
 
 ### 引用的正式冻结架构基线文档（只读权威，禁止修改）
@@ -55,7 +56,7 @@
 |---|---|---|---|---|---|---|
 | **P0-0** | 研发基线审计与实施准备 | 本 PRD 经 GPT-6 审核通过 + 作者授权 | `NOT_STARTED` | `—` | `PENDING_PRD_APPROVAL` | 纯只读审计与准备，不改生产代码、不改冻结架构任务定义 |
 | **P0-1** | S1 四级枚举及下游兼容（含 `ENG-FIX-P1`） | `P0-0 (ACCEPTED)` | `NOT_STARTED` | `—` | `NOT_SUBMITTED` | 严守 R2 零破坏与 `SUGGESTION` 0% 阻断（`08` E1 & G5） |
-| **P0-2** | 写手语域防火墙 | `P0-0 (ACCEPTED)` | `NOT_STARTED` | `—` | `NOT_SUBMITTED` | 写手上下文治理词/限时压迫词 `= 0`（`08` E5） |
+| **P0-2** | 写手语域防火墙 | `P0-0 (ACCEPTED)` | `NOT_STARTED` | `—` | `NOT_SUBMITTED` | 写手上下文治理词/限时压迫词 `= 0`；末尾严格按“倒数第二部分：本书文风锚点示范 → 最后一部分（最末位）：上一章结尾原文（500–900 字）”排列（`03` 2.1 节 & `08` E5） |
 | **P0-3** | `precheck v2` | `P0-0 (ACCEPTED)` | `NOT_STARTED` | `—` | `NOT_SUBMITTED` | 仅文件破损与作者显式硬约束阻断；字数/重复段/跨段引语不阻断 |
 | **P0-4** | 复合审读指纹与 Fail-Closed | `P0-1 (ACCEPTED)` | `NOT_STARTED` | `—` | `NOT_SUBMITTED` | 五元组复合指纹 + 6 维取证槽 + 修空增 `revision` Bug（`08` E2） |
 | **P0-5** | A/B/C 三方案审稿原型（含 `PLANNING_CONFLICT_BLOCK`） | `P0-2`, `P0-3`, `P0-4 (均 ACCEPTED)` | `NOT_STARTED` | `—` | `NOT_SUBMITTED` | 仅在隔离沙箱落地原型，**禁止提前替换生产主审稿模板** |
