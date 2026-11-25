@@ -1,7 +1,11 @@
 # Chinese Novelist Skill — Project Context
 
-> **版本**：`1.0` ｜ **范围**：`chindden/chinese-novelist-skill` 全仓库长期上下文档案（覆盖原始 Skill → R2 → R3 → 未来 R4，不属于 R3 专项或 P0 专项）  
-> **最后核验基线**：分支 `feat/r3-p0-controlled` @ `e52105adca3f994fca3cbdeef9aa935479ceaf9b`（最近 GPT-6 审核基线）；`feat/r3-migration` @ `b5572a943f9157cda07faa7910dcbfd20b1a3ba5`（PR #3 冻结架构合并提交）  
+> **版本**：`1.0`（状态同步与资产索引补全版，等待 GPT-6 最终审核） ｜ **范围**：`chindden/chinese-novelist-skill` 全仓库长期上下文档案（覆盖原始 Skill → R2 → R3 → 未来 R4，不属于 R3 专项或 P0 专项）  
+> **核验基线（严格区分历史审核基线与档案创建提交）**：  
+> - **P0 PRD 最近 GPT-6 审核基线**：`feat/r3-p0-controlled` @ `e52105adca3f994fca3cbdeef9aa935479ceaf9b`（`2026-11-25T17:44:23Z`）  
+> - **PROJECT-CONTEXT v1.0 创建提交**：`feat/r3-p0-controlled` @ `15245e785535f83bf11fad684b3ae6dc980a9c0e`（`2026-11-25T18:18:08Z`）  
+> - **R3 冻结架构合并基线**：`feat/r3-migration` @ `b5572a943f9157cda07faa7910dcbfd20b1a3ba5`（PR #3）  
+> **配套资产索引**：[`docs/PROJECT-ASSET-INDEX.md`](./PROJECT-ASSET-INDEX.md)（全仓库公开资产、私有/本地实验报告、私人 ZIP 与未推送本地分支可访问性索引）  
 > **角色定位**：全仓库历史背景、核心决策、实验证据、创作理念与当前状态的统一恢复入口。**不取代**专项 PRD，**不复制**专项任务细则。
 
 ---
@@ -14,15 +18,15 @@
 3. **读 V3 说明与路线**：[`README_V3.md`](../README_V3.md) 与 [`ROADMAP.md`](../ROADMAP.md)
 4. **核对实时 GitHub 分支 HEAD**：切勿把本文历史快照当作永久实时状态，先查当前目标分支最新 Commit
 5. **读当前专项管理文档**：例如 P0 专项 [`docs/r3/p0-implementation/README.md`](./r3/p0-implementation/README.md)、[`P0-Implementation-PRD.md`](./r3/p0-implementation/P0-Implementation-PRD.md) 与 [`P0-Progress-Log.md`](./r3/p0-implementation/P0-Progress-Log.md)
-6. **按需查阅冻结架构与原始实验材料**：如 [`docs/r3/review-v3/`](./r3/review-v3/README.md) 与 [`docs/R3-PRD.md`](./R3-PRD.md)
+6. **按需查阅冻结架构、资产索引与原始实验材料**：[`docs/PROJECT-ASSET-INDEX.md`](./PROJECT-ASSET-INDEX.md)、[`docs/r3/review-v3/`](./r3/review-v3/README.md) 与 [`docs/R3-PRD.md`](./R3-PRD.md)
 
 ### 2. 新会话恢复后必须向作者汇报的 7 项内容
 1. **项目整体目标**：让中文小说创作 Skill 从“能完结”演进为“持续写出让读者愿意追读的长篇作品”，统筹创作能力、文学质量、长期记忆、知识资产、审核系统与工程效率。
 2. **历史重要决策**：作者创作原则、R2/R3 边界、两级冻结+滚动双环+完本精修、GPL-3.0 知识资产导入、R3 审核体系 v3 架构冻结。
-3. **当前阶段**：架构冻结已完成（`v1.2.3`）；P0 实施管理 PRD（`v1.0.1`）已获 GPT-6 验收；正在建立全仓库长期上下文档案。
+3. **当前阶段**：架构冻结已完成（`v1.2.3`）；P0 实施管理 PRD（`v1.0.1`）已获 GPT-6 验收；**`PROJECT-CONTEXT v1.0` 已建立，等待 GPT-6 独立审核**。
 4. **已完成并验收的工作**：R3 独立仓库迁移、GPL-3.0 许可调整、上游 722 条知识与 37 套题材模板导入、P1-08 Drive-only 经验库宿主终验、R3 审核体系 v3 架构冻结（PR #3 已合入）、P0 管理 PRD `v1.0.1` 验收。
 5. **未完成和阻塞事项**：`P0-0` ~ `P0-6` 全部 `NOT_STARTED`；`G2-B Independent Holdout` 处于 `underpowered`（当前就绪 `0` 章 / `0` 案例，需核验并补齐 `>=20` 未见独立章、`>=60` 案例）；A/B/C 三方案待离线对照；`G6` 跨题材 Holdout 待建设；P1 审核新架构与原 R3 P2 七项待实施。
-6. **上一会话留下的下一步指令**：完成本 `PROJECT-CONTEXT v1.0` 建档与 GPT-6 独立审核后，等待作者单独授权是否启动 `P0-0`。
+6. **上一会话留下的下一步指令**：等待 **GPT-6** 对 `PROJECT-CONTEXT v1.0` 及 [`docs/PROJECT-ASSET-INDEX.md`](./PROJECT-ASSET-INDEX.md) 的独立审核；审核通过后等待作者决定下一阶段（是否启动 `P0-0` 或其他安排）。
 7. **需要作者决策的事项**：`P0-0` 正式启动授权；后续 `G2-B` / `G6` 独立样本来源确认；既有《仙门大掌柜》与未来多题材真实连载规划。
 
 > **防重复劳动铁律**：严禁无必要地重新研究已冻结的 `v1.2.3` 审核架构，严禁要求作者重复交代本文与仓库已记录的历史背景与原则。
@@ -61,6 +65,7 @@
 | [`README_V3.md`](../README_V3.md) | V3 / R2 / R3 使用说明、命令与测试入口 |
 | [`ROADMAP.md`](../ROADMAP.md) | 上游继承与项目整体演进路线 |
 | [`docs/PROJECT-CONTEXT.md`](./PROJECT-CONTEXT.md) | **全仓库长期历史、知识、决策、证据与跨会话恢复上下文**（本文） |
+| [`docs/PROJECT-ASSET-INDEX.md`](./PROJECT-ASSET-INDEX.md) | **全仓库公开/私有/本地实验资产、私人 ZIP 与未推送分支的可访问性索引** |
 | [`docs/R3-PRD.md`](./R3-PRD.md) | R3 早期至迁移、知识库导入、P1-08 与 LIT 重构的历史主 PRD 台账 |
 | [`docs/r3/review-v3/`](./r3/review-v3/README.md) | 已冻结的 R3 审核体系 v3 架构设计蓝图（`v1.2.3`，只读权威） |
 | [`docs/r3/p0-implementation/`](./r3/p0-implementation/README.md) | P0 受控研发专项实施 PRD、状态面板与进度验收日志 |
@@ -83,13 +88,16 @@
    - 经深度对标外部双项目全生命周期机制，完成 R3 审核体系 v3 架构重设计（`v1.2.3`）并经 PR #3 合入 `feat/r3-migration`（`b5572a94`），随后在 `feat/r3-p0-controlled` 建立 P0 受控研发管理 PRD（`v1.0.1` 获 GPT-6 验收）。
 5. **未来演进（R3 P0/P1/Perf-Track/P2-OptIn → 未来 R4）[`PENDING_AUTHOR_DECISION`]**：完成 P0 单章破局、P1 跨章 L0/L2/L3 闭环、独立 5 分钟系统性能轨道、多题材真实文学盲评与长期小说资产体系，最终迈向下一代全链路创作引擎（R4）。
 
-### 2. 当前仓库主要目录与资产结构（`VERIFIED` @ `e52105ad`）
-- `SKILL.md`：统一自然语言单入口路由规范。
-- `references/v3/`：R2/R3 工作流、共创、互动规划、分区协议、运行手册、P1 协议、工艺红队与审稿模板（16 份）。
-- `references/flows/` & `references/guides/`：继承自原版的分阶段流程清单与写作指导。
-- `references/webnovel/`：统一网文知识库（原 8 份自主 Markdown + `upstream/` 115 份 GPL 原件 + `supplement/` 自主补充层 + 覆盖矩阵与研究审计）。
-- `scripts/` & `scripts/tests/` & `tests/`：Node.js ESM 工程门禁/账本/规划/审稿/经验库脚本、Python 快照与知识库 BM25 检索脚本及回归测试套件。
-- `docs/`：全仓库长期上下文 `PROJECT-CONTEXT.md`、历史台账 `R3-PRD.md`、冻结审核架构 `docs/r3/review-v3/`、P0 专项管理 `docs/r3/p0-implementation/`。
+### 2. 当前仓库主要目录与资产结构（`VERIFIED`：基础目录核验于 `e52105ad`，`docs/PROJECT-CONTEXT.md` 新增于 `15245e78`，`docs/PROJECT-ASSET-INDEX.md` 新增于本次状态同步提交）
+- `SKILL.md`：统一自然语言单入口路由规范（已存在于 `e52105ad`）。
+- `references/v3/`：R2/R3 工作流、共创、互动规划、分区协议、运行手册、P1 协议、工艺红队与审稿模板（16 份，已存在于 `e52105ad`）。
+- `references/flows/` & `references/guides/`：继承自原版的分阶段流程清单与写作指导（已存在于 `e52105ad`）。
+- `references/webnovel/`：统一网文知识库（原 8 份自主 Markdown + `upstream/` 115 份 GPL 原件 + `supplement/` 自主补充层 + 覆盖矩阵与研究审计，已存在于 `e52105ad`）。
+- `scripts/` & `scripts/tests/` & `tests/`：Node.js ESM 工程门禁/账本/规划/审稿/经验库脚本、Python 快照与知识库 BM25 检索脚本及回归测试套件（已存在于 `e52105ad`）。
+- `docs/`：
+  - 已存在于 `e52105ad`：历史台账 `docs/R3-PRD.md`、冻结审核架构 `docs/r3/review-v3/`、P0 专项管理 `docs/r3/p0-implementation/`；
+  - 新增于 `15245e78`：全仓库长期上下文 `docs/PROJECT-CONTEXT.md`；
+  - 新增于本次同步提交：全仓库资产索引 [`docs/PROJECT-ASSET-INDEX.md`](./PROJECT-ASSET-INDEX.md)。
 
 ---
 
@@ -233,13 +241,14 @@
 | `feat/v3-editorial-pipeline`（PR #1 `OPEN`） | `1c59b26990816b600365a0a32a861a6a897c2e3e` | 旧 V3/R2 独立分支历史（保留不动） |
 | `feat/r3-migration`（PR #2 `OPEN` Draft） | **`b5572a943f9157cda07faa7910dcbfd20b1a3ba5`** | R3 主开发基线；**已合入 PR #3（`v1.2.3` 审核体系冻结架构）** |
 | `docs/r3-review-v3-architecture`（**PR #3 `MERGED`**） | `b63c0b82f220ccba202d63ed66f5bccdc39ba825` | 2026-11-25T16:56:42Z 合并至 `feat/r3-migration`（Merge SHA `b5572a94`，CI 全绿） |
-| **`feat/r3-p0-controlled`**（当前活跃研发分支） | 审核基线 `e52105adca3f994fca3cbdeef9aa935479ceaf9b`（本次建档将推进最新 Commit） | P0 受控研发分支；已固化 P0 管理 PRD `v1.0.1`（`ACCEPTED`） |
-| *本地未推送实验分支*：`feat/r3-m1-m4-craft-refinement` | `c45d4c6`（本地） | M1–M4 工程与 Step 1–3 实验分支，未合并主干 |
-| *本地未推送实验分支*：`feat/r3-phase1-throughput-o1-o3` | `c0966b1`（本地） | Phase 1 O1–O3 吞吐实验分支，未合并主干，留待 `P0-0` 只读审计 |
+| **`feat/r3-p0-controlled`**（当前活跃研发分支） | • P0 PRD 验收审核基线：`e52105adca3f994fca3cbdeef9aa935479ceaf9b`（`2026-11-25T17:44:23Z`）<br>• `PROJECT-CONTEXT v1.0` 创建提交：`15245e785535f83bf11fad684b3ae6dc980a9c0e`（`2026-11-25T18:18:08Z`，6 files changed, 322 additions, 12 deletions） | P0 受控研发分支；已固化 P0 管理 PRD `v1.0.1`（`ACCEPTED`）与 `PROJECT-CONTEXT v1.0`（待 GPT-6 最终审核） |
+| *本地未推送实验分支*：`feat/r3-m1-m4-craft-refinement` | `c45d4c66eee1584b2be4cef0b7879d62e524bfda`（仅本地 VM） | M1–M4 工程与 Step 1–3 实验分支，未推送 GitHub、未合并主干（可访问性见 [`PROJECT-ASSET-INDEX.md`](./PROJECT-ASSET-INDEX.md)） |
+| *本地未推送实验分支*：`feat/r3-phase1-throughput-o1-o3` | `c0966b129135b8ec0d2fd38f90d8b34d2f92f6e9`（仅本地 VM） | Phase 1 O1–O3 吞吐实验分支，未推送 GitHub、未合并主干（可访问性见 [`PROJECT-ASSET-INDEX.md`](./PROJECT-ASSET-INDEX.md)） |
 
 ### 2. 各专项当前状态与阻塞项（`VERIFIED`）
 - **R3 审核体系 v3 架构设计（`docs/r3/review-v3/`）**：`v1.2.3` 正式冻结并已合入 `feat/r3-migration`（`VERIFIED`）。
 - **P0 实施管理 PRD（`docs/r3/p0-implementation/`）**：`v1.0.1` 已于 `2026-11-26` 基于 `e52105ad` 获 **GPT-6 最终验收（`ACCEPTED`）**（`VERIFIED`）；**注意：管理 PRD 验收通过不代表 `P0-0` 已获启动授权**。
+- **全仓库上下文档案与资产索引（`docs/PROJECT-CONTEXT.md` & `docs/PROJECT-ASSET-INDEX.md`）**：`PROJECT-CONTEXT v1.0` 已于 `15245e78` 建立，现已完成状态同步与资产可访问性索引补全，等待 **GPT-6** 最终独立审核。
 - **P0 研发任务（`P0-0` ~ `P0-6`）**：**全部 7 项均为 `NOT_STARTED`**；`P0-0` 尚未获得作者正式启动授权（`PENDING_AUTHOR_DECISION`）。
 - **P0-6 预登记硬缺口（`CONFIRMED` / `PENDING_VALIDATION`）**：
   - `G2-A Regression/Calibration`（历史 `9` 章 / `33` 案例）与 **`G2-B Independent Holdout`**（全新未见 `>=20` 章 / `>=60` 案例、单章 `<=3` 条、`>=3` 题材、`0` 章重叠）必须严格分开；
@@ -247,9 +256,9 @@
   - A / B / C 三方案尚待离线独立对照；`G6`（12–16 章跨题材 Holdout）尚待建设。
 - **P1 审核新架构 / `Perf-Track` / `P2-OptIn` / 原 R3 P2 七项 / LIT-06 对照**：均尚未启动（`NOT_STARTED` / `PENDING_VALIDATION`）。
 
-### 3. 下一步行动（严格等待授权）
-1. 将本次新建的 `docs/PROJECT-CONTEXT.md` 及配套 5 份导航/状态固化文件提交至 `feat/r3-p0-controlled`，暂停交付 **GPT-6 独立审核**；
-2. 审核通过后，**等待作者单独明确授权**，再正式启动 `P0-0`（研发基线审计与实施准备）。
+### 3. 下一步行动（严格等待审核与作者决策）
+1. **等待 GPT-6 最终独立审核**本 `PROJECT-CONTEXT v1.0` 状态同步版及新增资产索引 [`docs/PROJECT-ASSET-INDEX.md`](./PROJECT-ASSET-INDEX.md)；
+2. **审核通过后，等待作者决定下一阶段**（例如：是否建立独立 Agent 接管协议、是否单独正式授权启动 `P0-0` 等；严禁自行合并或提前启动后续事项）。
 
 ---
 
@@ -257,7 +266,7 @@
 
 | 角色 | 长期维护职责与边界 |
 |---|---|
-| **Neon（Antigravity）—— 第一责任维护者** | ① 每次重大研发活动、实验验收、架构决策或阶段切换后，主动检查并更新本文，**不等待作者提醒**；② 完整保留历史决策、原始文件路径、Commit/PR 与证据分级；③ 严禁静默覆盖历史决策，严禁擅自改变作者已确认的产品原则。 |
+| **Neon（Antigravity）—— 第一责任维护者** | ① 每次重大研发活动、实验验收、架构决策或阶段切换后，主动检查并更新本文及 [`PROJECT-ASSET-INDEX.md`](./PROJECT-ASSET-INDEX.md)，**不等待作者提醒**；② 完整保留历史决策、原始文件路径、Commit/PR 与证据分级；③ 严禁静默覆盖历史决策，严禁擅自改变作者已确认的产品原则。 |
 | **GPT-6 —— 知识治理与独立审核者** | ① 从跨会话深度讨论中提炼值得长期沉淀的决策与教训，向 Neon 下达更新指令；② 独立审核本文重大更新的完整性、事实准确性与历史一致性，拦截未经验证的结论进入正式知识档案；③ **每个 P0 / P1 / P2 里程碑完成后执行一次上下文档案一致性检查**。 |
 | **作者 —— 最终决策者** | ① 确立与修订产品方向、创作理念及长期原则；② 批准重大架构与路线变更；③ 拥有所有研发阶段、代码合并与真实创作实验的最终启动授权权。 |
 
@@ -275,4 +284,13 @@
 | `DEC-06` | 2026-11-25 | 审稿 Prompt 离线校准 `v2.2` 触发预设停止条件（FPR `15.15% > 15.0%`），否决继续单轮文字调参（`REJECTED` v2.3），转入审核体系 v3 架构重设计 | `CONFIRMED` / `VERIFIED` | [`docs/r3/review-v3/01`](./r3/review-v3/01-R3当前审核能力真实实现审计.md) |
 | `DEC-07` | 2026-11-25 | 冻结并合并 R3 审核体系 v3 `v1.2.3`（PR #3）：A/B/C 三方案对照、写手语域防火墙、L0 三重零写入同树校验、`STALE_REVIEW_AFTER_EDIT` 硬阻断分轨、`G2-A`/`G2-B` 严格分离（`G2-B` 标 `underpowered`）、5 分钟 `Perf-Track` 与可选 L4 `P2-OptIn` 彻底解耦 | `CONFIRMED` / `VERIFIED`（文档冻结） | PR #3 (`b5572a94`)、[`docs/r3/review-v3/`](./r3/review-v3/README.md) |
 | `DEC-08` | 2026-11-26 | 建立并验收独立 P0 实施管理 PRD `v1.0.1`（6 态验收分权、Neon 最高提审 `READY_FOR_REVIEW`、`ACCEPTED` 仅限 GPT-6、一任务一 Commit） | `CONFIRMED` / `VERIFIED` | [`docs/r3/p0-implementation/`](./r3/p0-implementation/README.md) |
-| `DEC-09` | 2026-11-25 | 确立 `docs/PROJECT-CONTEXT.md` 为全仓库长期上下文档案（独立于 R3/P0 专项），建立三方长期维护责任制 | `CONFIRMED` | 本文（`v1.0`） |
+| `DEC-09` | 2026-11-25 | 确立 `docs/PROJECT-CONTEXT.md` 为全仓库长期上下文档案（独立于 R3/P0 专项）并配套 [`docs/PROJECT-ASSET-INDEX.md`](./PROJECT-ASSET-INDEX.md)，建立三方长期维护责任制 | `CONFIRMED` | 本文（`v1.0`） |
+
+---
+
+## 十三、档案版本维护记录
+
+| 版本 | 创建 / 修订 Commit SHA | GitHub 提交时间（UTC） | 变更说明 | GPT-6 审核状态 |
+|---|---|---|---|---|
+| **`v1.0`（初建）** | `15245e785535f83bf11fad684b3ae6dc980a9c0e` | `2026-11-25T18:18:08Z` | 首次创建 `docs/PROJECT-CONTEXT.md`，补齐根目录/P0 导航入口并固化 P0 PRD `v1.0.1` `ACCEPTED` 状态（GitHub 统计：`6 files changed, 322 additions, 12 deletions`） | 初步审核认可结构，要求状态同步与新增资产索引 |
+| **`v1.0`（状态同步与资产索引补全）** | *本次状态同步独立提交（见 Git 历史与交付报告）* | *提交时由 GitHub 记录* | 区分审核基线 `e52105ad` 与 `v1.0` 创建提交 `15245e78`；同步 Quick Start、目录基线、§十及 P0 README 当前状态；新增 [`docs/PROJECT-ASSET-INDEX.md`](./PROJECT-ASSET-INDEX.md) 并建立双向索引 | `PENDING`（等待 GPT-6 最终审核） |
