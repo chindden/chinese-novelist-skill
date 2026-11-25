@@ -1,0 +1,359 @@
+{
+  "schemaVersion": 1,
+  "baseline": "5c7fe9f3e2ea40b22ccc6c3977de41496d1ba912",
+  "notes": "X01–15 fixed query suite across canonical genres; first reviewed baseline returned summaries via faithful JS BM25 approximation, not Python CLI. H01–04 paraphrase checks for four added independently authored methods (not blinded holdouts). Relevant IDs are reviewer-selected positive anchors, not exhaustive labels; score is hit@3, not precision or recall. Composition checks routing and optional references, not literary evaluation.",
+  "cases": [
+    {
+      "id": "X01",
+      "genres": [
+        "仙侠"
+      ],
+      "stage": "plan",
+      "query": "机缘 代价",
+      "table": "桥段套路",
+      "relevant": [
+        "TR-017",
+        "TR-014",
+        "TR-106"
+      ],
+      "need": "机缘伴随限制、风险与后果"
+    },
+    {
+      "id": "X02",
+      "genres": [
+        "玄幻"
+      ],
+      "stage": "init",
+      "query": "力量体系 等级",
+      "table": "金手指与设定",
+      "relevant": [
+        "SY-001"
+      ],
+      "need": "层级质变与跨级限制"
+    },
+    {
+      "id": "X03",
+      "genres": [
+        "都市"
+      ],
+      "stage": "plan",
+      "query": "职场 竞争",
+      "table": "桥段套路",
+      "relevant": [
+        "R3-TR-001"
+      ],
+      "need": "真实任务、利益与专业竞争"
+    },
+    {
+      "id": "X04",
+      "genres": [
+        "奇幻"
+      ],
+      "stage": "init",
+      "query": "魔法 代价",
+      "table": "金手指与设定",
+      "relevant": [
+        "SY-002"
+      ],
+      "need": "魔法副作用和选择压力"
+    },
+    {
+      "id": "X05",
+      "genres": [
+        "科幻"
+      ],
+      "stage": "init",
+      "query": "科技 文明",
+      "table": "金手指与设定",
+      "relevant": [
+        "R3-SY-001"
+      ],
+      "need": "技术约束与文明反馈"
+    },
+    {
+      "id": "X06",
+      "genres": [
+        "历史"
+      ],
+      "stage": "plan",
+      "query": "权谋 朝堂",
+      "table": "桥段套路",
+      "relevant": [
+        "TR-090"
+      ],
+      "need": "制度与派系博弈"
+    },
+    {
+      "id": "X07",
+      "genres": [
+        "悬疑"
+      ],
+      "stage": "plan",
+      "query": "线索 推理",
+      "table": "桥段套路",
+      "relevant": [
+        "TR-071",
+        "TR-058",
+        "TR-079"
+      ],
+      "need": "证据拼图或规则推断"
+    },
+    {
+      "id": "X08",
+      "genres": [
+        "游戏"
+      ],
+      "stage": "write",
+      "query": "团战 配合",
+      "table": "场景写法",
+      "relevant": [
+        "SP-068",
+        "SP-077"
+      ],
+      "need": "可见分工与局势变化"
+    },
+    {
+      "id": "X09",
+      "genres": [
+        "古言"
+      ],
+      "stage": "plan",
+      "query": "嫡庶 家族",
+      "table": "人设与关系",
+      "relevant": [
+        "R3-CH-001",
+        "CH-078"
+      ],
+      "need": "家族利益及身份约束"
+    },
+    {
+      "id": "X10",
+      "genres": [
+        "现言"
+      ],
+      "stage": "write",
+      "query": "暧昧 潜台词",
+      "table": "写作技法",
+      "relevant": [
+        "WT-051",
+        "WT-001",
+        "WT-074"
+      ],
+      "need": "表层对话与真实意图"
+    },
+    {
+      "id": "X11",
+      "genres": [
+        "幻言"
+      ],
+      "stage": "plan",
+      "query": "契约 情感",
+      "table": "桥段套路",
+      "relevant": [
+        "TR-104"
+      ],
+      "need": "契约代价与人物选择"
+    },
+    {
+      "id": "X12",
+      "genres": [
+        "年代"
+      ],
+      "stage": "plan",
+      "query": "家庭 生计",
+      "table": "桥段套路",
+      "relevant": [
+        "R3-TR-002"
+      ],
+      "need": "生计与家庭责任"
+    },
+    {
+      "id": "X13",
+      "genres": [
+        "种田"
+      ],
+      "stage": "plan",
+      "query": "经营 资源",
+      "table": "桥段套路",
+      "relevant": [
+        "TR-068",
+        "TR-087",
+        "TR-099",
+        "TR-097"
+      ],
+      "need": "生产经营资源与结果"
+    },
+    {
+      "id": "X14",
+      "genres": [
+        "快穿"
+      ],
+      "stage": "plan",
+      "query": "任务 世界",
+      "table": "桥段套路",
+      "relevant": [
+        "TR-069",
+        "TR-100",
+        "TR-086"
+      ],
+      "need": "世界任务与失败后果"
+    },
+    {
+      "id": "X15",
+      "genres": [
+        "衍生"
+      ],
+      "stage": "plan",
+      "query": "原作 人物",
+      "table": "人设与关系",
+      "relevant": [
+        "CH-089",
+        "CH-081",
+        "CH-093"
+      ],
+      "need": "原作人物与新增角色适配"
+    },
+    {
+      "id": "H01",
+      "genres": [
+        "都市"
+      ],
+      "stage": "plan",
+      "query": "项目争夺 晋升",
+      "table": "桥段套路",
+      "relevant": [
+        "R3-TR-001"
+      ],
+      "need": "项目与晋升选择"
+    },
+    {
+      "id": "H02",
+      "genres": [
+        "科幻"
+      ],
+      "stage": "init",
+      "query": "技术扩散 社会制度",
+      "table": "金手指与设定",
+      "relevant": [
+        "R3-SY-001"
+      ],
+      "need": "技术扩散与制度反馈"
+    },
+    {
+      "id": "H03",
+      "genres": [
+        "古言"
+      ],
+      "stage": "plan",
+      "query": "继承 婚姻利益",
+      "table": "人设与关系",
+      "relevant": [
+        "R3-CH-001"
+      ],
+      "need": "身份、继承与婚姻利益"
+    },
+    {
+      "id": "H04",
+      "genres": [
+        "年代"
+      ],
+      "stage": "plan",
+      "query": "谋生 家庭预算",
+      "table": "桥段套路",
+      "relevant": [
+        "R3-TR-002"
+      ],
+      "need": "谋生和家庭有限资源"
+    }
+  ],
+  "compositions": [
+    {
+      "id": "C01",
+      "genres": [
+        "仙侠+凡人流+苟道+长生+家族流"
+      ],
+      "worlds": [
+        "仙侠"
+      ],
+      "flows": [
+        "凡人流",
+        "苟道流",
+        "长生流",
+        "家族经营"
+      ],
+      "topic": "character",
+      "need": "寿命与家族责任冲突；保全策略有机会成本，不堆金手指"
+    },
+    {
+      "id": "C02",
+      "genres": [
+        "科幻+种田+宗门流"
+      ],
+      "worlds": [
+        "科幻",
+        "种田"
+      ],
+      "flows": [
+        "宗门经营"
+      ],
+      "topic": "world",
+      "need": "以科幻技术与组织制度构建经营循环，不自动追加仙侠或灵力境界"
+    },
+    {
+      "id": "C03",
+      "genres": [
+        "悬疑推理+职场婚恋"
+      ],
+      "worlds": [
+        "悬疑",
+        "现言"
+      ],
+      "flows": [],
+      "topic": "foreshadowing",
+      "need": "证据公平、职业利益与关系目标相互制约，不用恋爱误会代替推理"
+    },
+    {
+      "id": "C04",
+      "genres": [
+        "历史+穿越流+组织经营"
+      ],
+      "worlds": [
+        "历史"
+      ],
+      "flows": [
+        "穿越流",
+        "组织经营"
+      ],
+      "topic": "fusion",
+      "need": "知识迁移受历史材料、制度和当地经验限制；经营有投入反馈"
+    },
+    {
+      "id": "C05",
+      "genres": [
+        "快穿+群像"
+      ],
+      "worlds": [
+        "快穿"
+      ],
+      "flows": [
+        "群像"
+      ],
+      "topic": "character",
+      "need": "单元人物自主，任务与人物利益冲突，跨世界成长不清零"
+    },
+    {
+      "id": "C06",
+      "genres": [
+        "同人衍生+幕后布局"
+      ],
+      "worlds": [
+        "衍生"
+      ],
+      "flows": [
+        "幕后布局"
+      ],
+      "topic": "outline",
+      "need": "原作版本明确，代理人自主，分歧产生新因果而非原文复述"
+    }
+  ]
+}
