@@ -1,77 +1,102 @@
 # Chinese Novelist Skill — Project Asset Index
 
-> **版本**：`1.0` ｜ **归属**：全仓库长期资产与可访问性索引（与 [`docs/PROJECT-CONTEXT.md`](./PROJECT-CONTEXT.md) 配套）  
-> **隐私与边界铁律**：
-> 1. **严禁**将私有小说正文、私人实验 ZIP、私人账本/审稿原文或个人账号信息提交至公开 Skill 仓库；
-> 2. **严禁**为建立本索引而擅自推送原本未推送的本地实验分支；
-> 3. **严禁**编造 Google Drive 链接、私有目录 ID 或不存在的文件路径；当前 VM 不可获取的原始文件一律如实标注 `UNKNOWN`；
-> 4. 本地会话沙箱文件与未推送本地分支在**全新 Agent / 新容器环境**中默认不可直接访问，必须如实标注 `NO` 并给出真实恢复路径。
+> **版本**：`2.0`（按 7 大资产类别 + 5 维独立状态矩阵重构，严格对齐 [`docs/RESEARCH-ASSET-POLICY.md`](./RESEARCH-ASSET-POLICY.md)）  
+> **核验基线**：分支 `feat/r3-p0-controlled` @ `c6ac24bd0d2296645cb15cc906fe5538691cbc72`  
+> **核心纪律**：
+> 1. **严禁混淆五个独立状态维度**：`已找到原件` ≠ `已核验完整性` ≠ `当前 Agent 可访问` ≠ `新 Agent 可恢复` ≠ `已纳入统一权威研发存储`；
+> 2. **当前 Neon 无法访问 ≠ 资产已丢失**：部分历史 ZIP 已由 GPT-6 在 ChatGPT 文件库中核实存在，但尚未迁入统一研发存储；
+> 3. **隐私脱敏**：本仓库为公开仓库，严禁提交私有小说正文、私人 ZIP、个人邮箱或私有 Drive ID/直链；严禁擅自推送本地实验分支。
 
 ---
 
-## 一、公开仓库资产（GitHub 公开可访问，新 Agent 直接可读）
-
-| Asset ID | 名称 | 类型 | 存储位置 | 完整路径或链接 | SHA-256 | Git Commit | 隐私等级 | 新 Agent 可访问性 | 恢复说明 |
-|---|---|---|---|---|---|---|---|---|---|
-| `PUB-01` | `docs/PROJECT-CONTEXT.md` | 全仓库长期上下文档案 | GitHub（`feat/r3-p0-controlled`） | `docs/PROJECT-CONTEXT.md` | 随最新文档提交变动 | `15245e785535f83bf11fad684b3ae6dc980a9c0e`（v1.0 建档） | 公开 | `YES` | `git clone` / GitHub Web 或 `gh api` 直接读取 |
-| `PUB-02` | `docs/R3-PRD.md` | R3 早期至迁移历史主 PRD | GitHub（`feat/r3-migration` / `feat/r3-p0-controlled`） | `docs/R3-PRD.md` | 见 Git Blob | `b5572a943f9157cda07faa7910dcbfd20b1a3ba5` | 公开 | `YES` | 公开仓库直接读取（含早期实验与私有 ZIP 独立复核记录） |
-| `PUB-03` | `docs/r3/review-v3/`（10 份 MD） | 冻结 R3 审核体系 v3 架构蓝图（`v1.2.3`） | GitHub（`feat/r3-migration` PR #3 已合入） | `docs/r3/review-v3/` | 见 PR #3 逐文件清单 | `b5572a943f9157cda07faa7910dcbfd20b1a3ba5`（源 `b63c0b82`） | 公开 | `YES` | 公开仓库直接读取；只读权威冻结版本 |
-| `PUB-04` | `r3-review-v3-architecture-package.zip` | 冻结架构 `v1.2.3` 完整打包 ZIP（94,084 B） | GitHub（`feat/r3-migration`） | `docs/r3/review-v3/r3-review-v3-architecture-package.zip` | `b5b1d77220e9e37ac0da8456ccdf2c8428ea878f7acfc10e6efe551617fedc88` | `b5572a943f9157cda07faa7910dcbfd20b1a3ba5`（Blob `21fa1821`） | 公开 | `YES` | `git clone` 或 GitHub raw 直链下载并核验 SHA-256 |
-| `PUB-05` | `docs/r3/p0-implementation/`（3 份 MD） | P0 受控研发实施管理 PRD（`v1.0.1`，已验收） | GitHub（`feat/r3-p0-controlled`） | `docs/r3/p0-implementation/` | 随最新状态提交变动 | `e52105adca3f994fca3cbdeef9aa935479ceaf9b`（GPT-6 验收基线） | 公开 | `YES` | 公开仓库分支 `feat/r3-p0-controlled` 直接读取 |
-| `PUB-06` | `references/webnovel/` | 统一中文网文知识库（含 GPL 上游原件与补充层） | GitHub（`feat/r3-migration`） | `references/webnovel/README.md` | 见 `UPSTREAM-MANIFEST.json` | `b5572a943f9157cda07faa7910dcbfd20b1a3ba5`（导入基线 `04e485d`） | 公开（GPL-3.0） | `YES` | 公开仓库直接读取，只读检索见 `scripts/webnovel_knowledge.py` |
+## 资产 5 维独立状态图例
+- **原件**：`YES`（已确认原件存在）/ `NO`（已确认丢失或未落盘）/ `UNKNOWN`
+- **完整**：`YES`（已实测 SHA-256 / `testzip` / `git fsck`）/ `PARTIAL` / `NO` / `UNKNOWN`
+- **当前可访**：当前 Neon（Antigravity）会话能否直接读取（`YES` / `NO`）
+- **新 Agent 可恢复**：全新环境、零旧聊天历史、零旧 Google Drive 账号下能否独立恢复（`YES` / `CONDITIONAL` / `NO`）
+- **统一研发仓**：是否已纳入作者控制的统一权威研发存储体系（`YES` / `NO`）
 
 ---
 
-## 二、私有与本地实验报告 / 小说原稿（Antigravity 会话 VM Artifact，未入公开仓）
+## 一、GitHub 已版本化、跨 Agent 可直接恢复（公开研发资产）
 
-> **跨环境可访问性说明**：以下 14 份文件位于当前 Antigravity 远端会话 VM 的 Artifact 目录（`<ART_ROOT>` = `/home/antigravity/.gemini/jetski/brain/v1/default/jetski_remote_agents_3p_devbox/bb9496c7-61be-4b01-ad65-2da947e559e6`）。该 VM 仅绑定本会话生命周期；**全新 Agent / 新 ChatGPT 会话 / 新容器均无法直接读取（`NO`）**，仅在继续本会话或由作者预先导出归档后可访问。
-
-| Asset ID | 名称 | 类型 | 存储位置 | 完整路径或链接 | SHA-256 | Git Commit | 隐私等级 | 新 Agent 可访问性 | 恢复说明 |
-|---|---|---|---|---|---|---|---|---|---|
-| `LOC-RPT-01` | `skill-live-eval-report.md` | 零干预双题材实测报告（23,090 B） | 本地 VM（本会话 Artifact） | `<ART_ROOT>/skill-live-eval-report.md` | `b939662408257d9cb4e55598aff58b665082aa4664f00608c805a98e480ae4ea` | 无（未入 Git） | 私有（含原稿引文） | `NO` | 仅本会话 VM 可读；跨会话需作者从 Artifact 导出或重新提供 |
-| `LOC-RPT-02` | `step1-m1-m4-delivery.md` | M1–M4 第一步工程改造交付报告（76,846 B） | 本地 VM（本会话 Artifact） | `<ART_ROOT>/step1-m1-m4-delivery.md` | `407675f788cceeb015b3905473d9f16b22ab9498405d60f8faa5480faed1f871` | 对应本地分支 `0bf1798`→`c45d4c6` | 私有 | `NO` | 仅本会话 VM 可读；跨会话需作者导出或恢复本会话 |
-| `LOC-RPT-03` | `step2-m1-replay-report.md` | M1 第二步《残器长生》Ch 3 返工重放报告（50,020 B） | 本地 VM（本会话 Artifact） | `<ART_ROOT>/step2-m1-replay-report.md` | `6aad7dbbbbd6c7688db5e1f1839de1312b9bc6442e7eddc34c33f0eececd7a2d` | 对应本地分支 `c45d4c6` | 私有（含小说段落） | `NO` | 仅本会话 VM 可读；原稿不得入公开仓，需作者导出留存 |
-| `LOC-RPT-04` | `step3-r3-trial-report.md` | M1–M4 第三步《器痕录》完整试跑报告（42,036 B） | 本地 VM（本会话 Artifact） | `<ART_ROOT>/step3-r3-trial-report.md` | `091e76f558adf61f4f7a7406df03eed6a74994709a27fa478d4cb3e70ff1b7db` | 对应本地分支 `c45d4c6` | 私有（含规划与报告） | `NO` | 仅本会话 VM 可读；需作者导出归档 |
-| `LOC-MS-01` | `step3-qihenlu-manuscript-ch1-3.md` | 小说原稿（《器痕录》Ch 1–3 全文，46,846 B） | 本地 VM（本会话 Artifact） | `<ART_ROOT>/step3-qihenlu-manuscript-ch1-3.md` | `09d045ae51388c6bee300497846d189e8a41a458809304e013604f489f408239` | 无（严禁入公开 Git） | **含小说正文（严禁公开）** | `NO` | 仅本会话 VM 可读；由作者本地/私有云保管，不得提交公开仓 |
-| `LOC-RPT-05` | `r3-phase1-midterm-report.md` | Phase 1 吞吐实验中报（24,683 B） | 本地 VM（本会话 Artifact） | `<ART_ROOT>/r3-phase1-midterm-report.md` | `24f9c49958976fdc710a7581480e5d832d102639b1890cfea47d524c580e48b4` | 对应本地分支 `c0966b1` | 私有 | `NO` | 核心耗时数据已汇总入公开 `docs/r3/review-v3/01` & `03`；全文需本会话导出 |
-| `LOC-RPT-06` | `r3-phase1-blind-audit-and-qa-report.md` | Phase 1 独立三路盲审报告 Blind A/B/C（52,194 B） | 本地 VM（本会话 Artifact） | `<ART_ROOT>/r3-phase1-blind-audit-and-qa-report.md` | `5d12eb65f36b2b4c5a3d510795d23fc3d5d195337ac07593eb959501cbca20ca` | 对应本地分支 `c0966b1` | 私有（含原稿引文） | `NO` | 关键统计已汇总入公开 `docs/r3/review-v3/01`；原文需本会话导出 |
-| `LOC-RPT-07` | `r3-review-calibration-v2.2-final-offline-validation-report.md` | 审稿尺度校准 v2.2 最终离线验证报告（24,004 B） | 本地 VM（本会话 Artifact） | `<ART_ROOT>/r3-review-calibration-v2.2-final-offline-validation-report.md` | `ef812f5a76da1efac011660087879da60056c421383b7ef8f3454225d4e3d093` | 无（沙箱离线实验） | 私有（含案例引文） | `NO` | 门禁结论已汇总入公开 `docs/r3/review-v3/01` & `08`；原文需本会话导出 |
-| `LOC-RPT-08` | `r3-throughput-optimization-blueprint.md` / `r3-phase1-feasibility-correction-and-plan.md` | Phase 1 吞吐蓝图与可行性修正计划（36,952 B / 35,758 B） | 本地 VM（本会话 Artifact） | `<ART_ROOT>/r3-throughput-optimization-blueprint.md` 等 | `aa952429...10ccc` / `8d1da33f...776c` | 无 | 私有 | `NO` | 仅本会话 VM 可读；历史过程文件，核心架构已固化入 `docs/r3/review-v3/` |
-| `LOC-RPT-09` | `r3-review-calibration-{design,offline,v2,v2.1}-*.md`（4 份） | 校准设计与 v1/v2/v2.1 离线验证过程报告 | 本地 VM（本会话 Artifact） | `<ART_ROOT>/r3-review-calibration-*.md` | `71e26b31...` / `045d8acb...` / `061a2879...` / `079001c4...` | 无 | 私有 | `NO` | 仅本会话 VM 可读；中间过程文件，终态见 `LOC-RPT-07` |
-| `LOC-RPT-10` | `webnovel-writer-{,v8-}review-workflow-benchmark.md`（2 份） | 外部项目 v6 / v8 源码级审核基准报告（33,617 B / 20,470 B） | 本地 VM（本会话 Artifact） | `<ART_ROOT>/webnovel-writer-*benchmark.md` | `f3ee9d20...5335` / `014d1c42...e3d8` | 无 | 私有（研究笔记） | `NO` | 核心对比裁决已固化入公开 `docs/r3/review-v3/02-三方差异矩阵.md` |
-| `LOC-SCR-01` | `scratch/{live-eval,step2-m1-replay,step3-r3-trial,phase1-*}` | 原始沙箱实验目录（含《残器长生》《降本增笑》《器痕录》及 Arm 0–2 原稿/遥测/校准原始 JSON） | 本地 VM（本会话 Scratch） | `<ART_ROOT>/scratch/` | 多文件目录（未打包） | 无（严禁入公开 Git） | **含小说正文与实验隐私键** | `NO` | 仅本会话 VM 可读；如需跨会话保留，须由作者授权导出加密私有备份 |
+| Asset ID | 名称 | 类型 | 路径 / Git Commit | SHA-256 | 隐私 | 原件 | 完整 | 当前可访 | 新 Agent 可恢复 | 统一研发仓 | 恢复说明 |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| `PUB-01` | `docs/PROJECT-CONTEXT.md` | 全仓库长期上下文 | `docs/PROJECT-CONTEXT.md`（初建 `15245e78`） | 随 Commit | 公开 | `YES` | `YES` | `YES` | `YES` | `YES` | `git clone` 直接读取 |
+| `PUB-02` | `docs/RESEARCH-ASSET-POLICY.md` | 研发资产管理规范 | `docs/RESEARCH-ASSET-POLICY.md`（本次新增） | 随 Commit | 公开 | `YES` | `YES` | `YES` | `YES` | `YES` | `git clone` 直接读取 |
+| `PUB-03` | `docs/PROJECT-ASSET-INDEX.md` | 全仓库资产索引（本文） | `docs/PROJECT-ASSET-INDEX.md`（初建 `bb01bbd0`） | 随 Commit | 公开 | `YES` | `YES` | `YES` | `YES` | `YES` | `git clone` 直接读取 |
+| `PUB-04` | `docs/R3-PRD.md` | R3 早期历史主 PRD | `docs/R3-PRD.md`（`b5572a94`） | 见 Git Blob | 公开 | `YES` | `YES` | `YES` | `YES` | `YES` | `git clone` 直接读取 |
+| `PUB-05` | `docs/r3/review-v3/` + 打包 ZIP | 冻结 R3 审核体系 v3（`v1.2.3`，PR #3） | `docs/r3/review-v3/`（Merge `b5572a94`） | ZIP: `b5b1d772...edc88` | 公开 | `YES` | `YES` | `YES` | `YES` | `YES` | `git clone` / GitHub raw 直拉 |
+| `PUB-06` | `docs/r3/p0-implementation/` | P0 实施管理 PRD（`v1.0.1` 已验收） | `docs/r3/p0-implementation/`（基线 `e52105ad`） | 随 Commit | 公开 | `YES` | `YES` | `YES` | `YES` | `YES` | `feat/r3-p0-controlled` 直接读取 |
+| `PUB-07` | `SKILL.md` / `scripts/` / `tests/` / `references/` | Skill 源码、脚本、测试与 GPL 知识库 | 仓库主目录（`b5572a94` / `c6ac24bd`） | 见 Git Tree | 公开 | `YES` | `YES` | `YES` | `YES` | `YES` | `git clone` 后执行 `README_V3.md` 测试命令即可重建 |
 
 ---
 
-## 三、外部私有压缩包与 Google Drive 私有资产（已通过只读 `gdrive` 现场核验）
+## 二、私有研发资产（已存在，但尚未纳入统一研发存储）
 
-> **只读核验与隐私脱敏说明（2026-11-25 现场核验）**：经作者授权连接 Google Drive 后执行只读检索与临时下载哈希校验（临时文件校验后已立即删除）。因本仓库 `chindden/chinese-novelist-skill` 为**公开仓库（`visibility: public`）**，本表仅同步脱敏后的**规范目录名、文件名、字节数、完整性与实算 SHA-256**，**严禁公开私有 Drive File/Folder ID、直链、个人邮箱或上传私人 ZIP/小说正文**。
+> **说明**：目前作者尚未建立独立的私有版本化研发仓库（如私有 Git 仓）。本类资产原件真实存在，但当前分散在 Google Drive 或其他私有位置，**尚未纳入统一研发存储**（均标 `统一研发仓 = NO`）。
 
-| Asset ID | 名称 | 类型 | 存储位置 | 完整路径或链接（脱敏） | SHA-256 | Git Commit | 隐私等级 | 新 Agent 可访问性 | 恢复说明 |
-|---|---|---|---|---|---|---|---|---|---|
-| `EXT-ZIP-01` | `gemini-memory-literary-gain-exp.zip` | Gemini 原生记忆与文学增益实验包（6 篇成稿+盲审+揭晓） | 作者本地 / 早期聊天上传（**不在本 VM、不在公开仓、亦未在 Google Drive 检出**） | `UNKNOWN`（历史复核摘要见 `docs/R3-PRD.md` 250–258 行） | `UNKNOWN` | 无（严禁入公开 Git） | **私有 / 含实验正文** | `NO`（需作者重新上传） | 由作者从本地备份或历史聊天记录提供；新 Agent 无法自行获取 |
-| `EXT-ZIP-02` | `xianmen-dazhanggui-r3-pilot-delivery.zip` | 《仙门大掌柜》首次 R3 Pilot 精简交付包（22 文件） | 作者本地 / 早期聊天上传（**不在本 VM、不在公开仓、亦未在 Google Drive 检出**） | `UNKNOWN`（历史复核摘要见 `docs/R3-PRD.md` 225–231 行） | `UNKNOWN` | 无（严禁入公开 Git） | **含小说正文（严禁公开）** | `NO`（需作者提供） | 历史审阅精简包（已被下方完整备份取代）；如需原包须由作者本地提供 |
-| `EXT-ZIP-03A` | `xianmen-dazhanggui-r3-pilot-complete-20261124.zip` | 《仙门大掌柜》完整 R3 Pilot 交付快照 ZIP（`197,711 B`，75 项含清单，`testzip = OK`） | **Google Drive（私有，`Shared: false`，已实测核验）** | `Google Drive / [CN-R3-BACKUP] 仙门大掌柜 / xianmen-dazhanggui-r3-pilot-complete-20261124.zip`（*私有 File ID 不公开*） | `70b1c4c0ec5693864d0d0dceeef53d06809bb8a6d63370afe9f9cec7aead2221` | 无（严禁入公开 Git） | **含小说正文（严禁公开）** | **有条件 `YES`（宿主获作者 `gdrive` 授权即可只读定位下载）** | 宿主连接 `gdrive` 后按目录名 `[CN-R3-BACKUP] 仙门大掌柜` 检索下载，再用 `scripts/r3_delivery.py verify` 与 `restore_snapshot.py` 隔离恢复 |
-| `EXT-ZIP-03B` | `xianmen-dazhanggui-r3-p1-activated-20261124.zip` | 《仙门大掌柜》P1 激活后完整交付快照 ZIP（`210,038 B`，79 项含清单，`testzip = OK`） | **Google Drive（私有，`Shared: false`，已实测核验）** | `Google Drive / [CN-R3-BACKUP] 仙门大掌柜 / xianmen-dazhanggui-r3-p1-activated-20261124.zip`（*私有 File ID 不公开*） | `8796bfeeedb706fd02770a45f5694b1019283c153c92af93c5e4e3408fb50d08` | 无（严禁入公开 Git） | **含小说正文（严禁公开）** | **有条件 `YES`（宿主获作者 `gdrive` 授权即可只读定位下载）** | 同上（对应 `docs/R3-PRD.md` 371 行 P1 激活核验版） |
-| `EXT-ZIP-03C` | `xianmen-dazhanggui-r3-ch12-complete-20261124.zip` | 《仙门大掌柜》Ch 1–12 完整交付快照 ZIP（`591,326 B`，177 项含清单，`testzip = OK`） | **Google Drive（私有，`Shared: false`，已实测核验）** | `Google Drive / [CN-R3-BACKUP] 仙门大掌柜 / xianmen-dazhanggui-r3-ch12-complete-20261124.zip`（*私有 File ID 不公开*） | `d0295a5f713a896669dbd7f4eaf4ec181536a77ca774d35ac8a496762ee4ebf5` | 无（严禁入公开 Git） | **含小说正文（严禁公开）** | **有条件 `YES`（宿主获作者 `gdrive` 授权即可只读定位下载）** | 同上（对应 `docs/R3-PRD.md` 380 行 Ch 1–12 连载实验完整备份） |
-| `EXT-DRV-01` | `[CN-R3-EXP] 跨作品创作经验库` | Google Drive 唯一权威跨作品经验库（实测含 `00-INDEX-v1.md.docx` + `01`–`06` 六主题 `.docx` + `archive/` + `staging/`） | **Google Drive（私有，`Shared: false`，已实测核验）** | `Google Drive / [CN-R3-EXP] 跨作品创作经验库`（*私有 Folder ID 不公开*） | 动态演进（7 文件 + 2 子目录） | 无（配套脚本 `scripts/r3_experience_drive.mjs` 在公开仓） | 私有 | **有条件 `YES`（宿主获作者 `gdrive` 授权即可定位读取）** | 宿主连接 `gdrive` 后按规范目录名 `[CN-R3-EXP] 跨作品创作经验库` 定位并遵循 `references/v3/r3-p1-protocol.md`；无授权时静默降级不阻断创作 |
+| Asset ID | 名称 | 类型 | 当前存放位置（脱敏） | SHA-256 / 规格 | 隐私 | 原件 | 完整 | 当前可访 | 新 Agent 可恢复 | 统一研发仓 | 迁入说明 |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| `PRIV-01` | `[CN-R3-EXP] 跨作品创作经验库`（`P1-08` 正式空库） | 跨作品创作经验资产（研发/运行时知识） | Google Drive 私有根目录（`Shared: false`，7 文件 + 2 目录） | 动态演进（`entries=0`） | 私有 | `YES` | `YES` | `YES`（需 `gdrive`） | `NO`（依赖旧 Drive 账号） | **`NO`** | 待作者批准 `RESEARCH-ASSET-POLICY.md` §三迁移方案（首选私有 Git 仓） |
 
 ---
 
-## 四、本地未推送 Git 实验分支（仅存于当前 VM `.git`，GitHub 远端不存在）
+## 三、本地 VM 临时资产（存在环境丢失高风险，尚未纳入统一研发存储）
 
-> **重要风险提示**：以下两个实验分支仅存在于当前 Antigravity 会话 VM 的本地 `.git` 对象库中，**从未推送至 GitHub `origin`**（严禁未经授权擅自推送）。**如果新 Agent 在全新环境重新 `git clone` GitHub 仓库，将完全无法看到这两个分支（可访问性 = `NO`）！**
+> **高危提醒**：本类全部位于当前 Antigravity 会话 VM（`<ART_ROOT>` = `/home/antigravity/.gemini/jetski/brain/v1/default/jetski_remote_agents_3p_devbox/bb9496c7-61be-4b01-ad65-2da947e559e6` 及本地 `.git`），**全新 Agent 在新容器 `git clone` 公开仓均无法访问（`新 Agent 可恢复 = NO`）**！严禁未获授权擅自推送分支或上传公开仓/Drive。
 
-| Asset ID | 名称 | 类型 | 存储位置 | 完整路径或链接 | SHA-256 | Git Commit | 隐私等级 | 新 Agent 可访问性 | 恢复说明 |
-|---|---|---|---|---|---|---|---|---|---|
-| `LOC-BR-01` | `feat/r3-m1-m4-craft-refinement` | 未推送本地 Git 实验分支（M1–M4 文学专项，领先 `b32e9289` 2 个提交） | 本地 VM `.git`（未推 GitHub） | 本地 `/home/antigravity/chindden/chinese-novelist-skill` 分支 `feat/r3-m1-m4-craft-refinement` | 不适用（Git 分支） | `c45d4c66eee1584b2be4cef0b7879d62e524bfda`（基线 `b32e92891d89945baed9a0707e90fbc3572afd20`，提交时间 `2026-11-24T14:29:22Z`） | 公开代码类（但未获授权推送） | **`NO`（新环境 `git clone` 无法恢复）** | 仅本会话 VM 可 `git checkout` / `git show`；若需跨环境保留，须先获作者明确授权推送到远端或导出 `git bundle` / patch 存档 |
-| `LOC-BR-02` | `feat/r3-phase1-throughput-o1-o3` | 未推送本地 Git 实验分支（Phase 1 O1–O3 吞吐脚本、遥测与测试，领先 `b32e9289` 3 个提交） | 本地 VM `.git`（未推 GitHub） | 本地 `/home/antigravity/chindden/chinese-novelist-skill` 分支 `feat/r3-phase1-throughput-o1-o3` | 不适用（Git 分支） | `c0966b129135b8ec0d2fd38f90d8b34d2f92f6e9`（基线 `b32e92891d89945baed9a0707e90fbc3572afd20`，提交时间 `2026-11-25T04:22:28Z`） | 公开代码类（但未获授权推送） | **`NO`（新环境 `git clone` 无法恢复）** | 同上；`P0-0` 审计需在本会话 VM 执行，或在切换新环境前经作者授权以只读归档分支/`git bundle` 保留 |
+| Asset ID | 名称 | 类型 | 本地位置 / Git Commit | 字节数 & SHA-256 | 隐私 | 原件 | 完整 | 当前可访 | 新 Agent 可恢复 | 统一研发仓 | 保全/恢复方案 |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| `LOC-BR-01` | `feat/r3-m1-m4-craft-refinement` | 未推送本地 Git 实验分支（领先 `b32e9289` 2 提交） | 本地 `.git` @ `c45d4c66eee1584b2be4cef0b7879d62e524bfda` | 干跑 Bundle `21,441 B`（`git fsck` OK） | 公开代码类（未授权推送） | `YES` | `YES` | `YES` | **`NO`** | **`NO`** | 待作者批准推至私有研发仓/只读归档分支或存 Bundle |
+| `LOC-BR-02` | `feat/r3-phase1-throughput-o1-o3` | 未推送本地 Git 实验分支（领先 `b32e9289` 3 提交） | 本地 `.git` @ `c0966b129135b8ec0d2fd38f90d8b34d2f92f6e9` | 干跑 Bundle `52,991 B`（`git fsck` OK） | 公开代码类（未授权推送） | `YES` | `YES` | `YES` | **`NO`** | **`NO`** | 同上（已包含 `LOC-BR-01` 全部 2 提交） |
+| `LOC-RPT-01` | `skill-live-eval-report.md` | 零干预双题材实测报告 | `<ART_ROOT>/skill-live-eval-report.md` | `23,090 B` / `b939662408257d9cb4e55598aff58b665082aa4664f00608c805a98e480ae4ea` | 私有（含原稿引文） | `YES` | `YES` | `YES` | **`NO`** | **`NO`** | 待作者批准迁入私有研发仓 |
+| `LOC-RPT-02` | `step1-m1-m4-delivery.md` | M1–M4 第一步交付报告 | `<ART_ROOT>/step1-m1-m4-delivery.md` | `76,846 B` / `407675f788cceeb015b3905473d9f16b22ab9498405d60f8faa5480faed1f871` | 私有 | `YES` | `YES` | `YES` | **`NO`** | **`NO`** | 待作者批准迁入私有研发仓 |
+| `LOC-RPT-03` | `step2-m1-replay-report.md` | M1 第二步 Ch 3 返工重放报告 | `<ART_ROOT>/step2-m1-replay-report.md` | `50,020 B` / `6aad7dbbbbd6c7688db5e1f1839de1312b9bc6442e7eddc34c33f0eececd7a2d` | 私有（含小说段落） | `YES` | `YES` | `YES` | **`NO`** | **`NO`** | 待作者批准迁入私有研发仓 |
+| `LOC-RPT-04` | `step3-r3-trial-report.md` | M1–M4 第三步《器痕录》试跑报告 | `<ART_ROOT>/step3-r3-trial-report.md` | `42,036 B` / `091e76f558adf61f4f7a7406df03eed6a74994709a27fa478d4cb3e70ff1b7db` | 私有 | `YES` | `YES` | `YES` | **`NO`** | **`NO`** | 待作者批准迁入私有研发仓 |
+| `LOC-MS-01` | `step3-qihenlu-manuscript-ch1-3.md` | 实验小说原稿（《器痕录》Ch 1–3） | `<ART_ROOT>/step3-qihenlu-manuscript-ch1-3.md` | `46,846 B` / `09d045ae51388c6bee300497846d189e8a41a458809304e013604f489f408239` | **含小说正文（严禁公开）** | `YES` | `YES` | `YES` | **`NO`** | **`NO`** | 待作者批准迁入私有研发仓（严禁入公开仓） |
+| `LOC-RPT-05` | `r3-phase1-midterm-report.md` | Phase 1 吞吐实验中报 | `<ART_ROOT>/r3-phase1-midterm-report.md` | `24,683 B` / `24f9c49958976fdc710a7581480e5d832d102639b1890cfea47d524c580e48b4` | 私有 | `YES` | `YES` | `YES` | **`NO`** | **`NO`** | 待作者批准迁入私有研发仓 |
+| `LOC-RPT-06` | `r3-phase1-blind-audit-and-qa-report.md` | Phase 1 三路独立盲审报告 | `<ART_ROOT>/r3-phase1-blind-audit-and-qa-report.md` | `52,194 B` / `5d12eb65f36b2b4c5a3d510795d23fc3d5d195337ac07593eb959501cbca20ca` | 私有（含原稿引文） | `YES` | `YES` | `YES` | **`NO`** | **`NO`** | 待作者批准迁入私有研发仓 |
+| `LOC-RPT-07` | `r3-review-calibration-v2.2-final-offline-validation-report.md` | 审稿尺度校准 v2.2 终版报告 | `<ART_ROOT>/r3-review-calibration-v2.2-final-offline-validation-report.md` | `24,004 B` / `ef812f5a76da1efac011660087879da60056c421383b7ef8f3454225d4e3d093` | 私有（含案例引文） | `YES` | `YES` | `YES` | **`NO`** | **`NO`** | 待作者批准迁入私有研发仓 |
+| `LOC-RPT-08..10` | 其余 8 份过程报告（吞吐蓝图、校准设计/v1–v2.1、v6/v8 对标） | 研发过程报告 | `<ART_ROOT>/{r3-*,webnovel-writer-*}.md` | 均已实算 SHA-256（见历史提交 `bb01bbd0`） | 私有 | `YES` | `YES` | `YES` | **`NO`** | **`NO`** | 待作者批准随同打包入私有研发仓 |
+| `LOC-SCR-01` | `scratch/` 全套实验原稿、遥测与校准输出目录 | 原始实验沙箱数据（含《残器长生》《降本增笑》《器痕录》、Arm 0–2 遥测、盲审私钥） | `<ART_ROOT>/scratch/` | 多文件目录（未打包） | **含小说正文与私钥（严禁公开）** | `YES` | `PARTIAL`（未封清单） | `YES` | **`NO`** | **`NO`** | 待作者批准生成 `MANIFEST.json` 并迁入私有研发仓 |
 
 ---
 
-## 五、当前仍无法在 VM 与 Google Drive 定位原始文件的资产清单（透明留痕）
+## 四、其他账号或聊天文件库中的历史资产（Neon 当前不可直读，不等于已丢失）
 
-经同时检索当前 VM 文件系统、公开 GitHub 仓库与已授权 Google Drive，以下资产目前仍无法定位原始文件，如需核验原始字节须由作者从本地补充提供：
-1. `EXT-ZIP-01`：`gemini-memory-literary-gain-exp.zip`（VM 与 Google Drive 均未检出，路径与 SHA-256 保持 `UNKNOWN`）
-2. `EXT-ZIP-02`：`xianmen-dazhanggui-r3-pilot-delivery.zip`（早期 22 文件精简审阅包，VM 与 Google Drive 均未检出，已被 Drive 上已核验的 `EXT-ZIP-03A/B/C` 完整备份取代；原精简包路径与 SHA-256 保持 `UNKNOWN`）
-3. `Step 3` 与早期 Gemini 会话的子代理原始 `transcript.jsonl`（未落盘至本仓库、VM 或 Google Drive，保持 `UNKNOWN`）
+> **重要事实**：GPT-6 已在另一个可访问环境（ChatGPT 文件库）中核实部分历史实验 ZIP 仍然存在；以下如实区分“他方环境已确认原件存在”与“当前 Neon 不可访问 / 尚未纳入统一研发存储”。
+
+| Asset ID | 名称 | 类型 | 已知存在位置 | SHA-256 | 隐私 | 原件 | 完整 | 当前可访 | 新 Agent 可恢复 | 统一研发仓 | 归档说明 |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| `CHAT-ZIP-01` | `gemini-memory-literary-gain-exp.zip` | Gemini 原生记忆与文学增益实验包（6 篇成稿+盲审+揭晓） | ChatGPT 历史聊天文件库 / 作者本地（GPT-6 侧已核实历史存在；Neon 当前 VM 与 Drive 均不可见） | `UNKNOWN`（Neon 未接触原文件；`docs/R3-PRD.md` L255 记 6 篇正文 SHA 曾核对匹配） | 私有（含实验正文） | `YES`（GPT-6 侧确认存在） | `UNKNOWN`（Neon 未独立重验） | **`NO`** | **`NO`** | **`NO`** | 须由作者导出后统一归档至经批准的私有研发仓并生成 `MANIFEST.json` |
+| `CHAT-ZIP-02` | `xianmen-dazhanggui-r3-pilot-delivery.zip` | 《仙门大掌柜》首次 R3 Pilot 精简审阅包（22 文件） | ChatGPT 历史聊天文件库 / 作者本地（Neon 当前 VM 与 Drive 均未检出） | `UNKNOWN`（`docs/R3-PRD.md` L227–229 曾复核 13 项文件 SHA） | **含小说正文（严禁公开）** | `YES`（GPT-6 侧/历史上传存在） | `PARTIAL`（原包缺快照目录） | **`NO`** | **`NO`** | **`NO`** | 可选随历史实验归档入私有研发仓（功能上已被 `GD-EXP-01~03` 覆盖） |
+
+---
+
+## 五、Google Drive 历史实验快照资产（研发期实验快照，非正式完本作品，尚未纳入统一研发存储）
+
+> **边界重申**：以下三份 ZIP 均已由 Neon 通过只读 `gdrive` 核验存在且 `testzip = OK`，但它们属于**研发期连载实验快照（Ch 1–3 Pilot / P1 激活 / Ch 1–12）**，**绝不属于“正式完本小说作品”**，亦**尚未纳入统一研发存储**。按本轮纪律，现有 Drive 原件**保持原状不删除、不搬迁、不覆盖**。
+
+| Asset ID | 名称 | 类型 | 当前位置（脱敏） | 字节数 & SHA-256（实测） | 隐私 | 原件 | 完整 | 当前可访 | 新 Agent 可恢复 | 统一研发仓 | 迁移建议 |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| `GD-EXP-01` | `xianmen-dazhanggui-r3-pilot-complete-20261124.zip` | 《仙门大掌柜》Pilot 完整实验快照（75 项含清单） | `Google Drive / [CN-R3-BACKUP] 仙门大掌柜`（`Shared: false`，ID 脱敏） | `197,711 B` / `70b1c4c0ec5693864d0d0dceeef53d06809bb8a6d63370afe9f9cec7aead2221` | **含小说正文（严禁公开）** | `YES` | `YES`（`testzip=OK`） | `YES`（需 `gdrive`） | **`NO`**（脱离旧 Drive 账号不可恢复） | **`NO`** | 待作者批准后复制归档至统一私有研发存储（保留 Drive 原件不动） |
+| `GD-EXP-02` | `xianmen-dazhanggui-r3-p1-activated-20261124.zip` | 《仙门大掌柜》P1 激活实验快照（79 项含清单） | `Google Drive / [CN-R3-BACKUP] 仙门大掌柜`（`Shared: false`，ID 脱敏） | `210,038 B` / `8796bfeeedb706fd02770a45f5694b1019283c153c92af93c5e4e3408fb50d08` | **含小说正文（严禁公开）** | `YES` | `YES`（`testzip=OK`） | `YES`（需 `gdrive`） | **`NO`**（依赖旧 Drive 账号） | **`NO`** | 同上 |
+| `GD-EXP-03` | `xianmen-dazhanggui-r3-ch12-complete-20261124.zip` | 《仙门大掌柜》Ch 1–12 完整实验快照（177 项含清单） | `Google Drive / [CN-R3-BACKUP] 仙门大掌柜`（`Shared: false`，ID 脱敏） | `591,326 B` / `d0295a5f713a896669dbd7f4eaf4ec181536a77ca774d35ac8a496762ee4ebf5` | **含小说正文（严禁公开）** | `YES` | `YES`（`testzip=OK`） | `YES`（需 `gdrive`） | **`NO`**（依赖旧 Drive 账号） | **`NO`** | 同上 |
+
+---
+
+## 六、正式完本作品备份（Google Drive 长期合法定位）
+
+| Asset ID | 名称 | 类型 | 状态说明 |
+|---|---|---|---|
+| `—` | *当前 `0` 项* | 正式完本作品备份 | **截至 `2026-11-25`，尚无已完成全本创作并正式验收交付的小说作品。** 严禁将《仙门大掌柜》Ch 1–12 或《器痕录》Ch 1–3 等早期实验快照归入本类。 |
+
+---
+
+## 七、已丢失或尚未找到原件的资产（透明留痕）
+
+| Asset ID | 名称 | 类型 | 状态说明 | 原件 | 完整 | 当前可访 | 新 Agent 可恢复 | 统一研发仓 |
+|---|---|---|---|---|---|---|---|---|
+| `MISS-01` | Step 3 与早期 Gemini 会话的子代理原始 `transcript.jsonl` | 子代理底层工具调用日志 | 宿主环境当年未落盘至磁盘、公开仓或 Drive，早期 Stage 0–2 读档精确顺序不可独立复现 | `NO` / `UNKNOWN` | `NO` | `NO` | `NO` | `NO` |
+| `MISS-02` | `p1_final_host_acceptance_report.md` 原始独立文件 | P1 最终宿主验收报告原件 | 摘要已完整登记于 `docs/R3-PRD.md` L337–380，但独立原件未在本 VM、公开仓或 Drive 检出（可能仍在早期聊天文件库中，需作者核查） | `UNKNOWN` | `UNKNOWN` | `NO` | `NO` | `NO` |
