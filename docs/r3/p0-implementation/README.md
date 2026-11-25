@@ -1,0 +1,72 @@
+# R3 审核体系 v3 · P0 受控研发实施管理总览
+
+> **管理体系定位**：本目录（`docs/r3/p0-implementation/`）是 R3 审核体系 v3 **P0 阶段受控研发**的独立日常实施与验收管理体系，用于承接已冻结架构蓝图（`docs/r3/review-v3/`，`v1.2.3`）到逐项编码、独立提交、证据留痕与 **GPT-6 逐项审核验收**的闭环治理。  
+> **红线声明**：本目录文档**不重新设计、不覆盖、不降低**已冻结架构 PRD `v1.2.3` 的任何设计约束与验收门槛；所有 `P0-0` 至 `P0-6` 任务当前均处于 **`NOT_STARTED`**，**未启动任何生产代码修改或小说实验**。
+
+---
+
+## 一、项目目标与范围
+
+### 1. P0 阶段核心目标（单章破局与工程止血）
+基于已冻结的 R3 审核体系 v3 架构（`v1.2.3`），在不破坏 R2 既有行为与现有 R3 基线契约的前提下，完成以下受控研发闭环：
+1. **基线对齐与实施准备（`P0-0`）**：审计主基线与本地实验分支差异、固化自动化测试基线、盘点下游枚举消费者清单、核查 `G2-B Independent Holdout` 当前 `underpowered` 样本缺口。
+2. **S1 四级枚举与下游兼容（`P0-1`）**：落地正式 `SUGGESTION` 枚举与 `ENG-FIX-P1` 遗留字段校验，确保 R2 三级历史报告 100% 向后兼容、`SUGGESTION` 0% 触发阻断或必改闭环。
+3. **写手语域防火墙（`P0-2`）**：实现纯叙事写手任务卡与返工修订卡编译，确保写手上下文零治理元数据、零 `reverseDefense`、零限时压迫词，末段强制为“上章结尾 + 文风锚点”。
+4. **确定性预检 `precheck v2`（`P0-3`）**：仅工程文件破损与作者显式硬约束允许阻断送审；字数/重复段/跨段引语默认非阻断；自动提取算术、日期、账目、道具编号与高潮信息差线索进入 `NEEDS_SEMANTIC_AUDIT`。
+5. **复合审读指纹与 Fail-Closed（`P0-4`）**：落地五元组 `reviewFingerprint`、6 维 `dimensionAuditSlots` 与 `NEEDS_SEMANTIC_AUDIT` 完备性硬拒收，修复预检自修空增 `revision` Bug。
+6. **A/B/C 三方案审稿原型与 `PLANNING_CONFLICT_BLOCK`（`P0-5`）**：在隔离沙箱中完成方案 A（增强单阶段）、方案 B（Pass 1 发现 + Pass 2 独立轻量定级）、方案 C（单阶段高召回 + 独立轻量定级复核）原型及 `impactScope` 硬拦截，**不提前替换生产主审稿模板**。
+7. **G1–G6 统计与文学质量验收（`P0-6`）**：以严格分离的 **`G2-A Regression/Calibration`** 与 **`G2-B Independent Holdout`**（补齐独立样本前强制保留 `underpowered` 状态）及聚类 Bootstrap 95% CI、二次加权 Kappa 裁决 A/B/C 胜出架构，决定准入主仓的 Go / No-Go。
+
+### 2. 本阶段明确不在范围（Out of Scope）
+- **不含** P1 任务（L0 `diagnose_book.mjs`、跨轮三元组继承、统一 CLI `r3_ops.mjs`、`analyze_impact.mjs`、L2/L3 卷级闭环、跨 Harness 适配层）。
+- **不含** P1 稳定后的独立系统性能轨道 `Perf-Track`（`PERF-S2` / `PERF-S3`）与可选产品功能轨道 `P2-OptIn`（L4 完本终审与精修）。
+- **不含**任何 R2 行为修改、已冻结架构文档 `docs/r3/review-v3/` 重写、生产主流程擅自切换或未经授权的新小说实验。
+
+---
+
+## 二、架构基线与研发分支元信息
+
+| 元信息项 | 当前锁定值 |
+|---|---|
+| **目标仓库** | `chindden/chinese-novelist-skill` |
+| **正式冻结架构版本** | **`v1.2.3 (Freeze-Ready Final)`**（PR #3 已合入 `feat/r3-migration`） |
+| **架构冻结 Merge Commit SHA** | `b5572a943f9157cda07faa7910dcbfd20b1a3ba5`（源 PR 最终提交 `b63c0b82f220ccba202d63ed66f5bccdc39ba825`） |
+| **P0 受控研发分支** | **`feat/r3-p0-controlled`**（直接基于 `origin/feat/r3-migration` @ `b5572a943f9157cda07faa7910dcbfd20b1a3ba5` 创建） |
+| **基线分支 / SHA** | `feat/r3-migration` @ **`b5572a943f9157cda07faa7910dcbfd20b1a3ba5`** |
+| **历史本地实验参考（未合入基线）** | `feat/r3-phase1-throughput-o1-o3` @ `c0966b1`（仅作 `P0-0` 只读差异审计参考，严禁整枝盲目合入） |
+| **当前阶段** | **P0 实施管理 PRD 建档完成 → 等待 GPT-6 审核本实施 PRD 及作者正式授权启动 `P0-0`** |
+| **总体进度** | **`0 / 7` 任务已验收（`0%`）**（`P0-0` ~ `P0-6` 全部为 `NOT_STARTED`） |
+
+### 引用的正式冻结架构基线文档（只读权威，禁止修改）
+- [`docs/r3/review-v3/03-R3审核体系v3总体架构设计.md`](../review-v3/03-R3审核体系v3总体架构设计.md)（`v1.2.2` 对齐冻结）
+- [`docs/r3/review-v3/04-四层审核生命周期与状态流转图.md`](../review-v3/04-四层审核生命周期与状态流转图.md)（`v1.2.2` 对齐冻结）
+- [`docs/r3/review-v3/06-审核修复复审及版本失效协议.md`](../review-v3/06-审核修复复审及版本失效协议.md)（`v1.2.1` 对齐冻结）
+- [`docs/r3/review-v3/07-P0-P1-P2开发任务与依赖关系.md`](../review-v3/07-P0-P1-P2开发任务与依赖关系.md)（`v1.2.2` 对齐冻结）
+- [`docs/r3/review-v3/08-工程效率与文学质量双重验收方案.md`](../review-v3/08-工程效率与文学质量双重验收方案.md)（`v1.2.3` 冻结终版）
+
+---
+
+## 三、P0-0 至 P0-6 状态面板
+
+> **状态枚举硬规范**：仅允许使用 `NOT_STARTED` | `IN_PROGRESS` | `READY_FOR_REVIEW` | `CHANGES_REQUESTED` | `ACCEPTED` | `BLOCKED`。  
+> **验收权限铁律**：**Neon 仅能将任务推进至 `READY_FOR_REVIEW`，绝不得自行置为 `ACCEPTED`**；`ACCEPTED` 仅在 **GPT-6 明确验收通过**后方可写入；任一任务未获 `ACCEPTED`（或被置为 `CHANGES_REQUESTED`），严禁绕过验收启动后续依赖任务。
+
+| 任务 ID | 任务名称 | 前置依赖 | 当前状态 | 独立 Commit SHA | GPT-6 验收状态 | 关键风险 / 当前备注 |
+|---|---|---|---|---|---|---|
+| **P0-0** | 研发基线审计与实施准备 | 本 PRD 经 GPT-6 审核通过 + 作者授权 | `NOT_STARTED` | `—` | `PENDING_PRD_APPROVAL` | 纯只读审计与准备，不改生产代码、不改冻结架构任务定义 |
+| **P0-1** | S1 四级枚举及下游兼容（含 `ENG-FIX-P1`） | `P0-0 (ACCEPTED)` | `NOT_STARTED` | `—` | `NOT_SUBMITTED` | 严守 R2 零破坏与 `SUGGESTION` 0% 阻断（`08` E1 & G5） |
+| **P0-2** | 写手语域防火墙 | `P0-0 (ACCEPTED)` | `NOT_STARTED` | `—` | `NOT_SUBMITTED` | 写手上下文治理词/限时压迫词 `= 0`（`08` E5） |
+| **P0-3** | `precheck v2` | `P0-0 (ACCEPTED)` | `NOT_STARTED` | `—` | `NOT_SUBMITTED` | 仅文件破损与作者显式硬约束阻断；字数/重复段/跨段引语不阻断 |
+| **P0-4** | 复合审读指纹与 Fail-Closed | `P0-1 (ACCEPTED)` | `NOT_STARTED` | `—` | `NOT_SUBMITTED` | 五元组复合指纹 + 6 维取证槽 + 修空增 `revision` Bug（`08` E2） |
+| **P0-5** | A/B/C 三方案审稿原型（含 `PLANNING_CONFLICT_BLOCK`） | `P0-2`, `P0-3`, `P0-4 (均 ACCEPTED)` | `NOT_STARTED` | `—` | `NOT_SUBMITTED` | 仅在隔离沙箱落地原型，**禁止提前替换生产主审稿模板** |
+| **P0-6** | G1–G6 统计与文学质量验收 | `P0-5 (ACCEPTED)` | `NOT_STARTED` | `—` | `NOT_SUBMITTED` | **G2-A 与 G2-B 严格分离；G2-B 当前 `underpowered`（0/20 章、0/60 案例），补齐过线前禁止宣布独立泛化通过** |
+
+---
+
+## 四、本目录文件清单
+
+| 文件 | 职责说明 |
+|---|---|
+| [`README.md`](./README.md)（本文件） | 项目目标与范围、基线元信息、当前阶段、总体进度与 `P0-0` ~ `P0-6` 状态总览面板 |
+| [`P0-Implementation-PRD.md`](./P0-Implementation-PRD.md) | `P0-0` ~ `P0-6` 逐项完整实施规范（含全部 11 个标准字段）、权限与提交规范、回滚预案及 GPT-6 验收记录表 |
+| [`P0-Progress-Log.md`](./P0-Progress-Log.md) | 按时间线记录每次实施活动、Commit SHA、变更文件、测试输出、GPT-6 审核结论及返工/复审闭环台账 |
