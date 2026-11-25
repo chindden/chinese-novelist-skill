@@ -1,9 +1,9 @@
 # R3 审核体系 v3 · P0 受控研发实施管理 PRD
 
-> **文档版本**：`P0-PRD v1.0.1 (Metadata Traceability Completed / READY_FOR_REVIEW)`  
-> **所属分支**：`feat/r3-p0-controlled`（基于 `feat/r3-migration` @ `b5572a943f9157cda07faa7910dcbfd20b1a3ba5`；初始化 Commit `95b0951d021eddf5d23a1710944550ccc38ca1ff` [GitHub 提交时间 `2026-11-25T17:12:50Z`]；`v1.0.1` 内容修订 Commit `a12774f50956c5081252fe1722333893331ded5e` [GitHub 提交时间 `2026-11-25T17:23:04Z`]，*均非实际研发开始时间*）  
-> **架构冻结基线**：`docs/r3/review-v3/` `v1.2.3 (Freeze-Ready Final)`（PR #3 Merge Commit `b5572a943f9157cda07faa7910dcbfd20b1a3ba5`）  
-> **实施授权状态**：**本管理 PRD `v1.0.1` 两项主要内容整改已通过复审，现补齐 `v1.0.1` 内容修订 Commit 追溯元数据并提交 GPT-6 最终复审（`READY_FOR_REVIEW`）；尚未获批启动，`P0-0` ~ `P0-6` 全部继续保持 `NOT_STARTED`，严禁擅自开始编码、修改 Skill/R2/测试或开展新的小说实验。**
+> **文档版本**：`P0-PRD v1.0.1 (GPT-6 ACCEPTED · 2026-11-26 · 审核基线 e52105ad)`  
+> **所属分支**：`feat/r3-p0-controlled`（基于 `feat/r3-migration` @ `b5572a943f9157cda07faa7910dcbfd20b1a3ba5`；初始化 Commit `95b0951d021eddf5d23a1710944550ccc38ca1ff` [GitHub 提交时间 `2026-11-25T17:12:50Z`]；`v1.0.1` 内容修订 Commit `a12774f50956c5081252fe1722333893331ded5e` [GitHub 提交时间 `2026-11-25T17:23:04Z`]；元数据追溯补齐及验收基线 Commit `e52105adca3f994fca3cbdeef9aa935479ceaf9b` [GitHub 提交时间 `2026-11-25T17:44:23Z`]，*均非实际研发开始时间*）  
+> **架构冻结基线**：`docs/r3/review-v3/` `v1.2.3 (Freeze-Ready Final)`（PR #3 Merge Commit `b5572a943f9157cda07faa7910dcbfd20b1a3ba5`）；全仓库长期上下文见 [`docs/PROJECT-CONTEXT.md`](../../PROJECT-CONTEXT.md)  
+> **实施授权状态**：**本管理 PRD `v1.0.1` 已于 `2026-11-26` 基于审核基线 `e52105ad` 获 GPT-6 最终验收（`ACCEPTED`），管理 PRD 正式冻结。特别注意：管理 PRD 验收通过不代表 `P0-0` 已获得启动授权；`P0-0` ~ `P0-6` 全部继续保持 `NOT_STARTED`，严禁未经作者单独授权擅自开始编码、修改 Skill/R2/测试或开展新的小说实验。**
 
 ---
 
@@ -152,7 +152,7 @@ flowchart LR
 
 #### 11. GPT-6 验收状态
 - **当前状态**：`NOT_STARTED`
-- **GPT-6 验收结论**：`PENDING_PRD_APPROVAL`（待本 PRD 获批及作者授权启动 `P0-0`）
+- **GPT-6 验收结论**：`NOT_SUBMITTED`（本管理 PRD `v1.0.1` 已于 `2026-11-26` 获 GPT-6 `ACCEPTED`，但**尚未获得作者单独授权启动 `P0-0`**）
 - **审核时间与意见**：`—`
 
 ---
@@ -609,7 +609,7 @@ flowchart LR
 | 验收对象 | 当前状态 | 提交 Commit SHA | 提审日期 | GPT-6 验收结论 | 验收日期 | 审核要点 / 退回整改要求 |
 |---|---|---|---|---|---|---|
 | **P0 实施管理 PRD `v1.0`（初始化建档）** | `CHANGES_REQUESTED` | `95b0951d021eddf5d23a1710944550ccc38ca1ff` | `2026-11-25T17:12:50Z` *(GitHub 提交时间)* | **`CHANGES_REQUESTED`** | `2026-11-25` | 整体结构与管理机制认可；要求修正两处（`RW-PRD-001`）：① 统一 `P0-2` 末尾顺序为“倒数第二：本书文风锚点示范 → 最末位：上一章结尾原文（500–900 字）”；② 补齐初始化 Commit 完整 40 位 SHA 与 GitHub 提交时间 |
-| **P0 实施管理 PRD `v1.0.1`（内容整改提交）** | `READY_FOR_REVIEW` | `a12774f50956c5081252fe1722333893331ded5e` | `2026-11-25T17:23:04Z` *(GitHub 提交时间，非实际研发开始时间)* | `PENDING` | `—` | 两项主要内容整改（`P0-2` 末尾顺序 & 初始化 Commit SHA）已通过复审；现已补齐本 `v1.0.1` 完整 SHA 与提交时间，提交 GPT-6 最终复审；通过并获作者授权后方可启动 `P0-0` |
+| **P0 实施管理 PRD `v1.0.1`（内容整改 + 元数据补齐验收）** | **`ACCEPTED`** | 内容修订 `a12774f50956c5081252fe1722333893331ded5e`；<br>审核基线 `e52105adca3f994fca3cbdeef9aa935479ceaf9b` | `2026-11-25T17:23:04Z` / `2026-11-25T17:44:23Z` *(GitHub 提交时间，非实际研发开始时间)* | **`ACCEPTED`** | **`2026-11-26`** | GPT-6 基于 `e52105ad` 最终验收通过，关闭 `RW-PRD-001`，管理 PRD `v1.0.1` 正式冻结；**管理 PRD 验收通过不代表 `P0-0` 已获启动授权** |
 | **`P0-0` · 研发基线审计与实施准备** | `NOT_STARTED` | `—` | `—` | `NOT_SUBMITTED` | `—` | — |
 | **`P0-1` · S1 四级枚举及下游兼容** | `NOT_STARTED` | `—` | `—` | `NOT_SUBMITTED` | `—` | — |
 | **`P0-2` · 写手语域防火墙** | `NOT_STARTED` | `—` | `—` | `NOT_SUBMITTED` | `—` | — |

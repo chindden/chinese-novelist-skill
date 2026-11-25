@@ -10,6 +10,7 @@
 本仓库是后续唯一研发源，R3 仍为未发布开发预览。迁移来源：[skills R3 固定提交](https://github.com/chindden/skills/tree/7e084c5abb5d6d880abfa3c6be0e633b0914d4ad/chinese-novelist-v3)。原分支历史保留；迁移提交只适配路径；后续独立提交将集成版许可调整为 [GPL-3.0](LICENSE)，完整保留 [原 MIT 许可](LICENSES/MIT-upstream.txt) 与 [来源声明](NOTICE.md)。最新状态见 [R3 PRD](docs/R3-PRD.md)、[R3 运行手册](references/v3/r3-operational-runbook.md) 与 [P1 协议](references/v3/r3-p1-protocol.md)。历史 PRD 按时间追加，旧状态为当时记录。
 
 ## 主要参考
+- [全仓库长期上下文档案（历史、创作原则、实验证据与跨会话恢复）](docs/PROJECT-CONTEXT.md)
 - [总流程](references/v3/workflow.md)
 - [运行手册](references/v3/operational-runbook.md)
 - [创意竞标](references/v3/creative-lab.md)

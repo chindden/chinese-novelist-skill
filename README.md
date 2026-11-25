@@ -2,6 +2,7 @@
 
 本独立仓库承接 Chinese Novelist V3 / R2 / R3 的持续研发。当前分支仍为实验开发版，不是正式发布版。
 
+- [项目长期上下文档案（全仓库历史、决策、实验证据与跨会话恢复入口）](docs/PROJECT-CONTEXT.md)
 - [安装、使用及测试](README_V3.md)
 - [Skill 入口](SKILL.md)
 - [R3 研发 PRD](docs/R3-PRD.md)
