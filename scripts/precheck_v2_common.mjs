@@ -499,21 +499,34 @@ function hasCompleteScopeHashes(hashesObj, numbers) {
 }
 
 /**
- * Pure read-only audit of historical passed reviews under reviews/r2/ and p1.reviewHistory (B7/B10/B11).
+ * Pure read-only audit of historical reviews under reviews/r2/, p1.reviewHistory, and p1.legacyReviews (B7/B10–B13).
  *
- * Security & trust boundary:
- *  - Every reviews/r2/report-*.json MUST parse cleanly, match its canonical filename (kind/end/revision),
- *    pair with its matching reviews/r2/input-*.json packet, and carry complete valid scope manuscriptHashes.
- *    Any corruption, schema/scope mismatch, missing hash, or packet mismatch fails closed.
- *  - When P1 is enabled (v3.r3.p1.reviewHistory), every registered historical report is cryptographically
- *    anchored by SHA-256 and verified against r3_p1_common.mjs readFeedback() invariants (scope, revision,
- *    p1.schemaVersion === 1, p1.literaryStatus === 'UNVERIFIED', and complete scope hashes).
- *  - Explicit legacy R2 trust boundary: in a non-P1 project where `r2_review.mjs prepare` has already
- *    overwritten v1's reviewSha256 in 02-写作计划.json, an attacker who semantically rewrites a valid report's
- *    decision from 'pass_candidate' to 'revise' cannot be distinguished cryptographically from a genuine v1
- *    'revise' retry without P1 reviewHistory SHA anchoring. P0-3 protects against normal prepare overwrites,
- *    index deletion, and malformed/mismatched historical artifacts, and relies on P1 reviewHistory SHA
- *    registration for cryptographic anti-tampering of historical reports.
+ * Security & trust-model boundaries (explicitly scoped, never overstated):
+ *  1. Strict `reviews/r2/` directory whitelist: every entry MUST match canonical R2 filenames
+ *     `(input|report)-(ch|arc)NNN-vR.json` (with exact padStart(3, '0') & canonical revision). Any unexpected or
+ *     renamed file inside `reviews/r2/` fails closed (`R2_HISTORICAL_UNEXPECTED_FILE`), blocking in-place renames.
+ *  2. Fail-Closed report/packet pairing: every `report-*.json` MUST parse cleanly, match its canonical filename
+ *     (kind/end/revision), pair with `input-*.json`, and carry complete valid scope `manuscriptHashes`.
+ *  3. Bidirectional P1 registration (B12): BEFORE any `decision !== 'pass_candidate'` branch:
+ *     - Any P1-protocol pair (`packet.p1Protocol === 1` or `report.p1` present) MUST have an active `v3.r3.p1` state
+ *       and an exact `(kind, end, revision, path, sha256)` entry in `p1.reviewHistory` regardless of decision
+ *       (`pass_candidate`, `revise`, or `reject`). Removing a history item or stripping `v3.r3.p1` fails closed.
+ *     - In a P1-enabled project, legacy packets (`p1Protocol !== 1`) MUST be registered in `p1.legacyReviews`
+ *       (and within `<= baselineUpto`), and `p1.legacyReviews` entries with `reviewPath` are audited on disk.
+ *  4. Accurate SHA trust model (Section V): `v3.r3.p1.reviewHistory` and `legacyReviews` SHA values live inside
+ *     the same editable `02-写作计划.json`, NOT an external cryptographic root of trust. Therefore P0-3 guarantees:
+ *     **given trustworthy plan registration state, unilateral tampering, deletion, renaming, or bidirectional
+ *     registration mismatch of historical report files is detected Fail-Closed.** P0-3 does NOT claim resistance
+ *     against coordinated simultaneous tampering of both report files and `02-写作计划.json` (which would require
+ *     external signatures or an append-only off-project log outside P0-3 scope).
+ *  5. Explicit Legacy non-P1 R2 deletion boundary (B13): in a pure legacy non-P1 project without `finalizedSha256`,
+ *     `r2_review.mjs prepare` (outside P0-3 whitelist) overwrites `reviewPath/reviewSha256` to `null` and also
+ *     permits re-preparing an `under_review` chapter without a prior report. Therefore, after `prepare` overwrites
+ *     v1's plan record, deleting `report-chNNN-v1.json` completely (or moving it outside `reviews/r2/`) leaves an
+ *     orphaned `input-chNNN-v1.json` that cannot distinguish an abandoned draft prepare from a deleted passed report.
+ *     Pre-P1 mitigation: freeze legacy baselines via `node scripts/r3_p1.mjs <dir> activate --project-id <id>`
+ *     (which records `legacyReviews` with `reviewPath` + SHA) or set explicit `chapter.finalizedSha256` before
+ *     calling `r2_review.mjs prepare` on finalized chapters.
  */
 function auditHistoricalPassedReviews(root, plan, resolveDiskHash, p1StateObj) {
   const errors = [];
@@ -568,54 +581,110 @@ function auditHistoricalPassedReviews(root, plan, resolveDiskHash, p1StateObj) {
         }
 
         if (entries) {
-          const reportNameRe = /^report-(ch|arc)(\d+)-v(\d+)\.json$/;
-          for (const name of entries) {
-            if (!name.endsWith('.json')) continue;
-            const fileRel = path.join(r2DirRel, name);
-            const inspected = inspectSafeFile(root, fileRel);
-            if (inspected.status !== 'ok') {
-              errors.push({
-                code: 'STALE_REVIEW_AFTER_EDIT',
-                source: fileRel,
-                reason: inspected.reason,
-                message: `历史审稿文件 ${fileRel} 路径异常或不可读（${inspected.reason}），Fail-Closed 阻断。`,
-              });
-              continue;
-            }
+          const r2FileRe = /^(input|report)-(ch|arc)(\d+)-v(\d+)\.json$/;
+          // Cache parsed input-*.json packets (sorted order visits input-* before report-*)
+          const parsedInputs = new Map();
 
-            // Strictly audit every report-*.json file Fail-Closed (B10)
-            if (!name.startsWith('report-')) continue;
-            const fnMatch = name.match(reportNameRe);
+          for (const name of entries) {
+            const fileRel = path.join(r2DirRel, name);
+            const fnMatch = name.match(r2FileRe);
             if (!fnMatch) {
               errors.push({
                 code: 'STALE_REVIEW_AFTER_EDIT',
                 source: fileRel,
-                reason: 'R2_HISTORICAL_REPORT_FILENAME_INVALID',
-                message: `历史审稿报告文件名 ${fileRel} 不符合 R2 规范（report-(ch|arc)NNN-vR.json），Fail-Closed 阻断。`,
+                reason: 'R2_HISTORICAL_UNEXPECTED_FILE',
+                message: `历史审稿目录 ${r2DirRel} 存在非规范文件 ${fileRel}（禁止通过改名或伪装绕过历史审稿审计），Fail-Closed 阻断。`,
               });
               continue;
             }
-            const prefix = fnMatch[1];
+            const role = fnMatch[1];
+            const prefix = fnMatch[2];
             const expectedKind = prefix === 'ch' ? 'chapter' : 'arc';
-            const expectedEnd = Number(fnMatch[2]);
-            const expectedRev = Number(fnMatch[3]);
+            const expectedEnd = Number(fnMatch[3]);
+            const expectedRev = Number(fnMatch[4]);
             if (!Number.isSafeInteger(expectedEnd) || expectedEnd < 1 ||
                 !Number.isSafeInteger(expectedRev) || expectedRev < 1 ||
-                fnMatch[2] !== String(expectedEnd).padStart(3, '0') ||
-                fnMatch[3] !== String(expectedRev) ||
+                fnMatch[3] !== String(expectedEnd).padStart(3, '0') ||
+                fnMatch[4] !== String(expectedRev) ||
                 (expectedKind === 'arc' && (expectedEnd < 6 || expectedEnd % 3 !== 0))) {
               errors.push({
                 code: 'STALE_REVIEW_AFTER_EDIT',
                 source: fileRel,
                 reason: 'R2_HISTORICAL_REPORT_FILENAME_INVALID',
-                message: `历史审稿报告文件名 ${fileRel} 中的章号或版本号非法，Fail-Closed 阻断。`,
+                message: `历史审稿文件名 ${fileRel} 中的章号或版本号非法，Fail-Closed 阻断。`,
               });
               continue;
             }
 
+            const inspected = inspectSafeFile(root, fileRel);
+            if (inspected.status !== 'ok') {
+              errors.push({
+                code: 'STALE_REVIEW_AFTER_EDIT',
+                chapter: expectedEnd,
+                source: fileRel,
+                reason: inspected.reason,
+                message: `历史审稿文件 ${fileRel} 路径异常或不可读（${inspected.reason}），Fail-Closed 阻断。`,
+              });
+              if (role === 'input') {
+                parsedInputs.set(fileRel, {ok: false, alreadyReported: true});
+              }
+              continue;
+            }
+
+            const numbers = reviewScopeNumbers(expectedKind, expectedEnd);
+
+            if (role === 'input') {
+              const inputBytes = fs.readFileSync(inspected.realPath);
+              const inputSha256 = sha256Hex(inputBytes);
+              let pktObj;
+              try {
+                pktObj = JSON.parse(inputBytes.toString('utf8').replace(/^\uFEFF/, ''));
+              } catch {
+                errors.push({
+                  code: 'STALE_REVIEW_AFTER_EDIT',
+                  chapter: expectedEnd,
+                  source: fileRel,
+                  reason: 'R2_HISTORICAL_PACKET_CORRUPT',
+                  message: `历史审稿输入包 ${fileRel} JSON 损坏，Fail-Closed 阻断。`,
+                });
+                parsedInputs.set(fileRel, {ok: false, alreadyReported: true});
+                continue;
+              }
+              if (!isPlainObject(pktObj) ||
+                  pktObj.schemaVersion !== 1 ||
+                  pktObj.kind !== expectedKind ||
+                  pktObj.end !== expectedEnd ||
+                  pktObj.revision !== expectedRev ||
+                  !hasCompleteScopeHashes(pktObj.manuscriptHashes, numbers)) {
+                errors.push({
+                  code: 'STALE_REVIEW_AFTER_EDIT',
+                  chapter: expectedEnd,
+                  source: fileRel,
+                  reason: 'R2_HISTORICAL_PACKET_INVALID',
+                  message: `历史审稿输入包 ${fileRel} 的 schemaVersion/kind/end/revision 或 manuscriptHashes 非法，Fail-Closed 阻断。`,
+                });
+                parsedInputs.set(fileRel, {ok: false, alreadyReported: true});
+                continue;
+              }
+              if (pktObj.p1Protocol === 1 && !p1StateObj) {
+                errors.push({
+                  code: 'STALE_REVIEW_AFTER_EDIT',
+                  chapter: expectedEnd,
+                  source: fileRel,
+                  reason: 'R3_P1_STATE_MISSING_FOR_P1_PACKET',
+                  message: `历史输入包 ${fileRel} 声明 p1Protocol=1，但 02-写作计划.json 缺少合法 v3.r3.p1 状态，Fail-Closed 阻断。`,
+                });
+              }
+              parsedInputs.set(fileRel, {ok: true, sha256: inputSha256, packet: pktObj});
+              continue;
+            }
+
+            // role === 'report': Fail-Closed parse + paired input-*.json + bidirectional P1 registration (B10 + B12)
+            const reportBytes = fs.readFileSync(inspected.realPath);
+            const reportSha256 = sha256Hex(reportBytes);
             let report;
             try {
-              report = JSON.parse(fs.readFileSync(inspected.realPath, 'utf8').replace(/^\uFEFF/, ''));
+              report = JSON.parse(reportBytes.toString('utf8').replace(/^\uFEFF/, ''));
             } catch {
               errors.push({
                 code: 'STALE_REVIEW_AFTER_EDIT',
@@ -627,7 +696,6 @@ function auditHistoricalPassedReviews(root, plan, resolveDiskHash, p1StateObj) {
               continue;
             }
 
-            const numbers = reviewScopeNumbers(expectedKind, expectedEnd);
             if (!isPlainObject(report) ||
                 report.schemaVersion !== 1 ||
                 report.kind !== expectedKind ||
@@ -656,10 +724,10 @@ function auditHistoricalPassedReviews(root, plan, resolveDiskHash, p1StateObj) {
             }
 
             // Pair report-*.json with corresponding input-*.json packet and verify consistency
-            const inputName = `input-${prefix}${fnMatch[2]}-v${fnMatch[3]}.json`;
+            const inputName = `input-${prefix}${fnMatch[3]}-v${fnMatch[4]}.json`;
             const inputRel = path.join(r2DirRel, inputName);
-            const inputInspected = inspectSafeFile(root, inputRel);
-            if (inputInspected.status !== 'ok') {
+            const cachedInput = parsedInputs.get(inputRel);
+            if (!cachedInput) {
               errors.push({
                 code: 'STALE_REVIEW_AFTER_EDIT',
                 chapter: expectedEnd,
@@ -669,26 +737,12 @@ function auditHistoricalPassedReviews(root, plan, resolveDiskHash, p1StateObj) {
               });
               continue;
             }
-            let packet;
-            try {
-              packet = JSON.parse(fs.readFileSync(inputInspected.realPath, 'utf8').replace(/^\uFEFF/, ''));
-            } catch {
-              errors.push({
-                code: 'STALE_REVIEW_AFTER_EDIT',
-                chapter: expectedEnd,
-                source: inputRel,
-                reason: 'R2_HISTORICAL_PACKET_CORRUPT',
-                message: `历史审稿输入包 ${inputRel} JSON 损坏，Fail-Closed 阻断。`,
-              });
+            if (!cachedInput.ok) {
+              // Input packet error already recorded during input-* pass
               continue;
             }
+            const {packet, sha256: inputSha256} = cachedInput;
             const packetMatchesReport =
-              isPlainObject(packet) &&
-              packet.schemaVersion === 1 &&
-              packet.kind === expectedKind &&
-              packet.end === expectedEnd &&
-              packet.revision === expectedRev &&
-              hasCompleteScopeHashes(packet.manuscriptHashes, numbers) &&
               numbers.every(n => packet.manuscriptHashes[String(n)] === report.manuscriptHashes[String(n)]);
             if (!packetMatchesReport) {
               errors.push({
@@ -696,9 +750,104 @@ function auditHistoricalPassedReviews(root, plan, resolveDiskHash, p1StateObj) {
                 chapter: expectedEnd,
                 source: fileRel,
                 reason: 'R2_HISTORICAL_PACKET_MISMATCH',
-                message: `历史审稿报告 ${fileRel} 与配对输入包 ${inputRel} 的范围、版本或 manuscriptHashes 不一致，Fail-Closed 阻断。`,
+                message: `历史审稿报告 ${fileRel} 与配对输入包 ${inputRel} 的 manuscriptHashes 不一致，Fail-Closed 阻断。`,
               });
               continue;
+            }
+
+            // B12: Bidirectional P1 protocol & registration verification BEFORE decision branching
+            const isP1Pair = packet.p1Protocol === 1 || hasOwn(report, 'p1');
+            if (isP1Pair) {
+              if (packet.p1Protocol !== 1) {
+                errors.push({
+                  code: 'STALE_REVIEW_AFTER_EDIT',
+                  chapter: expectedEnd,
+                  source: fileRel,
+                  reason: 'R3_P1_PROTOCOL_MISMATCH',
+                  message: `历史审稿报告 ${fileRel} 包含 p1 字段，但配对输入包 ${inputRel} 未声明 p1Protocol=1，Fail-Closed 阻断。`,
+                });
+                continue;
+              }
+              if (!p1StateObj) {
+                errors.push({
+                  code: 'STALE_REVIEW_AFTER_EDIT',
+                  chapter: expectedEnd,
+                  source: fileRel,
+                  reason: 'R3_P1_STATE_MISSING_FOR_P1_REPORT',
+                  message: `历史审稿报告 ${fileRel} 属于 P1 协议，但 02-写作计划.json 缺少合法 v3.r3.p1 状态，Fail-Closed 阻断。`,
+                });
+                continue;
+              }
+              if (!isPlainObject(report.p1) ||
+                  report.p1.schemaVersion !== 1 ||
+                  report.p1.literaryStatus !== 'UNVERIFIED') {
+                errors.push({
+                  code: 'STALE_REVIEW_AFTER_EDIT',
+                  chapter: expectedEnd,
+                  source: fileRel,
+                  reason: 'R3_P1_HISTORY_INVALID',
+                  message: `P1 协议历史审稿报告 ${fileRel} 缺少合法 p1 元数据（schemaVersion=1, literaryStatus=UNVERIFIED），Fail-Closed 阻断。`,
+                });
+                continue;
+              }
+              const registeredInHistory = p1StateObj.reviewHistory.some(
+                h => isPlainObject(h) &&
+                     h.kind === expectedKind &&
+                     h.end === expectedEnd &&
+                     h.revision === expectedRev &&
+                     h.path === fileRel &&
+                     h.sha256 === reportSha256
+              );
+              if (!registeredInHistory) {
+                errors.push({
+                  code: 'STALE_REVIEW_AFTER_EDIT',
+                  chapter: expectedEnd,
+                  source: fileRel,
+                  reason: 'R3_P1_HISTORY_UNREGISTERED_REPORT',
+                  message: `P1 协议历史审稿报告 ${fileRel}（decision=${report.decision}）在 v3.r3.p1.reviewHistory 中缺少匹配的注册条目或 SHA-256 不一致，禁止通过删改注册表绕过校验。`,
+                });
+                continue;
+              }
+            } else if (p1StateObj) {
+              // Legacy R2 packet inside a P1-enabled project must be registered under p1.legacyReviews
+              const legacyKey = `${expectedKind}:${expectedEnd}`;
+              const legacyRec = hasOwn(p1StateObj.legacyReviews, legacyKey) ? p1StateObj.legacyReviews[legacyKey] : null;
+              if (expectedEnd > p1StateObj.baselineUpto || !isPlainObject(legacyRec)) {
+                errors.push({
+                  code: 'STALE_REVIEW_AFTER_EDIT',
+                  chapter: expectedEnd,
+                  source: fileRel,
+                  reason: 'R3_P1_UNREGISTERED_LEGACY_REVIEW',
+                  message: `P1 项目中的 legacy 审稿报告 ${fileRel} 未注册于 v3.r3.p1.legacyReviews["${legacyKey}"] 或超出 baselineUpto，Fail-Closed 阻断。`,
+                });
+                continue;
+              }
+              if (report.decision === 'pass_candidate') {
+                if (legacyRec.inputSha256 !== inputSha256 ||
+                    legacyRec.reviewSha256 !== reportSha256 ||
+                    (typeof legacyRec.reviewPath === 'string' && legacyRec.reviewPath.trim() && legacyRec.reviewPath !== fileRel)) {
+                  errors.push({
+                    code: 'STALE_REVIEW_AFTER_EDIT',
+                    chapter: expectedEnd,
+                    source: fileRel,
+                    reason: 'R3_P1_UNREGISTERED_LEGACY_REVIEW',
+                    message: `P1 项目中的 legacy 已通过报告 ${fileRel} 与 v3.r3.p1.legacyReviews["${legacyKey}"] 注册的 input/review SHA 不匹配，Fail-Closed 阻断。`,
+                  });
+                  continue;
+                }
+              } else if ((typeof legacyRec.reviewPath === 'string' && legacyRec.reviewPath === fileRel) ||
+                         legacyRec.inputSha256 === inputSha256) {
+                if (legacyRec.reviewSha256 !== reportSha256) {
+                  errors.push({
+                    code: 'STALE_REVIEW_AFTER_EDIT',
+                    chapter: expectedEnd,
+                    source: fileRel,
+                    reason: 'R3_P1_LEGACY_REVIEW_CHANGED',
+                    message: `P1 项目中已注册的 legacy 审稿报告 ${fileRel} 已被篡改（与 legacyReviews["${legacyKey}"].reviewSha256 不符），Fail-Closed 阻断。`,
+                  });
+                  continue;
+                }
+              }
             }
 
             if (report.decision !== 'pass_candidate') {
@@ -742,7 +891,7 @@ function auditHistoricalPassedReviews(root, plan, resolveDiskHash, p1StateObj) {
     }
   }
 
-  // Also audit p1State.reviewHistory entries on disk matching r3_p1_common.mjs readFeedback() L36-45 (B7 + B8 + B11)
+  // Plan -> Disk audit of p1State.reviewHistory & p1State.legacyReviews (B7 + B8 + B11 + B12 + B13)
   if (p1StateObj) {
     const seenHistory = new Set();
     for (const item of p1StateObj.reviewHistory) {
@@ -849,6 +998,94 @@ function auditHistoricalPassedReviews(root, plan, resolveDiskHash, p1StateObj) {
               expectedSha256: expectedHash,
               ...(disk.ok ? {actualSha256: disk.sha256} : {}),
               message: `P1 历史已通过审稿 ${item.path} 对应的第 ${c} 章正文已被修改或丢失。`,
+            });
+          }
+        }
+      }
+    }
+
+    // Plan -> Disk audit of p1State.legacyReviews (catches deleted/moved/tampered legacy reports after P1 activation)
+    const legacyKeyRe = /^(chapter|arc):([1-9]\d*)$/;
+    for (const [lk, lr] of Object.entries(p1StateObj.legacyReviews)) {
+      const m = lk.match(legacyKeyRe);
+      const lkKind = m?.[1];
+      const lkEnd = m ? Number(m[2]) : NaN;
+      if (!m || !Number.isSafeInteger(lkEnd) ||
+          (lkKind === 'arc' && (lkEnd < 6 || lkEnd % 3 !== 0)) ||
+          !isPlainObject(lr) ||
+          typeof lr.inputSha256 !== 'string' || !HEX64_RE.test(lr.inputSha256) ||
+          typeof lr.reviewSha256 !== 'string' || !HEX64_RE.test(lr.reviewSha256) ||
+          typeof lr.reviewPath !== 'string' || !lr.reviewPath.trim()) {
+        errors.push({
+          code: 'STALE_REVIEW_AFTER_EDIT',
+          source: `v3.r3.p1.legacyReviews.${lk}`,
+          reason: 'R3_P1_LEGACY_REVIEW_INVALID',
+          message: `v3.r3.p1.legacyReviews["${lk}"] 格式、reviewPath 或 SHA-256 注册字段非法，Fail-Closed 阻断。`,
+        });
+        continue;
+      }
+      {
+        const inspected = inspectSafeFile(root, lr.reviewPath);
+        if (inspected.status !== 'ok') {
+          errors.push({
+            code: 'STALE_REVIEW_AFTER_EDIT',
+            chapter: lkEnd,
+            source: lr.reviewPath,
+            reason: 'R3_P1_LEGACY_FILE_MISSING',
+            message: `P1 已冻结的 legacy 审稿文件 ${lr.reviewPath} 缺失或被移出项目目录，Fail-Closed 阻断。`,
+          });
+          continue;
+        }
+        const bytes = fs.readFileSync(inspected.realPath);
+        if (sha256Hex(bytes) !== lr.reviewSha256) {
+          errors.push({
+            code: 'STALE_REVIEW_AFTER_EDIT',
+            chapter: lkEnd,
+            source: lr.reviewPath,
+            reason: 'R3_P1_LEGACY_REVIEW_CHANGED',
+            message: `P1 已冻结的 legacy 审稿文件 ${lr.reviewPath} 哈希与 legacyReviews["${lk}"] 注册值不符，Fail-Closed 阻断。`,
+          });
+          continue;
+        }
+        let report;
+        try {
+          report = JSON.parse(bytes.toString('utf8').replace(/^\uFEFF/, ''));
+        } catch {
+          errors.push({
+            code: 'STALE_REVIEW_AFTER_EDIT',
+            chapter: lkEnd,
+            source: lr.reviewPath,
+            reason: 'R3_P1_LEGACY_REVIEW_INVALID',
+            message: `P1 已冻结的 legacy 审稿文件 ${lr.reviewPath} JSON 损坏。`,
+          });
+          continue;
+        }
+        const numbers = reviewScopeNumbers(lkKind, lkEnd);
+        if (!isPlainObject(report) || report.schemaVersion !== 1 ||
+            report.kind !== lkKind || report.end !== lkEnd ||
+            report.decision !== 'pass_candidate' ||
+            !hasCompleteScopeHashes(report.manuscriptHashes, numbers)) {
+          errors.push({
+            code: 'STALE_REVIEW_AFTER_EDIT',
+            chapter: lkEnd,
+            source: lr.reviewPath,
+            reason: 'R3_P1_LEGACY_REVIEW_INVALID',
+            message: `P1 已冻结的 legacy 审稿文件 ${lr.reviewPath} 范围、decision 或 manuscriptHashes 非法。`,
+          });
+          continue;
+        }
+        for (const c of numbers) {
+          const expectedHash = report.manuscriptHashes[String(c)];
+          const disk = resolveDiskHash(c);
+          if (!disk.ok || disk.sha256 !== expectedHash) {
+            errors.push({
+              code: 'STALE_REVIEW_AFTER_EDIT',
+              chapter: c,
+              source: lr.reviewPath,
+              reason: 'HISTORICAL_PASSED_REVIEW_MANUSCRIPT_CHANGED',
+              expectedSha256: expectedHash,
+              ...(disk.ok ? {actualSha256: disk.sha256} : {}),
+              message: `P1 已冻结的 legacy 审稿 ${lr.reviewPath} 对应的第 ${c} 章正文已被修改或丢失。`,
             });
           }
         }

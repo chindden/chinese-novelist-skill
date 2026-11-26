@@ -840,11 +840,15 @@ test('TC-P0-3-1b: B7 historical R2/arcReviews preservation, B8 P1 registration, 
     assert.ok(res.hardErrors.some(e => e.reason === 'R2_HISTORICAL_REPORT_HASHES_INVALID'));
   }
 
-  // B10-3: Tamper kind/end/revision in historical report -> R2_HISTORICAL_REPORT_INVALID
-  {
+  // B10-3: Tamper kind, end, and revision separately in historical report -> R2_HISTORICAL_REPORT_INVALID
+  for (const mutate of [
+    r => { r.kind = 'arc'; },
+    r => { r.end = 99; },
+    r => { r.revision = 9; },
+  ]) {
     const {dir, reportAbs} = b10BaseSetup();
     const r = JSON.parse(fs.readFileSync(reportAbs, 'utf8'));
-    r.end = 99;
+    mutate(r);
     fs.writeFileSync(reportAbs, JSON.stringify(r, null, 2) + '\n', 'utf8');
     const res = precheckChapterV2(dir, 8);
     assert.equal(res.blocking, true);
@@ -979,6 +983,256 @@ test('TC-P0-3-1b: B7 historical R2/arcReviews preservation, B8 P1 registration, 
   makeP1HistoryCase(r => { delete r.p1; }, 'R3_P1_HISTORY_INVALID');
   makeP1HistoryCase(r => { r.p1.literaryStatus = 'VERIFIED'; }, 'R3_P1_HISTORY_INVALID');
   makeP1HistoryCase(r => { r.manuscriptHashes = {}; }, 'R3_P1_HISTORY_HASHES_INVALID');
+
+  // --- B12: Bidirectional P1 registration consistency (cannot bypass by deleting reviewHistory or stripping p1) ---
+  const b12P1BypassSetup = ({deleteSingle = false, emptyHistory = false, stripP1 = false, decision = 'revise', tamperText = true} = {}) => {
+    const d = makeTempProject(t, {
+      plan: {
+        minWordsPerChapter: 3000,
+        chapters: [
+          {chapterNumber: 6, title: '第六章', filePath: 'chapters/ch006.md', status: 'completed'},
+          {chapterNumber: 7, title: '第七章', filePath: 'chapters/ch007.md', status: 'completed'},
+          {chapterNumber: 8, title: '第八章', filePath: 'chapters/ch008.md', status: 'draft'},
+        ],
+      },
+      chapters: {'chapters/ch006.md': ch1Txt, 'chapters/ch007.md': ch7Orig, 'chapters/ch008.md': ch8Draft},
+    });
+    const snap6 = writeCanonicalSnapshot(d, 'reviews/r3/manuscripts/chapter-6/v1', {'chapter-0006.md': ch1Txt});
+    const rec6 = writeReviewBundle(d, 'chapter', 6, {6: ch1Txt}, {revision: 1, p1Protocol: true, r3Snapshot: snap6});
+    const snap7 = writeCanonicalSnapshot(d, 'reviews/r3/manuscripts/chapter-7/v1', {'chapter-0007.md': ch7Orig});
+    const rec7 = writeReviewBundle(d, 'chapter', 7, {7: ch7Orig}, {revision: 1, p1Protocol: true, r3Snapshot: snap7});
+
+    if (tamperText) {
+      fs.writeFileSync(path.join(d, 'chapters/ch007.md'), ch7Tampered, 'utf8');
+    }
+    const rep7 = JSON.parse(fs.readFileSync(path.join(d, rec7.reviewPath), 'utf8'));
+    rep7.decision = decision;
+    fs.writeFileSync(path.join(d, rec7.reviewPath), JSON.stringify(rep7, null, 2) + '\n', 'utf8');
+
+    const p = JSON.parse(fs.readFileSync(path.join(d, '02-写作计划.json'), 'utf8'));
+    const history = [
+      {kind: 'chapter', end: 6, revision: 1, path: rec6.reviewPath, sha256: rec6.reviewSha256},
+      {kind: 'chapter', end: 7, revision: 1, path: rec7.reviewPath, sha256: rec7.reviewSha256},
+    ];
+    p.v3 = {
+      schemaVersion: 1,
+      r2: {
+        schemaVersion: 1,
+        chapterReviews: {
+          '6': rec6,
+          '7': {
+            status: 'under_review',
+            revision: 2,
+            inputPath: 'reviews/r2/input-ch007-v2.json',
+            inputSha256: sha256(Buffer.from('v2', 'utf8')),
+            reviewPath: null,
+            reviewSha256: null,
+            manuscriptHashes: {'7': sha256(Buffer.from(tamperText ? ch7Tampered : ch7Orig, 'utf8'))},
+          },
+        },
+        arcReviews: {},
+      },
+      r3: {
+        schemaVersion: 1,
+        mode: 'experimental',
+        ...(stripP1 ? {} : {
+          p1: {
+            schemaVersion: 1,
+            baselineUpto: 0,
+            projectId: 'proj-b12',
+            legacyReviews: {},
+            reviewHistory: emptyHistory ? [] : (deleteSingle ? [history[0]] : history),
+          },
+        }),
+      },
+    };
+    fs.writeFileSync(path.join(d, '02-写作计划.json'), JSON.stringify(p, null, 2) + '\n', 'utf8');
+    return {dir: d, rec7};
+  };
+
+  // B12-1: Delete single reviewHistory entry for Ch 7 + downgrade decision to revise + tamper Ch 7 -> R3_P1_HISTORY_UNREGISTERED_REPORT
+  {
+    const {dir} = b12P1BypassSetup({deleteSingle: true, decision: 'revise', tamperText: true});
+    const res = precheckChapterV2(dir, 8);
+    assert.equal(res.blocking, true);
+    assert.ok(res.hardErrors.some(e => e.reason === 'R3_P1_HISTORY_UNREGISTERED_REPORT'));
+  }
+
+  // B12-2: Empty reviewHistory [] + downgrade decision + tamper Ch 7 -> R3_P1_HISTORY_UNREGISTERED_REPORT
+  {
+    const {dir} = b12P1BypassSetup({emptyHistory: true, decision: 'revise', tamperText: true});
+    const res = precheckChapterV2(dir, 8);
+    assert.equal(res.blocking, true);
+    assert.ok(res.hardErrors.some(e => e.reason === 'R3_P1_HISTORY_UNREGISTERED_REPORT'));
+  }
+
+  // B12-3: Strip entire v3.r3.p1 state from plan + downgrade decision + tamper Ch 7 -> R3_P1_STATE_MISSING_FOR_P1_REPORT
+  {
+    const {dir} = b12P1BypassSetup({stripP1: true, decision: 'revise', tamperText: true});
+    const res = precheckChapterV2(dir, 8);
+    assert.equal(res.blocking, true);
+    assert.ok(res.hardErrors.some(e => e.reason === 'R3_P1_STATE_MISSING_FOR_P1_REPORT'));
+    assert.ok(res.hardErrors.some(e => e.reason === 'R3_P1_STATE_MISSING_FOR_P1_PACKET'));
+  }
+
+  // B12-4: Non-pass_candidate P1 reports ('revise' and 'reject') missing from reviewHistory must still fail closed
+  for (const dec of ['revise', 'reject']) {
+    const {dir} = b12P1BypassSetup({deleteSingle: true, decision: dec, tamperText: false});
+    const res = precheckChapterV2(dir, 8);
+    assert.equal(res.blocking, true, `Unregistered P1 ${dec} report must block`);
+    assert.ok(res.hardErrors.some(e => e.reason === 'R3_P1_HISTORY_UNREGISTERED_REPORT'));
+  }
+
+  // B12-5: P1 project with legacyReviews registration (positive control + downgrade + delete legacyReviews)
+  {
+    const d = makeTempProject(t, {
+      plan: {
+        minWordsPerChapter: 3000,
+        chapters: [
+          {chapterNumber: 1, title: '第一章', filePath: 'chapters/ch001.md', status: 'completed'},
+          {chapterNumber: 2, title: '第二章', filePath: 'chapters/ch002.md', status: 'draft'},
+        ],
+      },
+      chapters: {'chapters/ch001.md': ch1Txt, 'chapters/ch002.md': ch2Txt},
+    });
+    const snap1 = writeCanonicalSnapshot(d, 'reviews/r3/manuscripts/chapter-1/v1', {'chapter-0001.md': ch1Txt});
+    const leg1 = writeReviewBundle(d, 'chapter', 1, {1: ch1Txt}, {revision: 1, p1Protocol: false, r3Snapshot: snap1});
+    const p = JSON.parse(fs.readFileSync(path.join(d, '02-写作计划.json'), 'utf8'));
+    p.v3 = {
+      schemaVersion: 1,
+      r2: {schemaVersion: 1, chapterReviews: {'1': leg1}, arcReviews: {}},
+      r3: {
+        schemaVersion: 1,
+        mode: 'experimental',
+        p1: {
+          schemaVersion: 1,
+          baselineUpto: 1,
+          projectId: 'proj-b12-leg',
+          legacyReviews: {
+            'chapter:1': {inputSha256: leg1.inputSha256, reviewSha256: leg1.reviewSha256, reviewPath: leg1.reviewPath},
+          },
+          reviewHistory: [],
+        },
+      },
+    };
+    fs.writeFileSync(path.join(d, '02-写作计划.json'), JSON.stringify(p, null, 2) + '\n', 'utf8');
+    // Positive control
+    const okRes = precheckChapterV2(d, 2);
+    assert.equal(okRes.blocking, false, `Valid P1 legacyReviews baseline should pass, got: ${JSON.stringify(okRes.hardErrors)}`);
+
+    // Downgrade legacy report decision to revise after prepare overwrite + edit Ch 1 -> R3_P1_LEGACY_REVIEW_CHANGED
+    const ch1Mod = ch1Txt + '\n篡改一行。\n';
+    fs.writeFileSync(path.join(d, 'chapters/ch001.md'), ch1Mod, 'utf8');
+    const rep1 = JSON.parse(fs.readFileSync(path.join(d, leg1.reviewPath), 'utf8'));
+    rep1.decision = 'revise';
+    fs.writeFileSync(path.join(d, leg1.reviewPath), JSON.stringify(rep1, null, 2) + '\n', 'utf8');
+    p.v3.r2.chapterReviews['1'] = {
+      status: 'under_review', revision: 2,
+      inputPath: 'reviews/r2/input-ch001-v2.json', inputSha256: sha256(Buffer.from('v2', 'utf8')),
+      reviewPath: null, reviewSha256: null,
+      manuscriptHashes: {'1': sha256(Buffer.from(ch1Mod, 'utf8'))},
+    };
+    fs.writeFileSync(path.join(d, '02-写作计划.json'), JSON.stringify(p, null, 2) + '\n', 'utf8');
+    const resLegChanged = precheckChapterV2(d, 2);
+    assert.equal(resLegChanged.blocking, true);
+    assert.ok(resLegChanged.hardErrors.some(e => e.reason === 'R3_P1_LEGACY_REVIEW_CHANGED'));
+
+    // Also deleting legacyReviews['chapter:1'] -> R3_P1_UNREGISTERED_LEGACY_REVIEW
+    delete p.v3.r3.p1.legacyReviews['chapter:1'];
+    fs.writeFileSync(path.join(d, '02-写作计划.json'), JSON.stringify(p, null, 2) + '\n', 'utf8');
+    const resLegDeleted = precheckChapterV2(d, 2);
+    assert.equal(resLegDeleted.blocking, true);
+    assert.ok(resLegDeleted.hardErrors.some(e => e.reason === 'R3_P1_UNREGISTERED_LEGACY_REVIEW'));
+  }
+
+  // --- B13: Report rename in reviews/r2/, P1 deletion detection, and explicit legacy non-P1 deletion boundary ---
+  // B13-1: Legacy R2 historical report renamed inside reviews/r2/ after prepare overwrite -> R2_HISTORICAL_UNEXPECTED_FILE
+  for (const renamed of ['archived-ch007-v1.json', 'report-ch007-v1.json.bak']) {
+    const {dir, reportAbs} = b10BaseSetup();
+    fs.renameSync(reportAbs, path.join(dir, 'reviews/r2', renamed));
+    const res = precheckChapterV2(dir, 8);
+    assert.equal(res.blocking, true, `Renaming report to ${renamed} inside reviews/r2/ must block`);
+    assert.ok(res.hardErrors.some(e => e.reason === 'R2_HISTORICAL_UNEXPECTED_FILE'));
+  }
+
+  // B13-2a: P1 reviewHistory registered report deleted (or moved outside reviews/r2/) after prepare overwrite -> R3_P1_HISTORY_FILE_MISSING
+  {
+    const {dir, rec7} = b12P1BypassSetup({deleteSingle: false, emptyHistory: false, stripP1: false, decision: 'pass_candidate', tamperText: true});
+    fs.rmSync(path.join(dir, rec7.reviewPath));
+    const res = precheckChapterV2(dir, 8);
+    assert.equal(res.blocking, true);
+    assert.ok(res.hardErrors.some(e => e.reason === 'R3_P1_HISTORY_FILE_MISSING'));
+  }
+
+  // B13-2b: P1 legacyReviews registered report deleted after prepare overwrite -> R3_P1_LEGACY_FILE_MISSING
+  {
+    const d = makeTempProject(t, {
+      plan: {
+        minWordsPerChapter: 3000,
+        chapters: [
+          {chapterNumber: 1, title: '第一章', filePath: 'chapters/ch001.md', status: 'completed'},
+          {chapterNumber: 2, title: '第二章', filePath: 'chapters/ch002.md', status: 'draft'},
+        ],
+      },
+      chapters: {'chapters/ch001.md': ch1Txt, 'chapters/ch002.md': ch2Txt},
+    });
+    const snap1 = writeCanonicalSnapshot(d, 'reviews/r3/manuscripts/chapter-1/v1', {'chapter-0001.md': ch1Txt});
+    const leg1 = writeReviewBundle(d, 'chapter', 1, {1: ch1Txt}, {revision: 1, p1Protocol: false, r3Snapshot: snap1});
+    const ch1Mod = ch1Txt + '\n篡改正文。\n';
+    fs.writeFileSync(path.join(d, 'chapters/ch001.md'), ch1Mod, 'utf8');
+    fs.rmSync(path.join(d, leg1.reviewPath));
+    const p = JSON.parse(fs.readFileSync(path.join(d, '02-写作计划.json'), 'utf8'));
+    p.v3 = {
+      schemaVersion: 1,
+      r2: {
+        schemaVersion: 1,
+        chapterReviews: {
+          '1': {
+            status: 'under_review', revision: 2,
+            inputPath: 'reviews/r2/input-ch001-v2.json', inputSha256: sha256(Buffer.from('v2', 'utf8')),
+            reviewPath: null, reviewSha256: null,
+            manuscriptHashes: {'1': sha256(Buffer.from(ch1Mod, 'utf8'))},
+          },
+        },
+        arcReviews: {},
+      },
+      r3: {
+        schemaVersion: 1,
+        mode: 'experimental',
+        p1: {
+          schemaVersion: 1,
+          baselineUpto: 1,
+          projectId: 'proj-b13-leg',
+          legacyReviews: {
+            'chapter:1': {inputSha256: leg1.inputSha256, reviewSha256: leg1.reviewSha256, reviewPath: leg1.reviewPath},
+          },
+          reviewHistory: [],
+        },
+      },
+    };
+    fs.writeFileSync(path.join(d, '02-写作计划.json'), JSON.stringify(p, null, 2) + '\n', 'utf8');
+    const res = precheckChapterV2(d, 2);
+    assert.equal(res.blocking, true);
+    assert.ok(res.hardErrors.some(e => e.reason === 'R3_P1_LEGACY_FILE_MISSING'));
+  }
+
+  // B13-3: Explicit legacy non-P1 deletion trust boundary (documenting limitation honestly, plus finalizedSha256 mitigation)
+  {
+    const {dir, reportAbs} = b10BaseSetup();
+    fs.rmSync(reportAbs);
+    // Without P1 registration or explicit finalizedSha256, deleting report-ch007-v1.json after prepare overwrite
+    // leaves an orphaned input-ch007-v1.json indistinguishable from an abandoned under_review prepare.
+    const resBoundary = precheckChapterV2(dir, 8);
+    assert.equal(resBoundary.blocking, false);
+
+    // Pre-P1 mitigation: recording explicit finalizedSha256 on Chapter 7 immediately restores Fail-Closed detection
+    const p = JSON.parse(fs.readFileSync(path.join(dir, '02-写作计划.json'), 'utf8'));
+    p.chapters.find(c => c.chapterNumber === 7).finalizedSha256 = sha256(Buffer.from(ch7Orig, 'utf8'));
+    fs.writeFileSync(path.join(dir, '02-写作计划.json'), JSON.stringify(p, null, 2) + '\n', 'utf8');
+    const resMitigated = precheckChapterV2(dir, 8);
+    assert.equal(resMitigated.blocking, true);
+    assert.ok(resMitigated.hardErrors.some(e => e.code === 'STALE_REVIEW_AFTER_EDIT' && e.chapter === 7));
+  }
 });
 
 // ============================================================================
