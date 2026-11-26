@@ -212,7 +212,7 @@ test('TC-P0-3-1: engineering file integrity failures always enter hardErrors wit
     const chHash = sha256(Buffer.from(chapterText, 'utf8'));
     const pad = String(chNum).padStart(3, '0');
     const inputRel = `reviews/r2/input-ch${pad}-v${revision}.json`;
-    const reviewRel = `reviews/r2/review-ch${pad}-v${revision}.json`;
+    const reviewRel = `reviews/r2/report-ch${pad}-v${revision}.json`;
     const packet = {
       schemaVersion: 1,
       kind: 'chapter',
@@ -752,6 +752,233 @@ test('TC-P0-3-1b: B7 historical R2/arcReviews preservation, B8 P1 registration, 
   const resMissingChSnap = precheckChapterV2(b9BaseDir, 2);
   assert.equal(resMissingChSnap.blocking, true);
   assert.ok(resMissingChSnap.hardErrors.some(e => e.reason === 'R3_MANUSCRIPT_SNAPSHOT_CONTENT_MISMATCH'));
+
+  // B9 negative 4: packet.r3Snapshot carries extra property not in record.r3Snapshot -> R3_MANUSCRIPT_SNAPSHOT_PACKET_MISMATCH
+  const b9ExtraPropDir = makeTempProject(t, {
+    plan: {
+      minWordsPerChapter: 3000,
+      chapters: [
+        {chapterNumber: 1, title: '第一章', filePath: 'chapters/ch001.md', status: 'completed'},
+        {chapterNumber: 2, title: '第二章', filePath: 'chapters/ch002.md', status: 'draft'},
+      ],
+    },
+    chapters: {'chapters/ch001.md': ch1Txt, 'chapters/ch002.md': ch2Txt},
+  });
+  const goodSnap = writeCanonicalSnapshot(b9ExtraPropDir, 'reviews/r3/manuscripts/chapter-1/v1', {'chapter-0001.md': ch1Txt});
+  const extraPropRec = writeReviewBundle(b9ExtraPropDir, 'chapter', 1, {1: ch1Txt}, {revision: 1, r3Snapshot: goodSnap});
+  const extraPropPacket = JSON.parse(fs.readFileSync(path.join(b9ExtraPropDir, extraPropRec.inputPath), 'utf8'));
+  extraPropPacket.r3Snapshot = {...goodSnap, extraField: 'unexpected'};
+  const extraPropPacketBytes = Buffer.from(JSON.stringify(extraPropPacket, null, 2) + '\n', 'utf8');
+  fs.writeFileSync(path.join(b9ExtraPropDir, extraPropRec.inputPath), extraPropPacketBytes);
+  extraPropRec.inputSha256 = sha256(extraPropPacketBytes);
+  const b9ExtraPropPlan = JSON.parse(fs.readFileSync(path.join(b9ExtraPropDir, '02-写作计划.json'), 'utf8'));
+  b9ExtraPropPlan.v3 = {
+    schemaVersion: 1,
+    r2: {schemaVersion: 1, chapterReviews: {'1': extraPropRec}, arcReviews: {}},
+    r3: {schemaVersion: 1, mode: 'experimental'},
+  };
+  fs.writeFileSync(path.join(b9ExtraPropDir, '02-写作计划.json'), JSON.stringify(b9ExtraPropPlan, null, 2) + '\n', 'utf8');
+  const resSnapObjMismatch = precheckChapterV2(b9ExtraPropDir, 2);
+  assert.equal(resSnapObjMismatch.blocking, true);
+  assert.ok(resSnapObjMismatch.hardErrors.some(e => e.reason === 'R3_MANUSCRIPT_SNAPSHOT_PACKET_MISMATCH'));
+
+  // --- B10: Historical R2 report-*.json corruption, missing hash, kind/end/rev tamper, packet mismatch & P1 decision downgrade ---
+  const b10BaseSetup = () => {
+    const d = makeTempProject(t, {
+      plan: {
+        minWordsPerChapter: 3000,
+        chapters: [
+          {chapterNumber: 7, title: '第七章', filePath: 'chapters/ch007.md', status: 'completed'},
+          {chapterNumber: 8, title: '第八章', filePath: 'chapters/ch008.md', status: 'draft'},
+        ],
+      },
+      chapters: {'chapters/ch007.md': ch7Orig, 'chapters/ch008.md': ch8Draft},
+    });
+    const ch7Rec = writeReviewBundle(d, 'chapter', 7, {7: ch7Orig}, {revision: 1});
+    // Tamper Ch 7 on disk and simulate R2 prepare overwriting chapterReviews['7'] to under_review
+    fs.writeFileSync(path.join(d, 'chapters/ch007.md'), ch7Tampered, 'utf8');
+    const p = JSON.parse(fs.readFileSync(path.join(d, '02-写作计划.json'), 'utf8'));
+    p.v3 = {
+      schemaVersion: 1,
+      r2: {
+        schemaVersion: 1,
+        chapterReviews: {
+          '7': {
+            status: 'under_review',
+            revision: 2,
+            inputPath: 'reviews/r2/input-ch007-v2.json',
+            inputSha256: sha256(Buffer.from('v2', 'utf8')),
+            reviewPath: null,
+            reviewSha256: null,
+            manuscriptHashes: {'7': sha256(Buffer.from(ch7Tampered, 'utf8'))},
+          },
+        },
+        arcReviews: {},
+      },
+    };
+    fs.writeFileSync(path.join(d, '02-写作计划.json'), JSON.stringify(p, null, 2) + '\n', 'utf8');
+    return {dir: d, reportAbs: path.join(d, ch7Rec.reviewPath), inputAbs: path.join(d, ch7Rec.inputPath), ch7Rec};
+  };
+
+  // B10-1: Corrupt historical report JSON -> R2_HISTORICAL_REPORT_CORRUPT
+  {
+    const {dir, reportAbs} = b10BaseSetup();
+    fs.writeFileSync(reportAbs, '{corrupt json', 'utf8');
+    const res = precheckChapterV2(dir, 8);
+    assert.equal(res.blocking, true);
+    assert.ok(res.hardErrors.some(e => e.reason === 'R2_HISTORICAL_REPORT_CORRUPT'));
+  }
+
+  // B10-2: Delete chapter 7 hash from historical report -> R2_HISTORICAL_REPORT_HASHES_INVALID
+  {
+    const {dir, reportAbs} = b10BaseSetup();
+    const r = JSON.parse(fs.readFileSync(reportAbs, 'utf8'));
+    delete r.manuscriptHashes['7'];
+    fs.writeFileSync(reportAbs, JSON.stringify(r, null, 2) + '\n', 'utf8');
+    const res = precheckChapterV2(dir, 8);
+    assert.equal(res.blocking, true);
+    assert.ok(res.hardErrors.some(e => e.reason === 'R2_HISTORICAL_REPORT_HASHES_INVALID'));
+  }
+
+  // B10-3: Tamper kind/end/revision in historical report -> R2_HISTORICAL_REPORT_INVALID
+  {
+    const {dir, reportAbs} = b10BaseSetup();
+    const r = JSON.parse(fs.readFileSync(reportAbs, 'utf8'));
+    r.end = 99;
+    fs.writeFileSync(reportAbs, JSON.stringify(r, null, 2) + '\n', 'utf8');
+    const res = precheckChapterV2(dir, 8);
+    assert.equal(res.blocking, true);
+    assert.ok(res.hardErrors.some(e => e.reason === 'R2_HISTORICAL_REPORT_INVALID'));
+  }
+
+  // B10-4: Delete paired input-*.json packet -> R2_HISTORICAL_PACKET_MISSING
+  {
+    const {dir, inputAbs} = b10BaseSetup();
+    fs.rmSync(inputAbs);
+    const res = precheckChapterV2(dir, 8);
+    assert.equal(res.blocking, true);
+    assert.ok(res.hardErrors.some(e => e.reason === 'R2_HISTORICAL_PACKET_MISSING'));
+  }
+
+  // B10-5: Paired input-*.json hash differs from report-*.json -> R2_HISTORICAL_PACKET_MISMATCH
+  {
+    const {dir, inputAbs} = b10BaseSetup();
+    const pkt = JSON.parse(fs.readFileSync(inputAbs, 'utf8'));
+    pkt.manuscriptHashes['7'] = sha256(Buffer.from('different-hash', 'utf8'));
+    fs.writeFileSync(inputAbs, JSON.stringify(pkt, null, 2) + '\n', 'utf8');
+    const res = precheckChapterV2(dir, 8);
+    assert.equal(res.blocking, true);
+    assert.ok(res.hardErrors.some(e => e.reason === 'R2_HISTORICAL_PACKET_MISMATCH'));
+  }
+
+  // B10-6 (P1 SHA anchor): Rewriting decision pass_candidate -> revise after prepare is caught by R3_P1_HISTORY_CHANGED
+  {
+    const p1DowngradeDir = makeTempProject(t, {
+      plan: {
+        minWordsPerChapter: 3000,
+        chapters: [
+          {chapterNumber: 7, title: '第七章', filePath: 'chapters/ch007.md', status: 'completed'},
+          {chapterNumber: 8, title: '第八章', filePath: 'chapters/ch008.md', status: 'draft'},
+        ],
+      },
+      chapters: {'chapters/ch007.md': ch7Orig, 'chapters/ch008.md': ch8Draft},
+    });
+    const snap7 = writeCanonicalSnapshot(p1DowngradeDir, 'reviews/r3/manuscripts/chapter-7/v1', {'chapter-0007.md': ch7Orig});
+    const rec7 = writeReviewBundle(p1DowngradeDir, 'chapter', 7, {7: ch7Orig}, {revision: 1, p1Protocol: true, r3Snapshot: snap7});
+    // Tamper Ch 7, simulate prepare overwrite, AND rewrite v1 report decision to 'revise'
+    fs.writeFileSync(path.join(p1DowngradeDir, 'chapters/ch007.md'), ch7Tampered, 'utf8');
+    const rep7 = JSON.parse(fs.readFileSync(path.join(p1DowngradeDir, rec7.reviewPath), 'utf8'));
+    rep7.decision = 'revise';
+    fs.writeFileSync(path.join(p1DowngradeDir, rec7.reviewPath), JSON.stringify(rep7, null, 2) + '\n', 'utf8');
+    const p = JSON.parse(fs.readFileSync(path.join(p1DowngradeDir, '02-写作计划.json'), 'utf8'));
+    p.v3 = {
+      schemaVersion: 1,
+      r2: {
+        schemaVersion: 1,
+        chapterReviews: {
+          '7': {
+            status: 'under_review',
+            revision: 2,
+            inputPath: 'reviews/r2/input-ch007-v2.json',
+            inputSha256: sha256(Buffer.from('v2', 'utf8')),
+            reviewPath: null,
+            reviewSha256: null,
+            manuscriptHashes: {'7': sha256(Buffer.from(ch7Tampered, 'utf8'))},
+          },
+        },
+        arcReviews: {},
+      },
+      r3: {
+        schemaVersion: 1,
+        mode: 'experimental',
+        p1: {
+          schemaVersion: 1,
+          baselineUpto: 0,
+          projectId: 'proj-b10-p1',
+          legacyReviews: {},
+          reviewHistory: [{kind: 'chapter', end: 7, revision: 1, path: rec7.reviewPath, sha256: rec7.reviewSha256}],
+        },
+      },
+    };
+    fs.writeFileSync(path.join(p1DowngradeDir, '02-写作计划.json'), JSON.stringify(p, null, 2) + '\n', 'utf8');
+    const res = precheckChapterV2(p1DowngradeDir, 8);
+    assert.equal(res.blocking, true);
+    assert.ok(res.hardErrors.some(e => e.reason === 'R3_P1_HISTORY_CHANGED'));
+  }
+
+  // --- B11: P1 reviewHistory full readFeedback() scope/revision/p1 metadata & complete manuscriptHashes checks ---
+  const makeP1HistoryCase = (mutator, expectedReason) => {
+    const d = makeTempProject(t, {
+      plan: {
+        minWordsPerChapter: 3000,
+        chapters: [
+          {chapterNumber: 1, title: '第一章', filePath: 'chapters/ch001.md', status: 'completed'},
+          {chapterNumber: 2, title: '第二章', filePath: 'chapters/ch002.md', status: 'draft'},
+        ],
+      },
+      chapters: {'chapters/ch001.md': ch1Txt, 'chapters/ch002.md': ch2Txt},
+    });
+    const rel = 'reviews/r3/custom-history-ch1-v1.json';
+    const reportObj = {
+      schemaVersion: 1,
+      kind: 'chapter',
+      end: 1,
+      revision: 1,
+      decision: 'pass_candidate',
+      manuscriptHashes: {'1': sha256(Buffer.from(ch1Txt, 'utf8'))},
+      p1: {schemaVersion: 1, literaryStatus: 'UNVERIFIED'},
+    };
+    mutator(reportObj);
+    const bytes = Buffer.from(JSON.stringify(reportObj, null, 2) + '\n', 'utf8');
+    fs.mkdirSync(path.join(d, 'reviews/r3'), {recursive: true});
+    fs.writeFileSync(path.join(d, rel), bytes);
+    const p = JSON.parse(fs.readFileSync(path.join(d, '02-写作计划.json'), 'utf8'));
+    p.v3 = {
+      schemaVersion: 1,
+      r2: {schemaVersion: 1, chapterReviews: {}, arcReviews: {}},
+      r3: {
+        schemaVersion: 1,
+        mode: 'experimental',
+        p1: {
+          schemaVersion: 1,
+          baselineUpto: 0,
+          projectId: 'proj-b11',
+          legacyReviews: {},
+          reviewHistory: [{kind: 'chapter', end: 1, revision: 1, path: rel, sha256: sha256(bytes)}],
+        },
+      },
+    };
+    fs.writeFileSync(path.join(d, '02-写作计划.json'), JSON.stringify(p, null, 2) + '\n', 'utf8');
+    const res = precheckChapterV2(d, 2);
+    assert.equal(res.blocking, true, `Expected blocking for ${expectedReason}`);
+    assert.ok(res.hardErrors.some(e => e.reason === expectedReason), `Expected ${expectedReason}, got: ${JSON.stringify(res.hardErrors)}`);
+  };
+
+  makeP1HistoryCase(r => { r.end = 2; }, 'R3_P1_HISTORY_INVALID');
+  makeP1HistoryCase(r => { r.revision = 9; }, 'R3_P1_HISTORY_INVALID');
+  makeP1HistoryCase(r => { delete r.p1; }, 'R3_P1_HISTORY_INVALID');
+  makeP1HistoryCase(r => { r.p1.literaryStatus = 'VERIFIED'; }, 'R3_P1_HISTORY_INVALID');
+  makeP1HistoryCase(r => { r.manuscriptHashes = {}; }, 'R3_P1_HISTORY_HASHES_INVALID');
 });
 
 // ============================================================================
@@ -1178,7 +1405,59 @@ test('TC-P0-3-5: 5000-char chapter runs in <250ms with 0 disk side effects, pure
   const manifestAfter = snapshotTreeManifest(dir);
   assert.equal(manifestAfter, manifestBefore, 'Precheck v2 MUST leave project directory 100% untouched');
 
-  // 7. Static read-only code audit on precheck_chapter.mjs & precheck_v2_common.mjs (strip comments first)
+  // 7. Scale performance with 50 finalized chapters + 100 historical reviews/r2/*.json files (< 250ms)
+  const scaleChapters = {};
+  const scalePlanChapters = [];
+  const scaleChapterReviews = {};
+  const scaleExtraFiles = {};
+  for (let n = 1; n <= 50; n++) {
+    const txt = `# 第${n}章 历史卷章\n\n` + `第${n}章正文内容记录青石巷盐引与码头往事，风声渐急。`.repeat(15) + '\n';
+    const rel = `chapters/ch${String(n).padStart(3, '0')}.md`;
+    const h = sha256(Buffer.from(txt, 'utf8'));
+    scaleChapters[rel] = txt;
+    scalePlanChapters.push({chapterNumber: n, title: `第${n}章`, filePath: rel, status: 'completed'});
+    const pad = String(n).padStart(3, '0');
+    const inRel = `reviews/r2/input-ch${pad}-v1.json`;
+    const repRel = `reviews/r2/report-ch${pad}-v1.json`;
+    const inBytes = Buffer.from(JSON.stringify({
+      schemaVersion: 1, kind: 'chapter', end: n, revision: 1,
+      manuscriptHashes: {[String(n)]: h},
+      writers: [{chapter: n, runId: `w-${n}`, contextId: `wc-${n}`}],
+    }, null, 2) + '\n', 'utf8');
+    const repBytes = Buffer.from(JSON.stringify({
+      schemaVersion: 1, kind: 'chapter', end: n, revision: 1,
+      manuscriptHashes: {[String(n)]: h},
+      reviewer: {kind: 'independent_agent', runId: `r-${n}`, contextId: `rc-${n}`},
+      decision: 'pass_candidate', summary: 'ok', issues: [],
+    }, null, 2) + '\n', 'utf8');
+    scaleExtraFiles[inRel] = inBytes;
+    scaleExtraFiles[repRel] = repBytes;
+    scaleChapterReviews[String(n)] = {
+      status: 'passed', revision: 1,
+      inputPath: inRel, inputSha256: sha256(inBytes),
+      reviewPath: repRel, reviewSha256: sha256(repBytes),
+      manuscriptHashes: {[String(n)]: h},
+    };
+  }
+  scaleChapters['chapters/ch051.md'] = chapter5k;
+  scalePlanChapters.push({chapterNumber: 51, title: '第五十一章', filePath: 'chapters/ch051.md', status: 'draft'});
+  const scaleDir = makeTempProject(t, {
+    plan: {
+      minWordsPerChapter: 3000,
+      maxWordsPerChapter: 5500,
+      chapters: scalePlanChapters,
+      v3: {schemaVersion: 1, r2: {schemaVersion: 1, chapterReviews: scaleChapterReviews, arcReviews: {}}},
+    },
+    chapters: scaleChapters,
+    extraFiles: scaleExtraFiles,
+  });
+  const scaleT0 = performance.now();
+  const scaleRes = precheckChapterV2(scaleDir, 51, {dryRun: true});
+  const scaleElapsed = performance.now() - scaleT0;
+  assert.equal(scaleRes.blocking, false, `50-chapter historical baseline should pass, got: ${JSON.stringify(scaleRes.hardErrors)}`);
+  assert.ok(scaleElapsed < 250, `Expected <250ms with 50 historical chapters (100 R2 files), got ${scaleElapsed.toFixed(2)}ms`);
+
+  // 8. Static read-only code audit on precheck_chapter.mjs & precheck_v2_common.mjs (strip comments first)
   const stripComments = code =>
     code.replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:])\/\/.*$/gm, '$1');
   const forbiddenWritePatterns = [

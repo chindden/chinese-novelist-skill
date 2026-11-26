@@ -406,11 +406,11 @@ function verifyPassedReviewEvidence(root, plan, kind, end, rec, resolveDiskHash,
     diskByChapter.set(n, disk);
   }
 
-  // B9: If R3 namespace is enabled, verify immutable r3Snapshot with exact file-set equivalence to r3_manuscripts.mjs
+  // B9: If R3 namespace is enabled, verify immutable r3Snapshot with exact equivalence to r3_manuscripts.mjs
   if (isPlainObject(plan.v3) && hasOwn(plan.v3, 'r3')) {
     if (!isPlainObject(rec.r3Snapshot) || !isPlainObject(packet.r3Snapshot) ||
-        rec.r3Snapshot.path !== packet.r3Snapshot.path || rec.r3Snapshot.sha256 !== packet.r3Snapshot.sha256) {
-      return {ok: false, reason: 'R3_MANUSCRIPT_SNAPSHOT_MISSING_OR_MISMATCH'};
+        JSON.stringify(packet.r3Snapshot) !== JSON.stringify(rec.r3Snapshot)) {
+      return {ok: false, reason: 'R3_MANUSCRIPT_SNAPSHOT_PACKET_MISMATCH'};
     }
     const snap = verifyReadOnlySnapshot(root, rec.r3Snapshot.path, rec.r3Snapshot.sha256);
     if (!snap.ok) {
@@ -489,10 +489,31 @@ function verifyPassedReviewEvidence(root, plan, kind, end, rec, resolveDiskHash,
 }
 
 /**
- * Pure read-only audit of historical passed reviews under reviews/r2/ and p1.reviewHistory (B7).
- * Prevents bypassing finalized-chapter protection by:
- *  - running `r2_review.mjs prepare` on a finalized chapter (which overwrites status 'passed' -> 'under_review'), OR
- *  - deleting a finalized entry from plan.v3.r2.chapterReviews / arcReviews while keeping an empty index.
+ * Validate that manuscriptHashes contains exact, complete, valid 64-hex SHA-256 entries for every chapter in scope.
+ */
+function hasCompleteScopeHashes(hashesObj, numbers) {
+  if (!isPlainObject(hashesObj)) return false;
+  const expectedKeys = numbers.map(n => String(n));
+  if (Object.keys(hashesObj).length !== expectedKeys.length) return false;
+  return expectedKeys.every(k => typeof hashesObj[k] === 'string' && HEX64_RE.test(hashesObj[k]));
+}
+
+/**
+ * Pure read-only audit of historical passed reviews under reviews/r2/ and p1.reviewHistory (B7/B10/B11).
+ *
+ * Security & trust boundary:
+ *  - Every reviews/r2/report-*.json MUST parse cleanly, match its canonical filename (kind/end/revision),
+ *    pair with its matching reviews/r2/input-*.json packet, and carry complete valid scope manuscriptHashes.
+ *    Any corruption, schema/scope mismatch, missing hash, or packet mismatch fails closed.
+ *  - When P1 is enabled (v3.r3.p1.reviewHistory), every registered historical report is cryptographically
+ *    anchored by SHA-256 and verified against r3_p1_common.mjs readFeedback() invariants (scope, revision,
+ *    p1.schemaVersion === 1, p1.literaryStatus === 'UNVERIFIED', and complete scope hashes).
+ *  - Explicit legacy R2 trust boundary: in a non-P1 project where `r2_review.mjs prepare` has already
+ *    overwritten v1's reviewSha256 in 02-写作计划.json, an attacker who semantically rewrites a valid report's
+ *    decision from 'pass_candidate' to 'revise' cannot be distinguished cryptographically from a genuine v1
+ *    'revise' retry without P1 reviewHistory SHA anchoring. P0-3 protects against normal prepare overwrites,
+ *    index deletion, and malformed/mismatched historical artifacts, and relies on P1 reviewHistory SHA
+ *    registration for cryptographic anti-tampering of historical reports.
  */
 function auditHistoricalPassedReviews(root, plan, resolveDiskHash, p1StateObj) {
   const errors = [];
@@ -547,6 +568,7 @@ function auditHistoricalPassedReviews(root, plan, resolveDiskHash, p1StateObj) {
         }
 
         if (entries) {
+          const reportNameRe = /^report-(ch|arc)(\d+)-v(\d+)\.json$/;
           for (const name of entries) {
             if (!name.endsWith('.json')) continue;
             const fileRel = path.join(r2DirRel, name);
@@ -560,26 +582,132 @@ function auditHistoricalPassedReviews(root, plan, resolveDiskHash, p1StateObj) {
               });
               continue;
             }
+
+            // Strictly audit every report-*.json file Fail-Closed (B10)
+            if (!name.startsWith('report-')) continue;
+            const fnMatch = name.match(reportNameRe);
+            if (!fnMatch) {
+              errors.push({
+                code: 'STALE_REVIEW_AFTER_EDIT',
+                source: fileRel,
+                reason: 'R2_HISTORICAL_REPORT_FILENAME_INVALID',
+                message: `历史审稿报告文件名 ${fileRel} 不符合 R2 规范（report-(ch|arc)NNN-vR.json），Fail-Closed 阻断。`,
+              });
+              continue;
+            }
+            const prefix = fnMatch[1];
+            const expectedKind = prefix === 'ch' ? 'chapter' : 'arc';
+            const expectedEnd = Number(fnMatch[2]);
+            const expectedRev = Number(fnMatch[3]);
+            if (!Number.isSafeInteger(expectedEnd) || expectedEnd < 1 ||
+                !Number.isSafeInteger(expectedRev) || expectedRev < 1 ||
+                fnMatch[2] !== String(expectedEnd).padStart(3, '0') ||
+                fnMatch[3] !== String(expectedRev) ||
+                (expectedKind === 'arc' && (expectedEnd < 6 || expectedEnd % 3 !== 0))) {
+              errors.push({
+                code: 'STALE_REVIEW_AFTER_EDIT',
+                source: fileRel,
+                reason: 'R2_HISTORICAL_REPORT_FILENAME_INVALID',
+                message: `历史审稿报告文件名 ${fileRel} 中的章号或版本号非法，Fail-Closed 阻断。`,
+              });
+              continue;
+            }
+
             let report;
             try {
               report = JSON.parse(fs.readFileSync(inspected.realPath, 'utf8').replace(/^\uFEFF/, ''));
             } catch {
-              continue;
-            }
-            if (!isPlainObject(report) || report.schemaVersion !== 1 ||
-                !['chapter', 'arc'].includes(report.kind) ||
-                !Number.isSafeInteger(report.end) || report.end < 1 ||
-                (report.kind === 'arc' && (report.end < 6 || report.end % 3 !== 0)) ||
-                report.decision !== 'pass_candidate' ||
-                !isPlainObject(report.manuscriptHashes)) {
+              errors.push({
+                code: 'STALE_REVIEW_AFTER_EDIT',
+                chapter: expectedEnd,
+                source: fileRel,
+                reason: 'R2_HISTORICAL_REPORT_CORRUPT',
+                message: `历史审稿报告 ${fileRel} JSON 损坏，禁止静默跳过。`,
+              });
               continue;
             }
 
-            // Verify every chapter covered by this historical passed review still matches disk!
-            const numbers = reviewScopeNumbers(report.kind, report.end);
+            const numbers = reviewScopeNumbers(expectedKind, expectedEnd);
+            if (!isPlainObject(report) ||
+                report.schemaVersion !== 1 ||
+                report.kind !== expectedKind ||
+                report.end !== expectedEnd ||
+                report.revision !== expectedRev ||
+                !['pass_candidate', 'revise', 'reject'].includes(report.decision)) {
+              errors.push({
+                code: 'STALE_REVIEW_AFTER_EDIT',
+                chapter: expectedEnd,
+                source: fileRel,
+                reason: 'R2_HISTORICAL_REPORT_INVALID',
+                message: `历史审稿报告 ${fileRel} 的 schemaVersion/kind/end/revision/decision 与文件名或协议不符，Fail-Closed 阻断。`,
+              });
+              continue;
+            }
+
+            if (!hasCompleteScopeHashes(report.manuscriptHashes, numbers)) {
+              errors.push({
+                code: 'STALE_REVIEW_AFTER_EDIT',
+                chapter: expectedEnd,
+                source: fileRel,
+                reason: 'R2_HISTORICAL_REPORT_HASHES_INVALID',
+                message: `历史审稿报告 ${fileRel} 缺少完整的 scope manuscriptHashes 映射，Fail-Closed 阻断。`,
+              });
+              continue;
+            }
+
+            // Pair report-*.json with corresponding input-*.json packet and verify consistency
+            const inputName = `input-${prefix}${fnMatch[2]}-v${fnMatch[3]}.json`;
+            const inputRel = path.join(r2DirRel, inputName);
+            const inputInspected = inspectSafeFile(root, inputRel);
+            if (inputInspected.status !== 'ok') {
+              errors.push({
+                code: 'STALE_REVIEW_AFTER_EDIT',
+                chapter: expectedEnd,
+                source: fileRel,
+                reason: 'R2_HISTORICAL_PACKET_MISSING',
+                message: `历史审稿报告 ${fileRel} 缺少配对输入包 ${inputRel}，Fail-Closed 阻断。`,
+              });
+              continue;
+            }
+            let packet;
+            try {
+              packet = JSON.parse(fs.readFileSync(inputInspected.realPath, 'utf8').replace(/^\uFEFF/, ''));
+            } catch {
+              errors.push({
+                code: 'STALE_REVIEW_AFTER_EDIT',
+                chapter: expectedEnd,
+                source: inputRel,
+                reason: 'R2_HISTORICAL_PACKET_CORRUPT',
+                message: `历史审稿输入包 ${inputRel} JSON 损坏，Fail-Closed 阻断。`,
+              });
+              continue;
+            }
+            const packetMatchesReport =
+              isPlainObject(packet) &&
+              packet.schemaVersion === 1 &&
+              packet.kind === expectedKind &&
+              packet.end === expectedEnd &&
+              packet.revision === expectedRev &&
+              hasCompleteScopeHashes(packet.manuscriptHashes, numbers) &&
+              numbers.every(n => packet.manuscriptHashes[String(n)] === report.manuscriptHashes[String(n)]);
+            if (!packetMatchesReport) {
+              errors.push({
+                code: 'STALE_REVIEW_AFTER_EDIT',
+                chapter: expectedEnd,
+                source: fileRel,
+                reason: 'R2_HISTORICAL_PACKET_MISMATCH',
+                message: `历史审稿报告 ${fileRel} 与配对输入包 ${inputRel} 的范围、版本或 manuscriptHashes 不一致，Fail-Closed 阻断。`,
+              });
+              continue;
+            }
+
+            if (report.decision !== 'pass_candidate') {
+              continue;
+            }
+
+            // Historical pass_candidate: verify every covered chapter still matches disk
             for (const c of numbers) {
               const expectedHash = report.manuscriptHashes[String(c)];
-              if (typeof expectedHash !== 'string' || !HEX64_RE.test(expectedHash)) continue;
               const disk = resolveDiskHash(c);
               if (!disk.ok || disk.sha256 !== expectedHash) {
                 errors.push({
@@ -596,15 +724,15 @@ function auditHistoricalPassedReviews(root, plan, resolveDiskHash, p1StateObj) {
 
             // If v3.r2 is enabled, a historical passed review cannot have its plan index silently deleted
             if (isPlainObject(plan.v3?.r2)) {
-              const bucketKey = report.kind === 'chapter' ? 'chapterReviews' : 'arcReviews';
+              const bucketKey = expectedKind === 'chapter' ? 'chapterReviews' : 'arcReviews';
               const bucket = plan.v3.r2[bucketKey];
-              if (!isPlainObject(bucket) || !hasOwn(bucket, String(report.end))) {
+              if (!isPlainObject(bucket) || !hasOwn(bucket, String(expectedEnd))) {
                 errors.push({
                   code: 'STALE_REVIEW_AFTER_EDIT',
-                  chapter: report.end,
+                  chapter: expectedEnd,
                   source: fileRel,
                   reason: 'HISTORICAL_PASSED_REVIEW_MISSING_FROM_PLAN',
-                  message: `磁盘存在历史已通过审稿 ${fileRel}，但 02-写作计划.json 的 v3.r2.${bucketKey}["${report.end}"] 索引缺失，禁止通过删索引绕过定稿基线。`,
+                  message: `磁盘存在历史已通过审稿 ${fileRel}，但 02-写作计划.json 的 v3.r2.${bucketKey}["${expectedEnd}"] 索引缺失，禁止通过删索引绕过定稿基线。`,
                 });
               }
             }
@@ -614,12 +742,14 @@ function auditHistoricalPassedReviews(root, plan, resolveDiskHash, p1StateObj) {
     }
   }
 
-  // Also audit p1State.reviewHistory entries on disk (B7 + B8)
+  // Also audit p1State.reviewHistory entries on disk matching r3_p1_common.mjs readFeedback() L36-45 (B7 + B8 + B11)
   if (p1StateObj) {
     const seenHistory = new Set();
     for (const item of p1StateObj.reviewHistory) {
       if (!isPlainObject(item) || !['chapter', 'arc', 'pilot'].includes(item.kind) ||
           !Number.isSafeInteger(item.end) || item.end < 1 ||
+          (item.kind === 'arc' && (item.end < 6 || item.end % 3 !== 0)) ||
+          (item.kind === 'pilot' && item.end !== 3) ||
           !Number.isSafeInteger(item.revision) || item.revision < 1 ||
           typeof item.path !== 'string' || !item.path.trim() ||
           typeof item.sha256 !== 'string' || !HEX64_RE.test(item.sha256)) {
@@ -678,22 +808,48 @@ function auditHistoricalPassedReviews(root, plan, resolveDiskHash, p1StateObj) {
         });
         continue;
       }
-      if (report?.decision === 'pass_candidate' && isPlainObject(report.manuscriptHashes)) {
-        for (const c of reviewScopeNumbers(item.kind, item.end)) {
+      // Full equivalence to r3_p1_common.mjs readFeedback() L44-45
+      if (!isPlainObject(report) ||
+          report.revision !== item.revision ||
+          (item.kind !== 'pilot' && (report.kind !== item.kind || report.end !== item.end)) ||
+          !isPlainObject(report.p1) ||
+          report.p1.schemaVersion !== 1 ||
+          report.p1.literaryStatus !== 'UNVERIFIED' ||
+          !['pass_candidate', 'revise', 'reject'].includes(report.decision)) {
+        errors.push({
+          code: 'STALE_REVIEW_AFTER_EDIT',
+          chapter: item.end,
+          source: item.path,
+          reason: 'R3_P1_HISTORY_INVALID',
+          message: `P1 历史审稿文件 ${item.path} 的范围、revision 或 p1 协议元数据与注册记录 ${hk} 不符。`,
+        });
+        continue;
+      }
+      const numbers = reviewScopeNumbers(item.kind, item.end);
+      if (report.decision === 'pass_candidate') {
+        if (!hasCompleteScopeHashes(report.manuscriptHashes, numbers)) {
+          errors.push({
+            code: 'STALE_REVIEW_AFTER_EDIT',
+            chapter: item.end,
+            source: item.path,
+            reason: 'R3_P1_HISTORY_HASHES_INVALID',
+            message: `P1 历史已通过审稿 ${item.path} 缺少完整的 scope manuscriptHashes 映射，Fail-Closed 阻断。`,
+          });
+          continue;
+        }
+        for (const c of numbers) {
           const expectedHash = report.manuscriptHashes[String(c)];
-          if (typeof expectedHash === 'string' && HEX64_RE.test(expectedHash)) {
-            const disk = resolveDiskHash(c);
-            if (!disk.ok || disk.sha256 !== expectedHash) {
-              errors.push({
-                code: 'STALE_REVIEW_AFTER_EDIT',
-                chapter: c,
-                source: item.path,
-                reason: 'HISTORICAL_PASSED_REVIEW_MANUSCRIPT_CHANGED',
-                expectedSha256: expectedHash,
-                ...(disk.ok ? {actualSha256: disk.sha256} : {}),
-                message: `P1 历史已通过审稿 ${item.path} 对应的第 ${c} 章正文已被修改或丢失。`,
-              });
-            }
+          const disk = resolveDiskHash(c);
+          if (!disk.ok || disk.sha256 !== expectedHash) {
+            errors.push({
+              code: 'STALE_REVIEW_AFTER_EDIT',
+              chapter: c,
+              source: item.path,
+              reason: 'HISTORICAL_PASSED_REVIEW_MANUSCRIPT_CHANGED',
+              expectedSha256: expectedHash,
+              ...(disk.ok ? {actualSha256: disk.sha256} : {}),
+              message: `P1 历史已通过审稿 ${item.path} 对应的第 ${c} 章正文已被修改或丢失。`,
+            });
           }
         }
       }
