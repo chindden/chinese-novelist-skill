@@ -206,9 +206,52 @@ test('TC-P0-3-1: engineering file integrity failures always enter hardErrors wit
   assert.equal(resCorrupt.blocking, true);
   assert.ok(resCorrupt.hardErrors.some(e => e.code === 'PLAN_JSON_CORRUPT'));
 
-  // 8. B1: Finalized chapter tampering & strict 3-step retcon recovery protocol (frozen Doc 06 §2.4 & §5.2)
+  // Helper: write a genuine R2 chapter review packet + independent review report matching r2_review_common.mjs
+  function createValidR2ChapterReview(projectDir, chNum, chapterText, revision = 1) {
+    const chKey = String(chNum);
+    const chHash = sha256(Buffer.from(chapterText, 'utf8'));
+    const pad = String(chNum).padStart(3, '0');
+    const inputRel = `reviews/r2/input-ch${pad}-v${revision}.json`;
+    const reviewRel = `reviews/r2/review-ch${pad}-v${revision}.json`;
+    const packet = {
+      schemaVersion: 1,
+      kind: 'chapter',
+      end: chNum,
+      revision,
+      manuscriptHashes: {[chKey]: chHash},
+      writers: [{chapter: chNum, runId: `writer-run-${chNum}`, contextId: `writer-ctx-${chNum}`}],
+      preparedAt: '2026-11-26T00:00:00.000Z',
+    };
+    const report = {
+      schemaVersion: 1,
+      kind: 'chapter',
+      end: chNum,
+      revision,
+      manuscriptHashes: {[chKey]: chHash},
+      reviewer: {kind: 'independent_agent', runId: `reviewer-run-${chNum}`, contextId: `reviewer-ctx-${chNum}`},
+      decision: 'pass_candidate',
+      summary: `第 ${chNum} 章独立审核通过。`,
+      issues: [],
+    };
+    const inputBytes = Buffer.from(JSON.stringify(packet, null, 2) + '\n', 'utf8');
+    const reviewBytes = Buffer.from(JSON.stringify(report, null, 2) + '\n', 'utf8');
+    fs.mkdirSync(path.join(projectDir, 'reviews/r2'), {recursive: true});
+    fs.writeFileSync(path.join(projectDir, inputRel), inputBytes);
+    fs.writeFileSync(path.join(projectDir, reviewRel), reviewBytes);
+    return {
+      status: 'passed',
+      revision,
+      inputPath: inputRel,
+      inputSha256: sha256(inputBytes),
+      reviewPath: reviewRel,
+      reviewSha256: sha256(reviewBytes),
+      manuscriptHashes: {[chKey]: chHash},
+    };
+  }
+
+  // 8. B1 / B2 / B3 / B4 / B6: Genuine finalized chapter evidence, tampering, Fail-Closed retcon boundary, and rollback
   const ch1Original = makeProseOfChineseWords(3200);
-  const ch1Edited = ch1Original + '\n经正式 retcon 修订后新增的剧情衔接段落。\n';
+  const ch1Edited = ch1Original + '\n未经完整协议恢复而改动的正文段落。\n';
   const ch2Text = makeProseOfChineseWords(3200);
   const ch3Draft = makeProseOfChineseWords(3200);
   const ch1OrigHash = sha256(Buffer.from(ch1Original, 'utf8'));
@@ -216,8 +259,8 @@ test('TC-P0-3-1: engineering file integrity failures always enter hardErrors wit
   const ch2Hash = sha256(Buffer.from(ch2Text, 'utf8'));
   const ch3Hash = sha256(Buffer.from(ch3Draft, 'utf8'));
 
-  // 8a. Unauthorized tamper -> STALE_REVIEW_AFTER_EDIT (blocking=true)
-  const tamperDir = makeTempProject(t, {
+  // 8a. Positive control: genuine R2 review packet + independent pass_candidate report + matching pilotGate -> blocking=false
+  const validFinalizedDir = makeTempProject(t, {
     plan: {
       minWordsPerChapter: 3000,
       chapters: [
@@ -225,112 +268,172 @@ test('TC-P0-3-1: engineering file integrity failures always enter hardErrors wit
         {chapterNumber: 2, title: '第二章', filePath: 'chapters/ch002.md', status: 'completed'},
         {chapterNumber: 3, title: '第三章', filePath: 'chapters/ch003.md', status: 'draft'},
       ],
-      v3: {
-        pilot: {
-          status: 'approved',
-          manuscriptHashes: {'1': ch1OrigHash, '2': ch2Hash, '3': ch3Hash},
-        },
-        r2: {
-          schemaVersion: 1,
-          chapterReviews: {
-            '1': {status: 'passed', revision: 1, manuscriptHashes: {'1': ch1OrigHash}},
-            '2': {status: 'passed', revision: 1, manuscriptHashes: {'2': ch2Hash}},
-          },
-        },
-      },
     },
     chapters: {
-      'chapters/ch001.md': ch1Edited,
+      'chapters/ch001.md': ch1Original,
       'chapters/ch002.md': ch2Text,
       'chapters/ch003.md': ch3Draft,
     },
   });
-  const resTamper = precheckChapterV2(tamperDir, 3);
+  const ch1ValidRec = createValidR2ChapterReview(validFinalizedDir, 1, ch1Original, 1);
+  const ch2ValidRec = createValidR2ChapterReview(validFinalizedDir, 2, ch2Text, 1);
+  const validPlan = JSON.parse(fs.readFileSync(path.join(validFinalizedDir, '02-写作计划.json'), 'utf8'));
+  validPlan.v3 = {
+    schemaVersion: 1,
+    pilotGate: {
+      status: 'passed',
+      reviewedChapterHashes: {'1': ch1OrigHash, '2': ch2Hash, '3': ch3Hash},
+    },
+    r2: {
+      schemaVersion: 1,
+      chapterReviews: {'1': ch1ValidRec, '2': ch2ValidRec},
+      arcReviews: {},
+    },
+  };
+  fs.writeFileSync(path.join(validFinalizedDir, '02-写作计划.json'), JSON.stringify(validPlan, null, 2) + '\n', 'utf8');
+
+  const resValidControl = precheckChapterV2(validFinalizedDir, 3);
+  assert.equal(resValidControl.blocking, false, `Valid finalized baseline should pass, got: ${JSON.stringify(resValidControl.hardErrors)}`);
+  assert.equal(resValidControl.hardErrors.length, 0);
+
+  // 8b. Tampering finalized Ch 1 on disk -> STALE_REVIEW_AFTER_EDIT (blocking=true)
+  fs.writeFileSync(path.join(validFinalizedDir, 'chapters/ch001.md'), ch1Edited, 'utf8');
+  const resTamper = precheckChapterV2(validFinalizedDir, 3);
   assert.equal(resTamper.blocking, true);
   assert.ok(resTamper.hardErrors.some(e => e.code === 'STALE_REVIEW_AFTER_EDIT' && e.chapter === 1));
 
-  // 8b. Approval-only retcon (NO snapshot, NO re-review, NO updated manuscriptHashes) MUST STILL BLOCK!
-  fs.mkdirSync(path.join(tamperDir, 'reviews/r3/retcons'), {recursive: true});
+  // 8c. B1/B3/B4: Any forward retcon record (approval-only OR self-declared empty directImpactChapters/fingerprint)
+  //     MUST stay Fail-Closed in P0-3 until P0-4 (reviewFingerprint) & P1-4 (analyze_impact + retcon) exist!
+  fs.mkdirSync(path.join(validFinalizedDir, 'reviews/r3/retcons'), {recursive: true});
   fs.writeFileSync(
-    path.join(tamperDir, 'reviews/r3/retcons/retcon-001-approval.json'),
-    JSON.stringify({status: 'approved', chapter: 1, newSha256: ch1EditedHash}, null, 2),
-    'utf8',
-  );
-  const resApprovalOnly = precheckChapterV2(tamperDir, 3);
-  assert.equal(resApprovalOnly.blocking, true, 'Standalone retcon approval MUST NOT lift STALE_REVIEW_AFTER_EDIT');
-  assert.ok(resApprovalOnly.hardErrors.some(e => e.code === 'STALE_REVIEW_AFTER_EDIT' && e.chapter === 1));
-
-  // 8c. Create verified r3_snapshots-style immutable directory snapshot on disk (Step 1)
-  const snapRel = 'reviews/r3/retcons/snap-retcon-001';
-  const snapAbs = path.join(tamperDir, snapRel);
-  fs.mkdirSync(snapAbs, {recursive: true});
-  fs.writeFileSync(path.join(snapAbs, 'ch001.md'), ch1Original, 'utf8');
-  const snapManifest = {
-    schemaVersion: 1,
-    files: {'ch001.md': ch1OrigHash},
-  };
-  const snapManifestBytes = Buffer.from(JSON.stringify(snapManifest, null, 2) + '\n', 'utf8');
-  fs.writeFileSync(path.join(snapAbs, 'manifest.json'), snapManifestBytes);
-  const snapDigest = sha256(snapManifestBytes);
-
-  // 8d. Partial recovery: Step 1 snapshot + R2 updated, BUT Pilot still holds old ch1OrigHash -> MUST STILL BLOCK!
-  const updatedReviewFile = 'reviews/r2/review-ch001-v2.json';
-  const updatedReviewContent = JSON.stringify({schemaVersion: 1, decision: 'pass_candidate', revision: 2}, null, 2) + '\n';
-  fs.mkdirSync(path.join(tamperDir, 'reviews/r2'), {recursive: true});
-  fs.writeFileSync(path.join(tamperDir, updatedReviewFile), updatedReviewContent, 'utf8');
-  const updatedReviewSha = sha256(Buffer.from(updatedReviewContent, 'utf8'));
-  const newFingerprint = sha256(Buffer.from('ch1-retcon-v2-fingerprint', 'utf8'));
-
-  const partialPlan = JSON.parse(fs.readFileSync(path.join(tamperDir, '02-写作计划.json'), 'utf8'));
-  partialPlan.v3.r2.chapterReviews['1'] = {
-    status: 'passed',
-    revision: 2,
-    manuscriptHashes: {'1': ch1EditedHash},
-    reviewPath: updatedReviewFile,
-    reviewSha256: updatedReviewSha,
-    reviewFingerprint: newFingerprint,
-  };
-  fs.writeFileSync(path.join(tamperDir, '02-写作计划.json'), JSON.stringify(partialPlan, null, 2) + '\n', 'utf8');
-  fs.writeFileSync(
-    path.join(tamperDir, 'reviews/r3/retcons/retcon-001-approval.json'),
+    path.join(validFinalizedDir, 'reviews/r3/retcons/retcon-001-approval.json'),
     JSON.stringify({
       status: 'approved',
       chapter: 1,
-      snapshotPath: snapRel,
-      snapshotSha256: snapDigest,
       newSha256: ch1EditedHash,
-      reReviewRevision: 2,
-      reviewFingerprint: newFingerprint,
-      directImpactChapters: [2],
-      reReviewRevisions: {'2': 2},
+      directImpactChapters: [],
+      reviewFingerprint: sha256(Buffer.from('fake-self-reported-fp', 'utf8')),
     }, null, 2),
     'utf8',
   );
-  const resPartialPilotAndImpact = precheckChapterV2(tamperDir, 3);
-  assert.equal(resPartialPilotAndImpact.blocking, true, 'Stale Pilot baseline and un-re-reviewed directImpactChapters MUST still block');
-  assert.ok(resPartialPilotAndImpact.hardErrors.some(e => e.code === 'STALE_REVIEW_AFTER_EDIT' && e.source === 'v3.pilot'));
-  assert.ok(resPartialPilotAndImpact.hardErrors.some(e => e.code === 'STALE_REVIEW_AFTER_EDIT' && e.chapter === 2));
+  const resRetconBlocked = precheckChapterV2(validFinalizedDir, 3);
+  assert.equal(resRetconBlocked.blocking, true, 'Forward retcon record MUST stay Fail-Closed in P0-3');
+  assert.ok(resRetconBlocked.hardErrors.some(e => e.reason === 'RETCON_RECOVERY_REQUIRES_P0_4_AND_P1_4'));
 
-  // 8e. Complete all 3 frozen recovery steps (verified snapshot + ch1 & directImpactChapters[2] re-reviewed + Pilot/R2/fingerprint updated) -> UNBLOCKS!
-  partialPlan.v3.pilot.manuscriptHashes['1'] = ch1EditedHash;
-  partialPlan.v3.r2.chapterReviews['2'] = {
-    status: 'passed',
-    revision: 2,
-    manuscriptHashes: {'2': ch2Hash},
-  };
-  fs.writeFileSync(path.join(tamperDir, '02-写作计划.json'), JSON.stringify(partialPlan, null, 2) + '\n', 'utf8');
-  const resFullRecovery = precheckChapterV2(tamperDir, 3);
-  assert.equal(resFullRecovery.blocking, false, `Full 3-step retcon recovery should pass, got: ${JSON.stringify(resFullRecovery.hardErrors)}`);
-  assert.equal(resFullRecovery.hardErrors.length, 0);
+  // 8d. Marking retcon rolled_back WITHOUT actually restoring Ch 1 bytes MUST STILL BLOCK!
+  fs.writeFileSync(
+    path.join(validFinalizedDir, 'reviews/r3/retcons/retcon-001-approval.json'),
+    JSON.stringify({status: 'rolled_back', chapter: 1}, null, 2),
+    'utf8',
+  );
+  const resFakeRollback = precheckChapterV2(validFinalizedDir, 3);
+  assert.equal(resFakeRollback.blocking, true, 'rolled_back without restoring original bytes MUST still block');
+  assert.ok(resFakeRollback.hardErrors.some(e => e.code === 'STALE_REVIEW_AFTER_EDIT' && e.chapter === 1));
 
-  // 8f. Tampering snapshot or mismatching reviewFingerprint breaks recovery again (Fail-Closed)
-  fs.writeFileSync(path.join(snapAbs, 'ch001.md'), ch1Original + 'tamper', 'utf8');
-  const resBrokenSnap = precheckChapterV2(tamperDir, 3);
-  assert.equal(resBrokenSnap.blocking, true);
-  assert.ok(resBrokenSnap.hardErrors.some(e => e.code === 'STALE_REVIEW_AFTER_EDIT'));
+  // 8e. Actual rollback to original verified Ch 1 bytes -> unblocks cleanly!
+  fs.writeFileSync(path.join(validFinalizedDir, 'chapters/ch001.md'), ch1Original, 'utf8');
+  const resRealRollback = precheckChapterV2(validFinalizedDir, 3);
+  assert.equal(resRealRollback.blocking, false, `Actual rollback should unblock, got: ${JSON.stringify(resRealRollback.hardErrors)}`);
+  assert.equal(resRealRollback.hardErrors.length, 0);
 
-  // 9. B2: Fail-Closed when finalized records lack chapter mapping or valid SHA-256 (zero silent skip)
-  // 9a. Finalized chapter deleted from plan.chapters
+  // 8f. B6: Unreadable reviews/r3/retcons directory MUST Fail-Closed (never treated as empty!)
+  const retconsAbs = path.join(validFinalizedDir, 'reviews/r3/retcons');
+  fs.chmodSync(retconsAbs, 0o000);
+  try {
+    const resUnreadableRetcons = precheckChapterV2(validFinalizedDir, 3);
+    assert.equal(resUnreadableRetcons.blocking, true, 'Unreadable retcons dir MUST Fail-Closed');
+    assert.ok(resUnreadableRetcons.hardErrors.some(e => e.code === 'STALE_REVIEW_AFTER_EDIT' && e.source === 'reviews/r3/retcons'));
+  } finally {
+    fs.chmodSync(retconsAbs, 0o755);
+  }
+
+  // 9. B2 & B5: Fail-Closed against forged passed reviews, self-reviews, missing R2 indices, null records, and deleted mappings
+  // 9a. B2: Forged status:passed with ONLY revision + manuscriptHashes (missing inputPath / reviewPath) -> BLOCK!
+  const forgedPassedDir = makeTempProject(t, {
+    plan: {
+      minWordsPerChapter: 3000,
+      chapters: [
+        {chapterNumber: 1, title: '第一章', filePath: 'chapters/ch001.md', status: 'completed'},
+        {chapterNumber: 2, title: '第二章', filePath: 'chapters/ch002.md', status: 'draft'},
+      ],
+      v3: {
+        r2: {
+          schemaVersion: 1,
+          chapterReviews: {
+            '1': {status: 'passed', revision: 1, manuscriptHashes: {'1': ch1OrigHash}},
+          },
+        },
+      },
+    },
+    chapters: {'chapters/ch001.md': ch1Original, 'chapters/ch002.md': ch2Text},
+  });
+  const resForgedPassed = precheckChapterV2(forgedPassedDir, 2);
+  assert.equal(resForgedPassed.blocking, true);
+  assert.ok(resForgedPassed.hardErrors.some(e => e.reason === 'R2_REVIEW_OR_INPUT_FILE_MISSING'));
+
+  // 9b. B2: Self-review (reviewer.runId === writer.runId) masquerading as status:passed -> BLOCK!
+  const selfReviewDir = makeTempProject(t, {
+    plan: {
+      minWordsPerChapter: 3000,
+      chapters: [
+        {chapterNumber: 1, title: '第一章', filePath: 'chapters/ch001.md', status: 'completed'},
+        {chapterNumber: 2, title: '第二章', filePath: 'chapters/ch002.md', status: 'draft'},
+      ],
+    },
+    chapters: {'chapters/ch001.md': ch1Original, 'chapters/ch002.md': ch2Text},
+  });
+  const selfRec = createValidR2ChapterReview(selfReviewDir, 1, ch1Original, 1);
+  const badReport = JSON.parse(fs.readFileSync(path.join(selfReviewDir, selfRec.reviewPath), 'utf8'));
+  badReport.reviewer.runId = 'writer-run-1';
+  const badReportBytes = Buffer.from(JSON.stringify(badReport, null, 2) + '\n', 'utf8');
+  fs.writeFileSync(path.join(selfReviewDir, selfRec.reviewPath), badReportBytes);
+  selfRec.reviewSha256 = sha256(badReportBytes);
+  const selfPlan = JSON.parse(fs.readFileSync(path.join(selfReviewDir, '02-写作计划.json'), 'utf8'));
+  selfPlan.v3 = {schemaVersion: 1, r2: {schemaVersion: 1, chapterReviews: {'1': selfRec}, arcReviews: {}}};
+  fs.writeFileSync(path.join(selfReviewDir, '02-写作计划.json'), JSON.stringify(selfPlan, null, 2) + '\n', 'utf8');
+  const resSelfReview = precheckChapterV2(selfReviewDir, 2);
+  assert.equal(resSelfReview.blocking, true);
+  assert.ok(resSelfReview.hardErrors.some(e => e.reason === 'R2_SELF_REVIEW'));
+
+  // 9c. B2: decision:revise masquerading as status:passed -> BLOCK!
+  badReport.reviewer.runId = 'reviewer-run-1';
+  badReport.decision = 'revise';
+  const reviseBytes = Buffer.from(JSON.stringify(badReport, null, 2) + '\n', 'utf8');
+  fs.writeFileSync(path.join(selfReviewDir, selfRec.reviewPath), reviseBytes);
+  selfRec.reviewSha256 = sha256(reviseBytes);
+  selfPlan.v3.r2.chapterReviews['1'] = selfRec;
+  fs.writeFileSync(path.join(selfReviewDir, '02-写作计划.json'), JSON.stringify(selfPlan, null, 2) + '\n', 'utf8');
+  const resFakePassDecision = precheckChapterV2(selfReviewDir, 2);
+  assert.equal(resFakePassDecision.blocking, true);
+  assert.ok(resFakePassDecision.hardErrors.some(e => e.reason === 'R2_REPORT_NOT_VALID_PASS'));
+
+  // 9d. B5: v3.r2 enabled WITHOUT chapterReviews attribute -> Fail-Closed!
+  const missingIndexDir = makeTempProject(t, {
+    plan: {
+      minWordsPerChapter: 3000,
+      chapters: [{chapterNumber: 1, title: '第一章', filePath: 'chapters/ch001.md'}],
+      v3: {schemaVersion: 1, r2: {schemaVersion: 1}},
+    },
+    chapters: {'chapters/ch001.md': ch1Original},
+  });
+  const resMissingIndex = precheckChapterV2(missingIndexDir, 1);
+  assert.equal(resMissingIndex.blocking, true);
+  assert.ok(resMissingIndex.hardErrors.some(e => e.code === 'STALE_REVIEW_AFTER_EDIT' && e.source === 'v3.r2'));
+
+  // 9e. B5: v3.r2.chapterReviews contains null record -> Fail-Closed!
+  const nullRecDir = makeTempProject(t, {
+    plan: {
+      minWordsPerChapter: 3000,
+      chapters: [{chapterNumber: 1, title: '第一章', filePath: 'chapters/ch001.md'}],
+      v3: {schemaVersion: 1, r2: {schemaVersion: 1, chapterReviews: {'1': null}}},
+    },
+    chapters: {'chapters/ch001.md': ch1Original},
+  });
+  const resNullRec = precheckChapterV2(nullRecDir, 1);
+  assert.equal(resNullRec.blocking, true);
+  assert.ok(resNullRec.hardErrors.some(e => e.code === 'STALE_REVIEW_AFTER_EDIT' && e.chapter === 1));
+
+  // 9f. B2: Finalized chapter deleted from plan.chapters -> Fail-Closed!
   const deletedMappingDir = makeTempProject(t, {
     plan: {
       minWordsPerChapter: 3000,
@@ -350,38 +453,15 @@ test('TC-P0-3-1: engineering file integrity failures always enter hardErrors wit
   assert.equal(resDeletedMapping.blocking, true);
   assert.ok(resDeletedMapping.hardErrors.some(e => e.code === 'STALE_REVIEW_AFTER_EDIT' && e.chapter === 1));
 
-  // 9b. Passed chapterReviews entry missing / malformed SHA-256
-  const missingReviewHashDir = makeTempProject(t, {
-    plan: {
-      minWordsPerChapter: 3000,
-      chapters: [
-        {chapterNumber: 1, title: '第一章', filePath: 'chapters/ch001.md', status: 'completed'},
-        {chapterNumber: 2, title: '第二章', filePath: 'chapters/ch002.md', status: 'draft'},
-      ],
-      v3: {
-        r2: {
-          schemaVersion: 1,
-          chapterReviews: {
-            '1': {status: 'passed', revision: 1, manuscriptHashes: {}},
-          },
-        },
-      },
-    },
-    chapters: {'chapters/ch001.md': ch1Original, 'chapters/ch002.md': ch2Text},
-  });
-  const resMissingRevHash = precheckChapterV2(missingReviewHashDir, 2);
-  assert.equal(resMissingRevHash.blocking, true);
-  assert.ok(resMissingRevHash.hardErrors.some(e => e.code === 'STALE_REVIEW_AFTER_EDIT' && e.chapter === 1));
-
-  // 9c. Approved Pilot missing or malformed manuscriptHashes
+  // 9g. Approved Pilot with missing/malformed hash & explicit finalizedSha256 malformed -> Fail-Closed!
   const badPilotDir = makeTempProject(t, {
     plan: {
       minWordsPerChapter: 3000,
       chapters: [
-        {chapterNumber: 1, title: '第一章', filePath: 'chapters/ch001.md', status: 'completed'},
-        {chapterNumber: 2, title: '第二章', filePath: 'chapters/ch002.md', status: 'completed'},
-        {chapterNumber: 3, title: '第三章', filePath: 'chapters/ch003.md', status: 'completed'},
-        {chapterNumber: 4, title: '第四章', filePath: 'chapters/ch004.md', status: 'draft'},
+        {chapterNumber: 1, title: '第一章', filePath: 'chapters/ch001.md', finalizedSha256: 'bad'},
+        {chapterNumber: 2, title: '第二章', filePath: 'chapters/ch002.md'},
+        {chapterNumber: 3, title: '第三章', filePath: 'chapters/ch003.md'},
+        {chapterNumber: 4, title: '第四章', filePath: 'chapters/ch004.md'},
       ],
       v3: {
         pilot: {
@@ -400,21 +480,7 @@ test('TC-P0-3-1: engineering file integrity failures always enter hardErrors wit
   const resBadPilot = precheckChapterV2(badPilotDir, 4);
   assert.equal(resBadPilot.blocking, true);
   assert.ok(resBadPilot.hardErrors.some(e => e.code === 'STALE_REVIEW_AFTER_EDIT' && e.source === 'v3.pilot'));
-
-  // 9d. Explicit chapter.finalizedSha256 malformed
-  const badFinalizedFieldDir = makeTempProject(t, {
-    plan: {
-      minWordsPerChapter: 3000,
-      chapters: [
-        {chapterNumber: 1, title: '第一章', filePath: 'chapters/ch001.md', finalizedSha256: 'bad'},
-        {chapterNumber: 2, title: '第二章', filePath: 'chapters/ch002.md'},
-      ],
-    },
-    chapters: {'chapters/ch001.md': ch1Original, 'chapters/ch002.md': ch2Text},
-  });
-  const resBadFin = precheckChapterV2(badFinalizedFieldDir, 2);
-  assert.equal(resBadFin.blocking, true);
-  assert.ok(resBadFin.hardErrors.some(e => e.code === 'STALE_REVIEW_AFTER_EDIT' && e.source === 'chapter.finalizedSha256'));
+  assert.ok(resBadPilot.hardErrors.some(e => e.code === 'STALE_REVIEW_AFTER_EDIT' && e.source === 'chapter.finalizedSha256'));
 });
 
 // ============================================================================
