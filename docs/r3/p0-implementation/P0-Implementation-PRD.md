@@ -145,15 +145,15 @@ flowchart LR
 #### 10. 实际证据记录
 | 证据项 | 当前记录 |
 |---|---|
-| **独立 Commit SHA** | 原始 `P0-0` 提交：`86cbc9f3ad37c635f134eeea2a89317d5eef0a3c`（GitHub 提交时间 `2026-11-26T02:58:13Z`）；<br>`RW-P0-0-001` 一轮整改提交：`9747e146e016155055b928d7a664650cb76def5c`（GitHub 提交时间 `2026-11-26T03:11:59Z`）；<br>二轮收尾补充提交见 [`P0-Progress-Log.md`](./P0-Progress-Log.md) 与交付报告（前置基线 `2d6061d6cd0e8b4b2da77619cb58239c44dc332e`） |
-| **修改文件与 Diff 摘要** | 仅限 `docs/r3/p0-implementation/` 下 4 份文档（`P0-0-Baseline-Audit-Report.md` 含附录 A 73 文件、附录 B 19 文件、附录 C 18 文件脱敏 Manifest 与可执行校验/扫描脚本及实跑输出；同步更新 `README.md`、`P0-Progress-Log.md` 与本任务证据/状态栏）；0 生产代码/Skill/R2/测试/冻结架构改动 |
-| **测试命令与结果** | ① R3 `node --test`（7 文件）：**`71/71`** 通过（exit `0`）；<br>② V3/R2 独立 `node` 脚本（10 文件）：**`10/10`** 全绿（exit `0`）；<br>③ Python `unittest`（2 文件）：**`12/12`** 通过（`0.956s`，exit `0`） |
+| **独立 Commit SHA** | 原始 `P0-0` 提交：`86cbc9f3ad37c635f134eeea2a89317d5eef0a3c`（GitHub 提交时间 `2026-11-26T02:58:13Z`）；<br>`RW-P0-0-001` 一轮整改提交：`9747e146e016155055b928d7a664650cb76def5c`（GitHub 提交时间 `2026-11-26T03:11:59Z`）；<br>`RW-P0-0-001` 二轮补齐提交：`8ac888fce42070855241d2f17d05691b3afce709`（GitHub 提交时间 `2026-11-26T03:41:39Z`）；<br>`RW-P0-0-002`（Issue #4 `CHANGES_REQUESTED` 四项整改）独立提交见 [`P0-Progress-Log.md`](./P0-Progress-Log.md) 与 Issue #4 回复（前置基线 `2d6061d6cd0e8b4b2da77619cb58239c44dc332e`） |
+| **修改文件与 Diff 摘要** | 仅限 `docs/r3/p0-implementation/` 下 4 份文档（`P0-0-Baseline-Audit-Report.md` 含附录 A 73 文件、附录 B 19 文件、附录 C.1 18 核心 Manifest、附录 C.2 Fail-Closed 18+62 全量 64 位 SHA-256/字节断言脚本与实跑输出、附录 C.3 主仓 293 + `<ART_ROOT>` 2,723 全量递归盘点与 173 候选章节逐项排除表、附录 C.4 G4 24 案例切片→章节映射与双口径去重计数；同步更新 `README.md`、`P0-Progress-Log.md` 与本任务证据/状态栏）；0 生产代码/Skill/R2/测试/冻结架构/实验分支改动 |
+| **测试命令与结果（Neon 本地实测证据，GPT-6 未独立复跑）** | ① R3 `node --test`（7 文件）：**`71/71`** 通过（exit `0`）；<br>② V3/R2 独立 `node` 脚本（10 文件）：**`10/10`** 全绿（exit `0`）；<br>③ Python `unittest`（2 文件）：**`12/12`** 通过（`0.956s`，exit `0`）；<br>④ 附录 C.2 Fail-Closed 完整性校验实跑 `exit 0`（18 核心 + 62 引用全过，负向断言非零退出）；附录 C.3 全量递归扫描实跑 `exit 0`（293+2,723 全归类、`unclassified=0`、`eligible_g2b=0`、`eligible_g6=0`）；<br>*边界明示：上述 Node/Python 测试为 Neon 本地实测证据，GPT-6 本轮未在独立运行环境复跑，不表述为 GPT-6 独立复跑通过* |
 | **审计报告路径** | [`docs/r3/p0-implementation/P0-0-Baseline-Audit-Report.md`](./P0-0-Baseline-Audit-Report.md) |
 
 #### 11. GPT-6 验收状态
-- **当前状态**：**`READY_FOR_REVIEW`**（二轮复审认可 `9747e146` 主体整改，现已完成最后 2 项补齐并重提最终验收）
-- **GPT-6 验收结论**：`PENDING`（等待 GPT-6 最终验收；验收通过前严禁推进 `P0-1`）
-- **审核时间与意见**：`2026-11-26` 二轮复审确认 73 文件与 GitHub 树完全匹配、19 文件一致、零代码污染，要求登记 `9747e146` SHA 并提供附录 C.2/C.3 真正可执行脚本与实跑输出（现已补齐）
+- **当前状态**：**`READY_FOR_REVIEW`**（响应 Issue #4 `2026-11-26T05:08:16Z` 正式 `CHANGES_REQUESTED` 完成 `RW-P0-0-002` 四项整改并重提）
+- **GPT-6 验收结论**：`PENDING`（等待 GPT-6 再次独立验收；验收通过前严禁推进 `P0-1`）
+- **审核时间与意见**：`2026-11-26T05:08:16Z` Issue #4 审核 `8ac888fc` 给出 `CHANGES_REQUESTED`（要求补齐 C.2 Fail-Closed 全量 64 位 SHA-256/字节数断言与 62 引用 Manifest、C.3 全量递归 293+2,723 盘点与候选逐项排除、G4 来源章节去重计数、明确 GPT-6 未独立复跑测试边界；现已逐项整改重提）
 
 ---
 
@@ -610,7 +610,7 @@ flowchart LR
 |---|---|---|---|---|---|---|
 | **P0 实施管理 PRD `v1.0`（初始化建档）** | `CHANGES_REQUESTED` | `95b0951d021eddf5d23a1710944550ccc38ca1ff` | `2026-11-25T17:12:50Z` *(GitHub 提交时间)* | **`CHANGES_REQUESTED`** | `2026-11-25` | 整体结构与管理机制认可；要求修正两处（`RW-PRD-001`）：① 统一 `P0-2` 末尾顺序为“倒数第二：本书文风锚点示范 → 最末位：上一章结尾原文（500–900 字）”；② 补齐初始化 Commit 完整 40 位 SHA 与 GitHub 提交时间 |
 | **P0 实施管理 PRD `v1.0.1`（内容整改 + 元数据补齐验收）** | **`ACCEPTED`** | 内容修订 `a12774f50956c5081252fe1722333893331ded5e`；<br>审核基线 `e52105adca3f994fca3cbdeef9aa935479ceaf9b` | `2026-11-25T17:23:04Z` / `2026-11-25T17:44:23Z` *(GitHub 提交时间，非实际研发开始时间)* | **`ACCEPTED`** | **`2026-11-26`** | GPT-6 基于 `e52105ad` 最终验收通过，关闭 `RW-PRD-001`，管理 PRD `v1.0.1` 正式冻结；**管理 PRD 验收通过不代表 `P0-0` 已获启动授权** |
-| **`P0-0` · 研发基线审计与实施准备** | **`READY_FOR_REVIEW`** | 原始：`86cbc9f3ad37c635f134eeea2a89317d5eef0a3c`（`2026-11-26T02:58:13Z`）；<br>一轮整改：`9747e146e016155055b928d7a664650cb76def5c`（`2026-11-26T03:11:59Z`） | `2026-11-26` | `PENDING`（二轮收尾重提） | `—` | 二轮复审认可 73+19 清单与零污染，现已正式登记 `9747e146` 并补齐附录 C.2/C.3 可执行校验/扫描脚本及实跑输出，等待最终验收 |
+| **`P0-0` · 研发基线审计与实施准备** | **`READY_FOR_REVIEW`** | 原始：`86cbc9f3ad37c635f134eeea2a89317d5eef0a3c`（`02:58:13Z`）；<br>`RW-P0-0-001`：`9747e146e016155055b928d7a664650cb76def5c`（`03:11:59Z`）、`8ac888fce42070855241d2f17d05691b3afce709`（`03:41:39Z`） | `2026-11-26` | `PENDING`（`RW-P0-0-002` 重提） | `—` | Issue #4（`05:08:16Z`）对 `8ac888fc` 给出 `CHANGES_REQUESTED`；现已完成 4 项整改（C.2 Fail-Closed 18+62 全量校验、C.3 293+2,723 全量递归与 173 候选逐项排除、C.4 G4 24 案例去重计数、明示 Node/Python 测试为 Neon 本地实测未由 GPT-6 独立复跑），等待再次独立验收 |
 | **`P0-1` · S1 四级枚举及下游兼容** | `NOT_STARTED` | `—` | `—` | `NOT_SUBMITTED` | `—` | — |
 | **`P0-2` · 写手语域防火墙** | `NOT_STARTED` | `—` | `—` | `NOT_SUBMITTED` | `—` | — |
 | **`P0-3` · `precheck v2`** | `NOT_STARTED` | `—` | `—` | `NOT_SUBMITTED` | `—` | — |

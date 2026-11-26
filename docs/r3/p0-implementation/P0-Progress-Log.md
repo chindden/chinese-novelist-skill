@@ -116,17 +116,33 @@
 
 ---
 
-### [2026-11-26] · `P0-0` · 二轮复审最终补齐提交（完成 `RW-P0-0-001` 全部 2 项收尾 → `READY_FOR_REVIEW`）
+### [2026-11-26] · `P0-0` · 二轮复审补齐提交（`8ac888fc` → GPT-6 在 Issue #4 正式给出 `CHANGES_REQUESTED`）
 
 | 字段 | 记录内容 |
 |---|---|
+| **GitHub 提交时间（UTC）** | `2026-11-26T03:41:39Z` |
 | **关联任务** | `P0-0`（响应 GPT-6 对 `9747e146` 的二轮复审意见；完整保留 `86cbc9f3` 与 `9747e146` 全部历史提交） |
-| **状态变更** | `CHANGES_REQUESTED` → `IN_PROGRESS` → **`READY_FOR_REVIEW`**（`P0-1` ~ `P0-6` 全部继续保持 `NOT_STARTED`） |
-| **历史关联 Commit** | 原始交付：`86cbc9f3ad37c635f134eeea2a89317d5eef0a3c`（`2026-11-26T02:58:13Z`）；<br>一轮整改：`9747e146e016155055b928d7a664650cb76def5c`（`2026-11-26T03:11:59Z`） |
-| **整改内容** | ① 在 4 份文档正式登记一轮补充 Commit `9747e146e016155055b928d7a664650cb76def5c`（`2026-11-26T03:11:59Z`）；<br>② 附录 C.2 替换为真正可运行的只读 Python 校验脚本与原始运行 stdout（实测 `CORE_SUMMARY total=18 json_ok=17 md_ok=1 missing=0`、`REFS_SUMMARY total_files=62 total_missing=0 total_bytes=1044654`）；<br>③ 附录 C.3 补充 G2-B 与 G6 零样本实际扫描 Python 脚本、实跑输出（主仓 `holdout_data_files=0`，`scratch/` 全部 15 个子目录逐一计数）及逐目录排除依据 |
-| **修改文件** | 仅限 `docs/r3/p0-implementation/{P0-0-Baseline-Audit-Report.md,P0-Progress-Log.md,P0-Implementation-PRD.md,README.md}`，其余文件 0 改动（未重跑全量测试，完整保留原测试基线） |
-| **GPT-6 审核结论** | **`PENDING`**（等待 GPT-6 最终验收） |
-| **返工及复审记录** | 对应 **`RW-P0-0-001`** 二轮收尾重提 |
+| **状态变更** | `CHANGES_REQUESTED` → `IN_PROGRESS` → `READY_FOR_REVIEW` → GPT-6 于 `2026-11-26T05:08:16Z` 在 Issue #4 正式退回 **`CHANGES_REQUESTED`**（`P0-1` ~ `P0-6` 全部继续保持 `NOT_STARTED`） |
+| **本轮补齐 Commit SHA** | `8ac888fce42070855241d2f17d05691b3afce709`（历史关联：`86cbc9f3ad37c635f134eeea2a89317d5eef0a3c` [`02:58:13Z`]、`9747e146e016155055b928d7a664650cb76def5c` [`03:11:59Z`]） |
+| **整改内容** | ① 在 4 份文档正式登记一轮补充 Commit `9747e146e016155055b928d7a664650cb76def5c`（`2026-11-26T03:11:59Z`）；<br>② 附录 C.2 替换为只读 Python 校验脚本与原始运行 stdout；<br>③ 附录 C.3 补充主仓 3 目录与 `scratch/` 15 子目录扫描输出及逐目录排除依据 |
+| **修改文件** | 仅限 `docs/r3/p0-implementation/{P0-0-Baseline-Audit-Report.md,P0-Progress-Log.md,P0-Implementation-PRD.md,README.md}`，其余文件 0 改动 |
+| **GPT-6 正式审核结论（Issue #4）** | **`CHANGES_REQUESTED`**（`2026-11-26T05:08:16Z`，审核 HEAD `8ac888fce42070855241d2f17d05691b3afce709`）：认可 73 文件基线、零代码污染、S1 五处核心校验点及 G2-B/G6 `underpowered` 诚实保留；要求整改 4 项后重提：① C.2 完整性校验纳入 C.1 预期字节数与完整 64 位 SHA-256 断言，对 62 份引用稿件输出逐文件脱敏路径/字节数/完整 SHA-256，并在任意缺失/不符时非零退出；② C.3 对本地 `<ART_ROOT>` 全部目录及主仓执行完整递归盘点，逐项分类候选章节并提供可复核排除依据；③ 补齐 G4 脱敏切片→来源章节映射与去重计数（不足 8 章须标 `underpowered`）；④ 明确 Node `71/71`、10 脚本与 Python `12/12` 为 Neon 本地实测证据，GPT-6 本轮未独立复跑 |
+| **返工及复审记录** | `RW-P0-0-001` 交接并新开 **`RW-P0-0-002`** |
+
+---
+
+### [2026-11-26] · `P0-0` · Issue #4 `CHANGES_REQUESTED` 四项整改完成与重新提审（`RW-P0-0-002`：`CHANGES_REQUESTED` → `IN_PROGRESS` → `READY_FOR_REVIEW`）
+
+| 字段 | 记录内容 |
+|---|---|
+| **关联任务** | `P0-0`（响应 Issue #4 GPT-6 `2026-11-26T05:08:16Z` 正式 `CHANGES_REQUESTED`；完整保留 `86cbc9f3`、`9747e146`、`8ac888fc` 全部历史提交） |
+| **状态变更** | `CHANGES_REQUESTED` → `IN_PROGRESS`（Issue #4 原生 Status `In review` → `In progress`，实测自动同步至 Project #4 `In Progress`；`#5`–`#10` 保持 `Backlog` 不动）→ **`READY_FOR_REVIEW`**（Issue #4 恢复 `In review` 并确认 Project #4 自动同步；`P0-1` ~ `P0-6` 全部继续保持 `NOT_STARTED`） |
+| **历史关联 Commit** | 原始交付：`86cbc9f3ad37c635f134eeea2a89317d5eef0a3c`（`2026-11-26T02:58:13Z`）；<br>一轮整改：`9747e146e016155055b928d7a664650cb76def5c`（`2026-11-26T03:11:59Z`）；<br>二轮补齐：`8ac888fce42070855241d2f17d05691b3afce709`（`2026-11-26T03:41:39Z`） |
+| **整改内容（逐项闭环 Issue #4 全部 4 项要求）** | ① **C.2 Fail-Closed 完整性校验**：将 18 份核心文件（17 JSON + 1 MD）与 5 组 62 份引用稿件的预期字节数及完整 64 位 SHA-256 纳入脚本数据结构，逐文件强断言并输出 62 份稿件脱敏相对路径/字节数/完整 64 位 SHA-256，任意缺失/字节不符/哈希不符/引用数或集合不符均 `sys.exit(1)` 非零退出；实跑 `exit code = 0`、`ALL_INTEGRITY_ASSERTIONS_PASSED`（且从报告提取代码块复跑与嵌入输出逐字节一致）；<br>② **C.3 全量递归样本审计**：对主仓全量 293 个文件（排除 `.git/`，不限目录与关键词）与本地 `<ART_ROOT>` 全量 2,723 个文件（非 `scratch/` 66 个 + `scratch/` 顶层 13 个 + 15 子目录 2,644 个）执行 100% 递归内容扫描与归类（`unclassified = 0`），并逐文件列出全部 173 份候选章节（172 份 R3 历史实验稿 + 1 份外部仓库示例 `河埠旧事.md`）的来源、题材、揭盲/校准/黑名单状态及排除理由，可复核证实 `G2-B = 0`（缺口 `+20` 章/`+60` 案例，`underpowered`）、`G6 = 0`（缺口 `+12..16` 章/`+30` 正例/`+40` 负例，`underpowered`）；<br>③ **新增附录 C.4（G4 去重来源章节数）**：列出 `four-class-24.json` 全部 24 案例脱敏切片（18 目标切片 / 21 引用稿件）到 Track 2 源文件与 `Arm × Chapter` 映射；双口径诚实披露去重来源章：**按独立生成 `Arm × 章` 实例计为 `9` 章（`>= 8`，同 Track 2 `N_ch=9` 口径）；按共享故事大纲章号计仅 `3` 章（`< 8`，若按该口径为 `underpowered`，全属单题材已揭盲《器痕录》Ch 1–3）**；<br>④ **明确独立复跑边界**：在报告 §三、PRD、README 与本日志中明确标注 Node `71/71`、10 个 V3/R2 脚本及 Python `12/12` 为 **Neon 本地实测证据**，**GPT-6 本轮未在独立运行环境复跑，不表述为 GPT-6 独立复跑通过** |
+| **修改文件** | 仅限 `docs/r3/p0-implementation/{P0-0-Baseline-Audit-Report.md,P0-Progress-Log.md,P0-Implementation-PRD.md,README.md}`，0 生产代码/Skill/R2/测试/冻结架构/实验分支改动 |
+| **测试与复核边界** | ① 本次未改动任何代码或测试，保留原 Neon 基线实测证据（Node `71/71` + 10 V3/R2 脚本 + Python `12/12`；**明确标注 GPT-6 未独立复跑**）；<br>② 本次实跑修订后 C.2 Fail-Closed 校验脚本（`exit 0`，18 核心 + 62 引用稿件全过）与 C.3 全量递归审计脚本（`exit 0`，主仓 293 + `<ART_ROOT>` 2,723 全归类、`unclassified=0`、`eligible_g2b=0`、`eligible_g6=0`），并做负向校验确认不匹配时非零退出 |
+| **GPT-6 审核结论** | **`PENDING`**（重新提交 `READY_FOR_REVIEW`，等待 GPT-6 再次独立验收） |
+| **返工及复审记录** | 对应 **`RW-P0-0-002`** 整改重提 |
 
 ---
 
@@ -156,7 +172,8 @@
 | 返工编号 | 关联任务 | 退回日期 | 被退回 Commit SHA | GPT-6 退回原因与必须整改项 | 整改 Commit SHA | 整改后复测结果 | 复审结论（GPT-6） | 关闭状态 |
 |---|---|---|---|---|---|---|---|---|
 | **`RW-PRD-001`** | `P0-MGMT-INIT`（P0 实施管理 PRD `v1.0`） | `2026-11-25` | `95b0951d021eddf5d23a1710944550ccc38ca1ff` | ① `README.md` 与 `P0-Implementation-PRD.md` 中 `P0-2` 末尾顺序表述存在歧义，须严格按 `03` 2.1 节明确“倒数第二部分：本书文风锚点示范；最后一部分（最末位）：上一章结尾原文（500–900 字）”；② 补齐初始化 Commit 完整 40 位 SHA 与 GitHub 提交时间 `2026-11-25T17:12:50Z`（随后复审要求补齐 `v1.0.1` SHA `a12774f5` 追溯元数据） | 内容整改：`a12774f50956c5081252fe1722333893331ded5e`（`2026-11-25T17:23:04Z`）；<br>追溯补齐：`e52105adca3f994fca3cbdeef9aa935479ceaf9b`（`2026-11-25T17:44:23Z`） | 两项内容整改与追溯元数据全部通过核验；其余文件 0 改动；`P0-0` ~ `P0-6` 全部保持 `NOT_STARTED` | **`ACCEPTED`**（`2026-11-26`，审核基线 `e52105ad`） | **`CLOSED`** |
-| **`RW-P0-0-001`** | `P0-0`（研发基线审计与实施准备） | `2026-11-26` | 初审：`86cbc9f3ad37c635f134eeea2a89317d5eef0a3c`；<br>二轮复审：`9747e146e016155055b928d7a664650cb76def5c` | 初审要求补齐 SHA 追溯、73+19 完整文件清单、脱敏 Manifest 与零污染区间说明；二轮复审认可主体整改，要求最终补齐：① 正式登记 `9747e146` 完整 SHA 与提交时间；② 附录 C.2 换为真正可执行 Python 校验脚本与实跑输出（18 核心文件 + 62 引用稿件），附录 C.3 补 G2-B/G6 实际扫描命令与排除依据 | 一轮整改：`9747e146e016155055b928d7a664650cb76def5c`（`2026-11-26T03:11:59Z`）；<br>二轮收尾：本次独立文档提交（由交付报告提供完整 SHA，原始 `86cbc9f3` 与 `9747e146` 完整保留） | 纯文档整改，保留原自动化测试基线（Node `71/71` + 10 脚本 + Python `12/12`）；可执行脚本实跑 `total=18 (17 json + 1 md), missing=0` 与 `refs=62, missing=0`；主仓+`scratch/` 15 目录扫描证实 G2-B/G6 均 0 样本；仅改 `docs/r3/p0-implementation/` | **`PENDING`**（已重提 `READY_FOR_REVIEW`，等待最终验收） | **`OPEN`** |
+| **`RW-P0-0-001`** | `P0-0`（研发基线审计与实施准备） | `2026-11-26` | 初审：`86cbc9f3ad37c635f134eeea2a89317d5eef0a3c`；<br>二轮复审：`9747e146e016155055b928d7a664650cb76def5c` | 初审要求补齐 SHA 追溯、73+19 完整文件清单、脱敏 Manifest 与零污染区间说明；二轮复审认可主体整改，要求最终补齐：① 正式登记 `9747e146` 完整 SHA 与提交时间；② 附录 C.2/C.3 换为可执行脚本与实跑输出 | 一轮整改：`9747e146e016155055b928d7a664650cb76def5c`（`2026-11-26T03:11:59Z`）；<br>二轮补齐：`8ac888fce42070855241d2f17d05691b3afce709`（`2026-11-26T03:41:39Z`） | 73 文件基线、19 文件清单、零代码污染与 S1 核心校验点通过核验；GPT-6 针对 `8ac888fc` 在 Issue #4 提出 4 项更深层证据断言要求，转入 **`RW-P0-0-002`** 闭环 | **`CHANGES_REQUESTED`**（`2026-11-26T05:08:16Z`，Issue #4 转入 `RW-P0-0-002`） | **`SUPERSEDED_BY_RW-P0-0-002`** |
+| **`RW-P0-0-002`** | `P0-0`（研发基线审计与实施准备） | `2026-11-26`（Issue #4 `05:08:16Z`） | `8ac888fce42070855241d2f17d05691b3afce709` | Issue #4 正式 `CHANGES_REQUESTED` 四项要求：① C.2 纳入 18 核心文件预期字节数与完整 64 位 SHA-256 断言、62 份引用稿件逐文件 Manifest、任意缺失/不符非零退出；② C.3 对本地 `<ART_ROOT>` 全目录与主仓全量递归盘点并逐项分类排除候选样本；③ 补齐 G4 脱敏切片→来源章节映射与去重计数；④ 明确 GPT-6 未独立复跑 Node/Python 测试 | 本次独立整改 Commit（完整保留 `86cbc9f3`、`9747e146`、`8ac888fc`；提交后在 Issue #4 与交付报告提供完整 40 位 SHA） | 修订后 C.2 Fail-Closed 脚本实跑 `exit 0`（18 核心 + 62 引用全量字节/64位SHA-256断言全过，负向校验非零退出）；C.3 全量递归扫描实跑 `exit 0`（主仓 293 + `<ART_ROOT>` 2,723 全归类、173 候选章节逐项排除、`unclassified=0`、`eligible_g2b=0`、`eligible_g6=0`）；C.4 完成 G4 24 案例映射与双口径去重计数；已明示 Node/Python 测试仅 Neon 本地实测；仅改 `docs/r3/p0-implementation/` | **`PENDING`**（已重提 `READY_FOR_REVIEW`，等待 GPT-6 再次独立验收） | **`OPEN`** |
 
 ---
 
