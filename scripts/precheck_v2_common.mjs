@@ -809,7 +809,13 @@ function auditHistoricalPassedReviews(root, plan, resolveDiskHash, p1StateObj) {
                 continue;
               }
             } else if (p1StateObj) {
-              // Legacy R2 packet inside a P1-enabled project must be registered under p1.legacyReviews
+              // Legacy R2 packet inside a P1-enabled project (B12 + B14):
+              // r3_p1.mjs activate registers ONLY the latest passed revision per scope in p1.legacyReviews[kind:end].
+              // Distinguish:
+              //   - expectedRev === registeredLegacyRev -> must match legacyRec.reviewPath, inputSha256, reviewSha256, pass_candidate
+              //   - expectedRev > registeredLegacyRev   -> unregistered post-baseline legacy review (Fail-Closed)
+              //   - expectedRev < registeredLegacyRev   -> legitimate earlier pre-P1 revision (verified by canonical filename,
+              //                                            paired input/report, complete scope hashes, and disk manuscript hashes below)
               const legacyKey = `${expectedKind}:${expectedEnd}`;
               const legacyRec = hasOwn(p1StateObj.legacyReviews, legacyKey) ? p1StateObj.legacyReviews[legacyKey] : null;
               if (expectedEnd > p1StateObj.baselineUpto || !isPlainObject(legacyRec)) {
@@ -822,32 +828,62 @@ function auditHistoricalPassedReviews(root, plan, resolveDiskHash, p1StateObj) {
                 });
                 continue;
               }
-              if (report.decision === 'pass_candidate') {
-                if (legacyRec.inputSha256 !== inputSha256 ||
-                    legacyRec.reviewSha256 !== reportSha256 ||
-                    (typeof legacyRec.reviewPath === 'string' && legacyRec.reviewPath.trim() && legacyRec.reviewPath !== fileRel)) {
-                  errors.push({
-                    code: 'STALE_REVIEW_AFTER_EDIT',
-                    chapter: expectedEnd,
-                    source: fileRel,
-                    reason: 'R3_P1_UNREGISTERED_LEGACY_REVIEW',
-                    message: `P1 项目中的 legacy 已通过报告 ${fileRel} 与 v3.r3.p1.legacyReviews["${legacyKey}"] 注册的 input/review SHA 不匹配，Fail-Closed 阻断。`,
-                  });
-                  continue;
-                }
-              } else if ((typeof legacyRec.reviewPath === 'string' && legacyRec.reviewPath === fileRel) ||
-                         legacyRec.inputSha256 === inputSha256) {
-                if (legacyRec.reviewSha256 !== reportSha256) {
+              const legPathMatch = typeof legacyRec.reviewPath === 'string'
+                ? legacyRec.reviewPath.match(/^reviews\/r2\/report-(ch|arc)(\d+)-v(\d+)\.json$/)
+                : null;
+              const registeredLegacyRev =
+                legPathMatch &&
+                legPathMatch[1] === prefix &&
+                legPathMatch[2] === fnMatch[3] &&
+                legPathMatch[3] === String(Number(legPathMatch[3])) &&
+                Number.isSafeInteger(Number(legPathMatch[3])) &&
+                Number(legPathMatch[3]) >= 1
+                  ? Number(legPathMatch[3])
+                  : null;
+              if (registeredLegacyRev === null) {
+                errors.push({
+                  code: 'STALE_REVIEW_AFTER_EDIT',
+                  chapter: expectedEnd,
+                  source: `v3.r3.p1.legacyReviews.${legacyKey}`,
+                  reason: 'R3_P1_LEGACY_REVIEW_INVALID',
+                  message: `v3.r3.p1.legacyReviews["${legacyKey}"].reviewPath 不符合规范 R2 报告路径，Fail-Closed 阻断。`,
+                });
+                continue;
+              }
+              if (expectedRev > registeredLegacyRev) {
+                errors.push({
+                  code: 'STALE_REVIEW_AFTER_EDIT',
+                  chapter: expectedEnd,
+                  source: fileRel,
+                  reason: 'R3_P1_UNREGISTERED_LEGACY_REVIEW',
+                  message: `P1 项目中存在高于已冻结基线版本 v${registeredLegacyRev} 的未注册 legacy 审稿报告 ${fileRel}，Fail-Closed 阻断。`,
+                });
+                continue;
+              }
+              if (expectedRev === registeredLegacyRev) {
+                if (report.decision !== 'pass_candidate' || legacyRec.reviewSha256 !== reportSha256) {
                   errors.push({
                     code: 'STALE_REVIEW_AFTER_EDIT',
                     chapter: expectedEnd,
                     source: fileRel,
                     reason: 'R3_P1_LEGACY_REVIEW_CHANGED',
-                    message: `P1 项目中已注册的 legacy 审稿报告 ${fileRel} 已被篡改（与 legacyReviews["${legacyKey}"].reviewSha256 不符），Fail-Closed 阻断。`,
+                    message: `P1 项目中已注册的最新 legacy 审稿报告 ${fileRel} 已被篡改（decision 或 reviewSha256 与 legacyReviews["${legacyKey}"] 不符），Fail-Closed 阻断。`,
+                  });
+                  continue;
+                }
+                if (legacyRec.reviewPath !== fileRel || legacyRec.inputSha256 !== inputSha256) {
+                  errors.push({
+                    code: 'STALE_REVIEW_AFTER_EDIT',
+                    chapter: expectedEnd,
+                    source: fileRel,
+                    reason: 'R3_P1_UNREGISTERED_LEGACY_REVIEW',
+                    message: `P1 项目中已注册的最新 legacy 审稿报告 ${fileRel} 与 legacyReviews["${legacyKey}"] 的路径或 inputSha256 不匹配，Fail-Closed 阻断。`,
                   });
                   continue;
                 }
               }
+              // expectedRev < registeredLegacyRev: earlier pre-P1 revision falls through to standard
+              // decision + manuscript-hash consistency verification below (no false blocking on multi-pass pre-P1 history)
             }
 
             if (report.decision !== 'pass_candidate') {

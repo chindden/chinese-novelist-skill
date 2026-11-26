@@ -1233,6 +1233,171 @@ test('TC-P0-3-1b: B7 historical R2/arcReviews preservation, B8 P1 registration, 
     assert.equal(resMitigated.blocking, true);
     assert.ok(resMitigated.hardErrors.some(e => e.code === 'STALE_REVIEW_AFTER_EDIT' && e.chapter === 7));
   }
+
+  // --- B14: Multi-revision legitimate pre-P1 legacy reviews after P1 activation (zero false blocking + latest tamper/delete still blocks) ---
+  // B14-1: Chapter 1 passed in v1 AND passed again in v2 with unchanged text; P1 activate registers ONLY latest v2 -> MUST NOT block
+  {
+    const d = makeTempProject(t, {
+      plan: {
+        minWordsPerChapter: 3000,
+        chapters: [
+          {chapterNumber: 1, title: '第一章', filePath: 'chapters/ch001.md', status: 'completed'},
+          {chapterNumber: 2, title: '第二章', filePath: 'chapters/ch002.md', status: 'draft'},
+        ],
+      },
+      chapters: {'chapters/ch001.md': ch1Txt, 'chapters/ch002.md': ch2Txt},
+    });
+    const snap1 = writeCanonicalSnapshot(d, 'reviews/r3/manuscripts/chapter-1/v1', {'chapter-0001.md': ch1Txt});
+    writeReviewBundle(d, 'chapter', 1, {1: ch1Txt}, {revision: 1, p1Protocol: false, r3Snapshot: snap1, decision: 'pass_candidate'});
+    const snap2 = writeCanonicalSnapshot(d, 'reviews/r3/manuscripts/chapter-1/v2', {'chapter-0001.md': ch1Txt});
+    const recV2 = writeReviewBundle(d, 'chapter', 1, {1: ch1Txt}, {revision: 2, p1Protocol: false, r3Snapshot: snap2, decision: 'pass_candidate'});
+    const p = JSON.parse(fs.readFileSync(path.join(d, '02-写作计划.json'), 'utf8'));
+    p.v3 = {
+      schemaVersion: 1,
+      r2: {schemaVersion: 1, chapterReviews: {'1': recV2}, arcReviews: {}},
+      r3: {
+        schemaVersion: 1,
+        mode: 'experimental',
+        p1: {
+          schemaVersion: 1,
+          baselineUpto: 1,
+          projectId: 'proj-b14-ch',
+          legacyReviews: {
+            'chapter:1': {inputSha256: recV2.inputSha256, reviewSha256: recV2.reviewSha256, reviewPath: recV2.reviewPath},
+          },
+          reviewHistory: [],
+        },
+      },
+    };
+    fs.writeFileSync(path.join(d, '02-写作计划.json'), JSON.stringify(p, null, 2) + '\n', 'utf8');
+
+    const resOk = precheckChapterV2(d, 2);
+    assert.equal(resOk.blocking, false, `Multi-pass pre-P1 chapter (v1+v2 passed, v2 registered) must NOT block, got: ${JSON.stringify(resOk.hardErrors)}`);
+    assert.equal(resOk.hardErrors.length, 0);
+
+    // B14-1b (1): Injecting an unregistered newer legacy v3 (> registered v2) must STILL block -> R3_P1_UNREGISTERED_LEGACY_REVIEW
+    const snap3 = writeCanonicalSnapshot(d, 'reviews/r3/manuscripts/chapter-1/v3', {'chapter-0001.md': ch1Txt});
+    const recV3 = writeReviewBundle(d, 'chapter', 1, {1: ch1Txt}, {revision: 3, p1Protocol: false, r3Snapshot: snap3, decision: 'pass_candidate'});
+    const resV3 = precheckChapterV2(d, 2);
+    assert.equal(resV3.blocking, true);
+    assert.ok(resV3.hardErrors.some(e => e.reason === 'R3_P1_UNREGISTERED_LEGACY_REVIEW'));
+    fs.rmSync(path.join(d, recV3.inputPath));
+    fs.rmSync(path.join(d, recV3.reviewPath));
+
+    // B14-1b (2): Tampering registered latest v2 report must STILL block -> R3_P1_LEGACY_REVIEW_CHANGED
+    const v2OrigBytes = fs.readFileSync(path.join(d, recV2.reviewPath));
+    const v2Obj = JSON.parse(v2OrigBytes.toString('utf8'));
+    v2Obj.summary = 'tampered summary';
+    fs.writeFileSync(path.join(d, recV2.reviewPath), JSON.stringify(v2Obj, null, 2) + '\n', 'utf8');
+    const resV2Tamper = precheckChapterV2(d, 2);
+    assert.equal(resV2Tamper.blocking, true);
+    assert.ok(resV2Tamper.hardErrors.some(e => e.reason === 'R3_P1_LEGACY_REVIEW_CHANGED'));
+
+    // B14-1b (3): Deleting registered latest v2 report must STILL block -> R3_P1_LEGACY_FILE_MISSING
+    fs.rmSync(path.join(d, recV2.reviewPath));
+    const resV2Delete = precheckChapterV2(d, 2);
+    assert.equal(resV2Delete.blocking, true);
+    assert.ok(resV2Delete.hardErrors.some(e => e.reason === 'R3_P1_LEGACY_FILE_MISSING'));
+  }
+
+  // B14-2: Chapter 1 v1 'revise' on older draft -> edited -> v2 'pass_candidate' registered in legacyReviews -> MUST NOT block
+  {
+    const ch1OldDraft = ch1Txt + '\n初稿未修句。\n';
+    const d = makeTempProject(t, {
+      plan: {
+        minWordsPerChapter: 3000,
+        chapters: [
+          {chapterNumber: 1, title: '第一章', filePath: 'chapters/ch001.md', status: 'completed'},
+          {chapterNumber: 2, title: '第二章', filePath: 'chapters/ch002.md', status: 'draft'},
+        ],
+      },
+      chapters: {'chapters/ch001.md': ch1Txt, 'chapters/ch002.md': ch2Txt},
+    });
+    const snap1 = writeCanonicalSnapshot(d, 'reviews/r3/manuscripts/chapter-1/v1', {'chapter-0001.md': ch1OldDraft});
+    writeReviewBundle(d, 'chapter', 1, {1: ch1OldDraft}, {revision: 1, p1Protocol: false, r3Snapshot: snap1, decision: 'revise'});
+    const snap2 = writeCanonicalSnapshot(d, 'reviews/r3/manuscripts/chapter-1/v2', {'chapter-0001.md': ch1Txt});
+    const recV2 = writeReviewBundle(d, 'chapter', 1, {1: ch1Txt}, {revision: 2, p1Protocol: false, r3Snapshot: snap2, decision: 'pass_candidate'});
+    const p = JSON.parse(fs.readFileSync(path.join(d, '02-写作计划.json'), 'utf8'));
+    p.v3 = {
+      schemaVersion: 1,
+      r2: {schemaVersion: 1, chapterReviews: {'1': recV2}, arcReviews: {}},
+      r3: {
+        schemaVersion: 1,
+        mode: 'experimental',
+        p1: {
+          schemaVersion: 1,
+          baselineUpto: 1,
+          projectId: 'proj-b14-revise',
+          legacyReviews: {
+            'chapter:1': {inputSha256: recV2.inputSha256, reviewSha256: recV2.reviewSha256, reviewPath: recV2.reviewPath},
+          },
+          reviewHistory: [],
+        },
+      },
+    };
+    fs.writeFileSync(path.join(d, '02-写作计划.json'), JSON.stringify(p, null, 2) + '\n', 'utf8');
+    const res = precheckChapterV2(d, 2);
+    assert.equal(res.blocking, false, `Pre-P1 v1 revise -> v2 pass_candidate must NOT block, got: ${JSON.stringify(res.hardErrors)}`);
+  }
+
+  // B14-3: Arc scope multi-revision pre-P1 (arc:6 v1 revise + v2 pass_candidate + v3 pass_candidate, P1 registers ONLY v3)
+  {
+    const ch4OldDraft = ch4 + '\n旧卷草稿。\n';
+    const d = makeTempProject(t, {
+      plan: {
+        minWordsPerChapter: 3000,
+        chapters: [
+          {chapterNumber: 4, title: '第四章', filePath: 'chapters/ch004.md', status: 'completed'},
+          {chapterNumber: 5, title: '第五章', filePath: 'chapters/ch005.md', status: 'completed'},
+          {chapterNumber: 6, title: '第六章', filePath: 'chapters/ch006.md', status: 'completed'},
+          {chapterNumber: 7, title: '第七章', filePath: 'chapters/ch007.md', status: 'draft'},
+        ],
+      },
+      chapters: {'chapters/ch004.md': ch4, 'chapters/ch005.md': ch5, 'chapters/ch006.md': ch6, 'chapters/ch007.md': ch7Orig},
+    });
+    const chRecs = {};
+    const legacyReviews = {};
+    for (const [n, txt] of [[4, ch4], [5, ch5], [6, ch6]]) {
+      const sn = writeCanonicalSnapshot(d, `reviews/r3/manuscripts/chapter-${n}/v1`, {[`chapter-000${n}.md`]: txt});
+      const rec = writeReviewBundle(d, 'chapter', n, {[n]: txt}, {revision: 1, p1Protocol: false, r3Snapshot: sn});
+      chRecs[String(n)] = rec;
+      legacyReviews[`chapter:${n}`] = {inputSha256: rec.inputSha256, reviewSha256: rec.reviewSha256, reviewPath: rec.reviewPath};
+    }
+    const arcSnap1 = writeCanonicalSnapshot(d, 'reviews/r3/manuscripts/arc-6/v1', {'chapter-0004.md': ch4OldDraft, 'chapter-0005.md': ch5, 'chapter-0006.md': ch6});
+    writeReviewBundle(d, 'arc', 6, {4: ch4OldDraft, 5: ch5, 6: ch6}, {revision: 1, p1Protocol: false, r3Snapshot: arcSnap1, decision: 'revise'});
+    const arcSnap2 = writeCanonicalSnapshot(d, 'reviews/r3/manuscripts/arc-6/v2', {'chapter-0004.md': ch4, 'chapter-0005.md': ch5, 'chapter-0006.md': ch6});
+    writeReviewBundle(d, 'arc', 6, {4: ch4, 5: ch5, 6: ch6}, {revision: 2, p1Protocol: false, r3Snapshot: arcSnap2, decision: 'pass_candidate'});
+    const arcSnap3 = writeCanonicalSnapshot(d, 'reviews/r3/manuscripts/arc-6/v3', {'chapter-0004.md': ch4, 'chapter-0005.md': ch5, 'chapter-0006.md': ch6});
+    const arcV3 = writeReviewBundle(d, 'arc', 6, {4: ch4, 5: ch5, 6: ch6}, {revision: 3, p1Protocol: false, r3Snapshot: arcSnap3, decision: 'pass_candidate'});
+    legacyReviews['arc:6'] = {inputSha256: arcV3.inputSha256, reviewSha256: arcV3.reviewSha256, reviewPath: arcV3.reviewPath};
+
+    const p = JSON.parse(fs.readFileSync(path.join(d, '02-写作计划.json'), 'utf8'));
+    p.v3 = {
+      schemaVersion: 1,
+      r2: {schemaVersion: 1, chapterReviews: chRecs, arcReviews: {'6': arcV3}},
+      r3: {
+        schemaVersion: 1,
+        mode: 'experimental',
+        p1: {
+          schemaVersion: 1,
+          baselineUpto: 6,
+          projectId: 'proj-b14-arc',
+          legacyReviews,
+          reviewHistory: [],
+        },
+      },
+    };
+    fs.writeFileSync(path.join(d, '02-写作计划.json'), JSON.stringify(p, null, 2) + '\n', 'utf8');
+
+    const resArcOk = precheckChapterV2(d, 7);
+    assert.equal(resArcOk.blocking, false, `Multi-revision pre-P1 arc (v1 revise + v2/v3 passed, v3 registered) must NOT block, got: ${JSON.stringify(resArcOk.hardErrors)}`);
+
+    // Deleting registered latest arc v3 must STILL block -> R3_P1_LEGACY_FILE_MISSING
+    fs.rmSync(path.join(d, arcV3.reviewPath));
+    const resArcDel = precheckChapterV2(d, 7);
+    assert.equal(resArcDel.blocking, true);
+    assert.ok(resArcDel.hardErrors.some(e => e.reason === 'R3_P1_LEGACY_FILE_MISSING'));
+  }
 });
 
 // ============================================================================
