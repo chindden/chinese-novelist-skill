@@ -902,3 +902,69 @@ test('TC-P0-4-B2: PLANNING_CONFLICT_BLOCK requires an upstream_planning or final
   assert.equal(rOk.json.status, 'planning_conflict_block');
 });
 
+// ============================================================================
+// TC-P0-4-B3: MINOR / SUGGESTION 仅允许缺省或布尔 false，拒绝 "false"/0/null 等非布尔值
+// ============================================================================
+test('TC-P0-4-B3: MINOR and SUGGESTION reject non-boolean blocking/mustCloseInReReview values (exit code 2, 0 writes) while allowing omitted or boolean false', t => {
+  const root = makeTempProject(t);
+  const prep = prepareR3Review(root, 2, {writerRunId: 'w-1', writerContextId: 'w-ctx-1'});
+  assert.equal(prep.ok, true);
+  const planBefore = fs.readFileSync(path.join(root, '02-写作计划.json'), 'utf8');
+  const q = '赵有福站在院角，目光掠过半掩的门缝，始终没有开口。';
+  const committedPath = path.join(root, 'reviews/r3/review-v3/report-ch002-v1.json');
+
+  const invalidCases = [
+    {
+      name: 'MINOR blocking:"false"',
+      file: 'b3-min-str.json',
+      expectedCode: 'R3_MINOR_CANNOT_BLOCK',
+      issue: {id: 'ISS-B3-1', dimension: 'HL-4', severity: 'MINOR', blocking: 'false', mustCloseInReReview: false, quote: q, evidence: '非布尔字符串测试'},
+    },
+    {
+      name: 'MINOR mustCloseInReReview:0',
+      file: 'b3-min-num.json',
+      expectedCode: 'R3_MINOR_CANNOT_BLOCK',
+      issue: {id: 'ISS-B3-2', dimension: 'HL-4', severity: 'MINOR', blocking: false, mustCloseInReReview: 0, quote: q, evidence: '数字 0 测试'},
+    },
+    {
+      name: 'SUGGESTION blocking:null',
+      file: 'b3-sug-null.json',
+      expectedCode: 'R3_SUGGESTION_CANNOT_BLOCK',
+      issue: {id: 'ISS-B3-3', dimension: 'HL-4', severity: 'SUGGESTION', blocking: null, mustCloseInReReview: false, quote: q, evidence: 'null 测试'},
+    },
+    {
+      name: 'SUGGESTION mustCloseInReReview:"false"',
+      file: 'b3-sug-str.json',
+      expectedCode: 'R3_SUGGESTION_CANNOT_BLOCK',
+      issue: {id: 'ISS-B3-4', dimension: 'HL-4', severity: 'SUGGESTION', blocking: false, mustCloseInReReview: 'false', quote: q, evidence: '非布尔字符串测试'},
+    },
+  ];
+
+  for (const tc of invalidCases) {
+    const rep = makeValidFinalReport(prep, {decision: 'pass_candidate', issues: [tc.issue]});
+    const out = runKernelCli(root, 'apply-review', '--chapter', '2', '--report', writeReport(root, tc.file, rep));
+    assert.equal(out.status, 2, `${tc.name} must exit code 2`);
+    assert.ok(
+      out.json.errors.some(e => e.code === tc.expectedCode),
+      `${tc.name}: expected ${tc.expectedCode}, got ${JSON.stringify(out.json.errors)}`
+    );
+    assert.equal(fs.existsSync(committedPath), false, `${tc.name}: rejected report must not write`);
+    assert.equal(fs.readFileSync(path.join(root, '02-写作计划.json'), 'utf8'), planBefore, `${tc.name}: plan must stay untouched`);
+  }
+
+  // Positive control: omitted (undefined) and boolean false flags on MINOR & SUGGESTION both pass
+  const okRep = makeValidFinalReport(prep, {
+    decision: 'pass_candidate',
+    issues: [
+      {id: 'ISS-B3-OK1', dimension: 'HL-4', severity: 'MINOR', quote: q, evidence: '省略标志位合法 MINOR'},
+      {id: 'ISS-B3-OK2', dimension: 'HL-4', severity: 'MINOR', blocking: false, mustCloseInReReview: false, quote: q, evidence: '布尔 false 合法 MINOR'},
+      {id: 'ISS-B3-OK3', dimension: 'HL-4', severity: 'SUGGESTION', quote: q, evidence: '省略标志位合法 SUGGESTION'},
+      {id: 'ISS-B3-OK4', dimension: 'HL-4', severity: 'SUGGESTION', blocking: false, mustCloseInReReview: false, quote: q, evidence: '布尔 false 合法 SUGGESTION'},
+    ],
+  });
+  const okOut = runKernelCli(root, 'apply-review', '--chapter', '2', '--report', writeReport(root, 'b3-ok.json', okRep));
+  assert.equal(okOut.status, 0, `Omitted and boolean false MINOR/SUGGESTION flags should pass, got: ${JSON.stringify(okOut.json)}`);
+  assert.equal(okOut.json.status, 'passed');
+});
+
+

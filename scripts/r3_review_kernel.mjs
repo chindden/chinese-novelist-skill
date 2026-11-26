@@ -1034,14 +1034,24 @@ export function validateR3ReviewReport(projectDir, chapterNumber, reportObj, {al
         }
         assertVerbatimQuote(issue.quote, idLabel);
 
-        // S1 non-blocking invariants: SUGGESTION and MINOR never block and never enter mustCloseInReReview (06 §3.1)
+        // S1 non-blocking invariants: SUGGESTION and MINOR allow only omitted (undefined) or boolean false
+        // (matching r2_review_common.mjs L55-56 & r3_p1_common.mjs L121-122, L142-143)
+        const isInvalidNonBlockingFlag = v => v !== undefined && v !== false;
         if (issue.severity === 'SUGGESTION') {
-          if (issue.blocking === true || issue.mustCloseInReReview === true) {
-            addErr('R3_SUGGESTION_CANNOT_BLOCK', `${idLabel} 为 SUGGESTION，禁止设置 blocking=true 或 mustCloseInReReview=true。`, {issueId: issue.id});
+          if (isInvalidNonBlockingFlag(issue.blocking) || isInvalidNonBlockingFlag(issue.mustCloseInReReview)) {
+            addErr(
+              'R3_SUGGESTION_CANNOT_BLOCK',
+              `${idLabel} 为 SUGGESTION，blocking 与 mustCloseInReReview 仅允许缺省或布尔 false。`,
+              {issueId: issue.id}
+            );
           }
         } else if (issue.severity === 'MINOR') {
-          if (issue.blocking === true || issue.mustCloseInReReview === true) {
-            addErr('R3_MINOR_CANNOT_BLOCK', `${idLabel} 为 MINOR，禁止设置 blocking=true 或 mustCloseInReReview=true。`, {issueId: issue.id});
+          if (isInvalidNonBlockingFlag(issue.blocking) || isInvalidNonBlockingFlag(issue.mustCloseInReReview)) {
+            addErr(
+              'R3_MINOR_CANNOT_BLOCK',
+              `${idLabel} 为 MINOR，blocking 与 mustCloseInReReview 仅允许缺省或布尔 false。`,
+              {issueId: issue.id}
+            );
           }
         }
 
