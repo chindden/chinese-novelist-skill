@@ -171,17 +171,31 @@
 
 ---
 
-### [2026-11-26] · `P0-0` · 第五轮复审 MD/TXT/JSON 扫描盲区闭环整改提交（`RW-P0-0-005`：`CHANGES_REQUESTED` → `IN_PROGRESS` → `READY_FOR_REVIEW`）
+### [2026-11-26] · `P0-0` · 第五轮复审 MD/TXT/JSON 扫描盲区闭环整改提交（`2b51cc26` → GPT-6 第六轮独立验收 **`ACCEPTED`**）
 
 | 字段 | 记录内容 |
 |---|---|
+| **GitHub 提交时间（UTC）** | `2026-11-26T06:45:42Z` |
 | **关联任务** | `P0-0`（响应 Issue #4 GPT-6 `2026-11-26T06:31:55Z` 第五轮 `CHANGES_REQUESTED`；完整保留前序 6 次 Commit） |
-| **状态变更** | `CHANGES_REQUESTED` → `IN_PROGRESS`（Issue #4 原生 Status `In review` → `In progress`，Project #4 自动同步至 `In Progress`；`#5`–`#10` 保持 `Backlog`）→ **`READY_FOR_REVIEW`**（Issue #4 恢复 `In review` 并确认 Project #4 自动同步；`P0-1` ~ `P0-6` 继续保持 `NOT_STARTED`） |
-| **历史关联 Commit** | `86cbc9f3`（原始）、`9747e146` / `8ac888fc`（`RW-P0-0-001`）、`52dd599b`（`RW-P0-0-002`）、`27f5cdc0`（`RW-P0-0-003`）、`4d0abeac`（`RW-P0-0-004`，`06:16:16Z`） |
+| **状态变更** | `CHANGES_REQUESTED` → `IN_PROGRESS`（Issue #4 原生 Status `In review` → `In progress`，Project #4 自动同步至 `In Progress`；`#5`–`#10` 保持 `Backlog`）→ `READY_FOR_REVIEW`（Issue #4 恢复 `In review`）→ **`ACCEPTED`**（GPT-6 于 `2026-11-26T06:59:01Z` 在 Issue #4 第六轮复审正式通过；`P0-1` ~ `P0-6` 继续保持 `NOT_STARTED`） |
+| **本轮整改与验收基线 Commit SHA** | **`2b51cc262db9fb9cd9b030977b418f362b9fb002`**（历史完整链路：`86cbc9f3`、`9747e146`、`8ac888fc`、`52dd599b`、`27f5cdc0`、`4d0abeac`） |
 | **整改内容（逐项闭环第五轮复审全部要求）** | ① **MD/TXT/LOG 全文内容信号升级**：`inspect_universal()` 对全部 `.md`/`.txt`/`.log` 除 `text_heading` 外，同步新增文件级 CJK 总量 `cjk_tot>=1k`、单行/长段落 `cjk_p>=200`（`.log` 另保留 `log_cjk>=150`）与全文 `ch_ref`（`第…章` 提及）；同步统一升级 `.zip` 内部成员、`.csv` 文件级累计与全部代码/配置文本检测；<br>② **JSON/JSONL 文件级聚合检测升级**：递归遍历全部字符串叶节点，在保留单叶节点 `json_str_cjk>=500` 与 `json_str_heading` 的同时，新增文件级跨叶节点累计 `json_cjk_tot>=1k` 与 `json_ch_ref`，彻底消除拆段漏检；<br>③ **新增捕获项逐文件核查与两份 16 列 TSV 重建**：`<ART_ROOT>` 新增捕获 `512` 份文件（`.md` +317、`.json` +70、`.ts` +68、`.py` +33、`.mjs` +15、`.csv` +5、`.zip` +1、`.log` +1、`.css` +1、`.srt` +1；`77` 份此前无信号 `.txt` 全量核查为 `76` 份 0 汉字英文文件 + `1` 份 `requirements.txt` 53 汉字注释），总 `EXCLUDED_CANDIDATE` 由 `897` 升至 **`1,409`**，全部补齐非 `N/A` 的 6 栏排除证据，[`P0-0-C3-Full-File-Manifest.tsv`](./P0-0-C3-Full-File-Manifest.tsv) 精确 `989,626` Bytes（`< 1 MB`）；主仓 `REPO` 新增捕获 `129` 份（`.md` +113、`.mjs` +8、`.csv` +6、`.zip` +1、`.py` +1），总 `EXCLUDED_CANDIDATE` 由 `19` 升至 **`148`**；实测两仓均 **0 份隐藏未揭盲小说章节**，`computed_eligible_g2b=0`、`computed_eligible_g6=0`、`total_unresolved=0`；<br>④ **完整保留前序已通过内容**：Git 变更仍仅限 `docs/r3/p0-implementation/` 6 文件；G2-B/G4/G6 保持 `underpowered`；`P0-1`–`P0-6` 未启动 |
 | **修改文件** | 仅限 `docs/r3/p0-implementation/` 下 6 文件（4 `.md` + 2 `.tsv`），0 生产代码/Skill/R2/测试/冻结架构/实验分支改动 |
-| **GPT-6 审核结论** | **`PENDING`**（重新提交 `READY_FOR_REVIEW`，等待 GPT-6 独立验收；明示本地实跑脚本输出均由 Neon 在本地环境执行，GPT-6 未独立复跑） |
-| **返工及复审记录** | 对应 **`RW-P0-0-005`** 闭环重提 |
+| **GPT-6 审核结论** | **`ACCEPTED`**（`2026-11-26T06:59:01Z`，Issue #4 Comment `7184975761`，第六轮独立复审通过，详见下方验收归档记录） |
+| **返工及复审记录** | 对应 **`RW-P0-0-005`** → 现已 **`CLOSED`** |
+
+---
+
+### [2026-11-26] · `P0-0` · GPT-6 第六轮独立验收通过与状态归档（`READY_FOR_REVIEW` → **`ACCEPTED`**）
+
+| 字段 | 记录内容 |
+|---|---|
+| **GPT-6 验收时间（UTC）** | `2026-11-26T06:59:01Z`（GitHub Issue #4 Comment `7184975761`） |
+| **关联任务** | `P0-0`（研发基线审计与实施准备） |
+| **状态变更** | `P0-0`：`READY_FOR_REVIEW` → **`ACCEPTED`**；返工台账 `RW-P0-0-005` → **`CLOSED`**；Issue #4 原生 Status → **`Done`**（Project #4 自动同步 `Done`）并关闭归档；**`P0-1` ~ `P0-6` 全部继续保持 `NOT_STARTED`（Issue `#5`–`#10` 保持 `Backlog`）** |
+| **最终验收基线 Commit SHA** | **`2b51cc262db9fb9cd9b030977b418f362b9fb002`**（GitHub 提交时间 `2026-11-26T06:45:42Z`；从 `2d6061d6` 起共 7 个纯 `docs/r3/p0-implementation/` 提交，0 代码/Skill/R2/测试/冻结架构/实验分支改动） |
+| **GPT-6 核验要点与验收限制** | ① Git 变更边界、C.3 全文与 JSON/ZIP/CSV 聚合扫描逻辑、两份 16 列 Manifest 结构与复算（`REPO` 293 / `ART_ROOT` 2,723，`computed_eligible_g2b=0`、`computed_eligible_g6=0`、`total_unresolved=0`）、样本就绪度口径（G2-B/G4/G6 均 `underpowered`、G3/G5 缺口如实保留）与本地证据边界（Node 71/71、V3/R2 10/10、Python 12/12 与本地 `<ART_ROOT>` 实跑均为 Neon 本地证据，GPT-6 未访问 `<ART_ROOT>` 亦未独立复跑）全部核验通过；<br>② **严格验收限制**：本次 `ACCEPTED` 仅表示 `P0-0` 审计与实施准备达标，**不表示小说文学质量已提升、不表示 G2-B/G4/G6 已通过统计或文学验证、不表示生产系统已完成改造，也不构成 `P0-1`–`P0-6` 的自动启动授权** |
+| **后续安排** | 本次同步补齐 `README.md`、`P0-Progress-Log.md`、`P0-Implementation-PRD.md`、`P0-0-Baseline-Audit-Report.md` 的验收追溯索引并刷新 `P0-0-C3-Repo-Manifest.tsv`；**`P0-1` ~ `P0-6` 维持 `NOT_STARTED`，等待作者后续明确安排** |
 
 ---
 
@@ -215,7 +229,7 @@
 | **`RW-P0-0-002`** | `P0-0`（研发基线审计与实施准备） | `2026-11-26`（Issue #4 `05:08:16Z`） | `8ac888fce42070855241d2f17d05691b3afce709` | Issue #4 一审 `CHANGES_REQUESTED` 四项要求（C.2 Fail-Closed、C.3 样本审计、G4 去重计数、测试复跑边界） | `52dd599b1e30ee3a76c682bf9ec86056e16ded10`（`2026-11-26T05:26:25Z`） | 第三轮复审确认 Git 边界、C.2、G4 与测试边界通过；仅 C.3 深度全文件审计转入 **`RW-P0-0-003`** | **`CHANGES_REQUESTED`**（`2026-11-26T05:44:33Z`，仅余 C.3 转入 `RW-P0-0-003`） | **`SUPERSEDED_BY_RW-P0-0-003`** |
 | **`RW-P0-0-003`** | `P0-0`（研发基线审计与实施准备） | `2026-11-26`（Issue #4 `05:44:33Z`） | `52dd599b1e30ee3a76c682bf9ec86056e16ded10` | Issue #4 第三轮复审 C.3 专项 5 项要求 | `27f5cdc06ab90a30daf2658ae32c2d637d59e710`（`2026-11-26T05:57:24Z`） | 第四轮复审确认提交范围、两份 TSV Manifest 结构与本地证据边界通过；指出全文本格式扫描、可复算资格计数与 G4 `underpowered` 口径 3 项转入 **`RW-P0-0-004`** | **`CHANGES_REQUESTED`**（`2026-11-26T06:05:07Z`，转入 `RW-P0-0-004`） | **`SUPERSEDED_BY_RW-P0-0-004`** |
 | **`RW-P0-0-004`** | `P0-0`（研发基线审计与实施准备） | `2026-11-26`（Issue #4 `06:05:07Z`） | `27f5cdc06ab90a30daf2658ae32c2d637d59e710` | 第四轮复审 3 项要求（全文本格式扫描与媒体/VCS 隔离、Manifest 复算 G2-B/G6 零硬编码、G4 正式标为 `underpowered`） | `4d0abeac56faa7aab1ecad2f6d476885eda2ca15`（`2026-11-26T06:16:16Z`） | 第五轮复审确认提交范围、16 列 Manifest 结构、复算资格计数、二进制/VCS 隔离与 G4 `underpowered` 均通过；指出 MD/TXT 全文信号与 JSON 文件级聚合盲区转入 **`RW-P0-0-005`** | **`CHANGES_REQUESTED`**（`2026-11-26T06:31:55Z`，转入 `RW-P0-0-005`） | **`SUPERSEDED_BY_RW-P0-0-005`** |
-| **`RW-P0-0-005`** | `P0-0`（研发基线审计与实施准备） | `2026-11-26`（Issue #4 `06:31:55Z`） | `4d0abeac56faa7aab1ecad2f6d476885eda2ca15` | 第五轮复审唯一未通过项：① `.md`/`.txt`（含 `.log`/`.zip`/其余文本）增加文件级 CJK 总量、长段落与章节提及信号，消除仅查标题盲区；② `.json`/`.jsonl` 递归全部字符串叶节点统计文件级累计中文与章号提及，消除拆段漏检；③ 更新两份 16 列 TSV 清单与实跑输出，新捕获项逐文件补齐分类和排除依据 | 本次独立整改 Commit（完整保留前序 6 次 Commit，于 Issue #4 回复登记 40 位 SHA） | 升级 `inspect_universal()` 全文与聚合扫描；`<ART_ROOT>` 新增捕获 `512` 份（`EXCLUDED_CANDIDATE=1,409`，`989,626` B `< 1 MB`）、`REPO` 新增捕获 `129` 份（`EXCLUDED_CANDIDATE=148`），77 份 `.txt` 全量核查 0 隐藏章节；C.2 与 C.3 实跑 `exit 0`、`computed_eligible_g2b=0`、`computed_eligible_g6=0`、`total_unresolved=0`，负向未决断言 `exit 1`；仅改 `docs/r3/p0-implementation/` | **`PENDING`**（已重提 `READY_FOR_REVIEW`，等待 GPT-6 独立验收） | **`OPEN`** |
+| **`RW-P0-0-005`** | `P0-0`（研发基线审计与实施准备） | `2026-11-26`（Issue #4 `06:31:55Z`） | `4d0abeac56faa7aab1ecad2f6d476885eda2ca15` | 第五轮复审唯一未通过项：① `.md`/`.txt`（含 `.log`/`.zip`/其余文本）增加文件级 CJK 总量、长段落与章节提及信号，消除仅查标题盲区；② `.json`/`.jsonl` 递归全部字符串叶节点统计文件级累计中文与章号提及，消除拆段漏检；③ 更新两份 16 列 TSV 清单与实跑输出，新捕获项逐文件补齐分类和排除依据 | `2b51cc262db9fb9cd9b030977b418f362b9fb002`（`2026-11-26T06:45:42Z`） | 升级 `inspect_universal()` 全文与聚合扫描；`<ART_ROOT>` 新增捕获 `512` 份（`EXCLUDED_CANDIDATE=1,409`，`989,626` B `< 1 MB`）、`REPO` 新增捕获 `129` 份（`EXCLUDED_CANDIDATE=148`），77 份 `.txt` 全量核查 0 隐藏章节；C.2 与 C.3 实跑 `exit 0`、`computed_eligible_g2b=0`、`computed_eligible_g6=0`、`total_unresolved=0`，负向未决断言 `exit 1`；仅改 `docs/r3/p0-implementation/` | **`ACCEPTED`**（`2026-11-26T06:59:01Z`，Issue #4 第六轮复审，验收基线 `2b51cc26`） | **`CLOSED`** |
 
 ---
 
