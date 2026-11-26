@@ -484,6 +484,277 @@ test('TC-P0-3-1: engineering file integrity failures always enter hardErrors wit
 });
 
 // ============================================================================
+// TC-P0-3-1b: B7 (prepare 覆盖/删索引/arcReviews)、B8 (P1 注册校验)、B9 (R3 snapshot 权威等价)
+// ============================================================================
+test('TC-P0-3-1b: B7 historical R2/arcReviews preservation, B8 P1 registration, and B9 strict R3 snapshot equivalence', t => {
+  function writeCanonicalSnapshot(projectDir, relPath, filesObj, {nonCanonical = false} = {}) {
+    const abs = path.join(projectDir, relPath);
+    fs.mkdirSync(abs, {recursive: true});
+    const manifestFiles = {};
+    for (const [name, content] of Object.entries(filesObj)) {
+      const buf = Buffer.from(content, 'utf8');
+      fs.writeFileSync(path.join(abs, name), buf);
+      manifestFiles[name] = sha256(buf);
+    }
+    const manifest = {schemaVersion: 1, files: manifestFiles};
+    const manifestText = nonCanonical ? JSON.stringify(manifest) : JSON.stringify(manifest, null, 2) + '\n';
+    const manifestBytes = Buffer.from(manifestText, 'utf8');
+    fs.writeFileSync(path.join(abs, 'manifest.json'), manifestBytes);
+    return {path: relPath, sha256: sha256(manifestBytes)};
+  }
+
+  function writeReviewBundle(projectDir, kind, end, chaptersByNum, {
+    revision = 1,
+    p1Protocol = false,
+    r3Snapshot = null,
+    decision = 'pass_candidate',
+  } = {}) {
+    const scope = kind === 'chapter' ? [end] : [end - 2, end - 1, end];
+    const hashes = {};
+    for (const n of scope) {
+      hashes[String(n)] = sha256(Buffer.from(chaptersByNum[n], 'utf8'));
+    }
+    const prefix = kind === 'chapter' ? 'ch' : 'arc';
+    const pad = String(end).padStart(3, '0');
+    const inputRel = `reviews/r2/input-${prefix}${pad}-v${revision}.json`;
+    const reviewRel = `reviews/r2/report-${prefix}${pad}-v${revision}.json`;
+    const packet = {
+      schemaVersion: 1,
+      kind,
+      end,
+      revision,
+      manuscriptHashes: hashes,
+      writers: scope.map(n => ({chapter: n, runId: `w-run-${n}`, contextId: `w-ctx-${n}`})),
+      preparedAt: '2026-11-26T00:00:00.000Z',
+      ...(p1Protocol ? {p1Protocol: 1, priorStrengths: []} : {}),
+      ...(r3Snapshot ? {r3Snapshot} : {}),
+    };
+    const report = {
+      schemaVersion: 1,
+      kind,
+      end,
+      revision,
+      manuscriptHashes: hashes,
+      reviewer: {kind: 'independent_agent', runId: `rev-run-${prefix}-${end}-${revision}`, contextId: `rev-ctx-${prefix}-${end}-${revision}`},
+      decision,
+      summary: `${kind} ${end} v${revision} independent review`,
+      issues: [],
+      ...(p1Protocol ? {p1: {schemaVersion: 1, literaryStatus: 'UNVERIFIED', preserveStrengths: [], followUps: [], signals: [], revisionProtection: []}} : {}),
+    };
+    const ib = Buffer.from(JSON.stringify(packet, null, 2) + '\n', 'utf8');
+    const rb = Buffer.from(JSON.stringify(report, null, 2) + '\n', 'utf8');
+    fs.mkdirSync(path.join(projectDir, 'reviews/r2'), {recursive: true});
+    fs.writeFileSync(path.join(projectDir, inputRel), ib);
+    fs.writeFileSync(path.join(projectDir, reviewRel), rb);
+    return {
+      status: decision === 'pass_candidate' ? 'passed' : 'revise',
+      revision,
+      inputPath: inputRel,
+      inputSha256: sha256(ib),
+      reviewPath: reviewRel,
+      reviewSha256: sha256(rb),
+      manuscriptHashes: hashes,
+      ...(r3Snapshot ? {r3Snapshot} : {}),
+    };
+  }
+
+  // --- B7-1: Post-Pilot Chapter 7 passed -> tampered -> overwritten to under_review via R2 prepare -> MUST STILL BLOCK! ---
+  const ch4 = makeProseOfChineseWords(3100);
+  const ch5 = makeProseOfChineseWords(3100);
+  const ch6 = makeProseOfChineseWords(3100);
+  const ch7Orig = makeProseOfChineseWords(3100);
+  const ch7Tampered = ch7Orig + '\n外部修改后企图通过 r2 prepare 覆写基线。\n';
+  const ch8Draft = makeProseOfChineseWords(3100);
+  const chMap = {4: ch4, 5: ch5, 6: ch6, 7: ch7Orig, 8: ch8Draft};
+
+  const b7Dir = makeTempProject(t, {
+    plan: {
+      minWordsPerChapter: 3000,
+      chapters: [4, 5, 6, 7, 8].map(n => ({
+        chapterNumber: n,
+        title: `第${n}章`,
+        filePath: `chapters/ch00${n}.md`,
+        status: n < 8 ? 'completed' : 'draft',
+      })),
+    },
+    chapters: Object.fromEntries(Object.entries(chMap).map(([n, txt]) => [`chapters/ch00${n}.md`, txt])),
+  });
+  const ch7Passed = writeReviewBundle(b7Dir, 'chapter', 7, chMap, {revision: 1});
+  const arc6Passed = writeReviewBundle(b7Dir, 'arc', 6, chMap, {revision: 1});
+  const b7Plan = JSON.parse(fs.readFileSync(path.join(b7Dir, '02-写作计划.json'), 'utf8'));
+  b7Plan.v3 = {
+    schemaVersion: 1,
+    r2: {
+      schemaVersion: 1,
+      chapterReviews: {'7': ch7Passed},
+      arcReviews: {'6': arc6Passed},
+    },
+  };
+  fs.writeFileSync(path.join(b7Dir, '02-写作计划.json'), JSON.stringify(b7Plan, null, 2) + '\n', 'utf8');
+
+  // Control: unmodified Ch 4..7 with valid arc6 + ch7 reviews passes cleanly
+  const resB7Ok = precheckChapterV2(b7Dir, 8);
+  assert.equal(resB7Ok.blocking, false, `Valid ch7 + arc6 should pass, got: ${JSON.stringify(resB7Ok.hardErrors)}`);
+
+  // Simulate B7 attack 1: external edit on Ch 7 + `r2_review.mjs prepare` overwriting chapterReviews['7'] to under_review (v2)
+  fs.writeFileSync(path.join(b7Dir, 'chapters/ch007.md'), ch7Tampered, 'utf8');
+  const ch7NewHash = sha256(Buffer.from(ch7Tampered, 'utf8'));
+  b7Plan.v3.r2.chapterReviews['7'] = {
+    status: 'under_review',
+    revision: 2,
+    inputPath: 'reviews/r2/input-ch007-v2.json',
+    inputSha256: sha256(Buffer.from('v2-packet', 'utf8')),
+    reviewPath: null,
+    reviewSha256: null,
+    manuscriptHashes: {'7': ch7NewHash},
+  };
+  fs.writeFileSync(path.join(b7Dir, '02-写作计划.json'), JSON.stringify(b7Plan, null, 2) + '\n', 'utf8');
+  const resPrepareOverwrite = precheckChapterV2(b7Dir, 8);
+  assert.equal(resPrepareOverwrite.blocking, true, 'R2 prepare overwrite MUST NOT erase finalized Ch 7 baseline');
+  assert.ok(resPrepareOverwrite.hardErrors.some(e => e.reason === 'HISTORICAL_PASSED_REVIEW_MANUSCRIPT_CHANGED' && e.chapter === 7));
+
+  // Simulate B7 attack 2: restore Ch 7 bytes, delete chapterReviews['7'] leaving empty chapterReviews: {}
+  fs.writeFileSync(path.join(b7Dir, 'chapters/ch007.md'), ch7Orig, 'utf8');
+  b7Plan.v3.r2.chapterReviews = {};
+  fs.writeFileSync(path.join(b7Dir, '02-写作计划.json'), JSON.stringify(b7Plan, null, 2) + '\n', 'utf8');
+  const resDeletedCh7Index = precheckChapterV2(b7Dir, 8);
+  assert.equal(resDeletedCh7Index.blocking, true, 'Deleting chapterReviews[7] while historical passed report exists MUST Fail-Closed');
+  assert.ok(resDeletedCh7Index.hardErrors.some(e => e.reason === 'HISTORICAL_PASSED_REVIEW_MISSING_FROM_PLAN' && e.chapter === 7));
+
+  // Simulate B7 attack 3: only arcReviews['6'] protects Ch 4..6; tamper Ch 5 on disk -> MUST BLOCK!
+  b7Plan.v3.r2.chapterReviews = {'7': ch7Passed};
+  fs.writeFileSync(path.join(b7Dir, '02-写作计划.json'), JSON.stringify(b7Plan, null, 2) + '\n', 'utf8');
+  fs.writeFileSync(path.join(b7Dir, 'chapters/ch005.md'), ch5 + '\n篡改第5章正文。\n', 'utf8');
+  const resArcTamper = precheckChapterV2(b7Dir, 8);
+  assert.equal(resArcTamper.blocking, true, 'Tampering Ch 5 protected by arcReviews[6] MUST block');
+  assert.ok(resArcTamper.hardErrors.some(e => e.code === 'STALE_REVIEW_AFTER_EDIT' && e.chapter === 5));
+
+  // --- B8 & B9: R3 namespace + P1 registration + strict canonical snapshot equivalence ---
+  const ch1Txt = makeProseOfChineseWords(3100);
+  const ch2Txt = makeProseOfChineseWords(3100);
+  const r3Dir = makeTempProject(t, {
+    plan: {
+      minWordsPerChapter: 3000,
+      chapters: [
+        {chapterNumber: 1, title: '第一章', filePath: 'chapters/ch001.md', status: 'completed'},
+        {chapterNumber: 2, title: '第二章', filePath: 'chapters/ch002.md', status: 'draft'},
+      ],
+    },
+    chapters: {'chapters/ch001.md': ch1Txt, 'chapters/ch002.md': ch2Txt},
+  });
+
+  // B8 & B9 positive control: canonical R3 snapshot (chapter-0001.md + optional diff.md) + registered P1 reviewHistory
+  const validSnap = writeCanonicalSnapshot(r3Dir, 'reviews/r3/manuscripts/chapter-1/v1', {
+    'chapter-0001.md': ch1Txt,
+    'diff.md': '# diff\n',
+  });
+  const p1Ch1Rec = writeReviewBundle(r3Dir, 'chapter', 1, {1: ch1Txt}, {
+    revision: 1,
+    p1Protocol: true,
+    r3Snapshot: validSnap,
+  });
+  const r3Plan = JSON.parse(fs.readFileSync(path.join(r3Dir, '02-写作计划.json'), 'utf8'));
+  r3Plan.v3 = {
+    schemaVersion: 1,
+    r2: {schemaVersion: 1, chapterReviews: {'1': p1Ch1Rec}, arcReviews: {}},
+    r3: {
+      schemaVersion: 1,
+      mode: 'experimental',
+      p1: {
+        schemaVersion: 1,
+        baselineUpto: 0,
+        projectId: 'proj-p0-3-test',
+        legacyReviews: {},
+        reviewHistory: [
+          {kind: 'chapter', end: 1, revision: 1, path: p1Ch1Rec.reviewPath, sha256: p1Ch1Rec.reviewSha256},
+        ],
+      },
+    },
+  };
+  fs.writeFileSync(path.join(r3Dir, '02-写作计划.json'), JSON.stringify(r3Plan, null, 2) + '\n', 'utf8');
+  const resR3P1Ok = precheckChapterV2(r3Dir, 2);
+  assert.equal(resR3P1Ok.blocking, false, `Valid R3/P1 + canonical snapshot should pass, got: ${JSON.stringify(resR3P1Ok.hardErrors)}`);
+
+  // B8 negative 1: P1 review missing from reviewHistory -> R3_P1_REVIEW_HISTORY_MISSING
+  r3Plan.v3.r3.p1.reviewHistory = [];
+  fs.writeFileSync(path.join(r3Dir, '02-写作计划.json'), JSON.stringify(r3Plan, null, 2) + '\n', 'utf8');
+  const resMissingP1Hist = precheckChapterV2(r3Dir, 2);
+  assert.equal(resMissingP1Hist.blocking, true);
+  assert.ok(resMissingP1Hist.hardErrors.some(e => e.reason === 'R3_P1_REVIEW_HISTORY_MISSING'));
+
+  // B8 negative 2: Legacy review (p1Protocol !== 1) missing from legacyReviews -> R3_P1_UNREGISTERED_LEGACY_REVIEW
+  const legacySnap = writeCanonicalSnapshot(r3Dir, 'reviews/r3/manuscripts/chapter-1/v2', {'chapter-0001.md': ch1Txt});
+  const legacyCh1Rec = writeReviewBundle(r3Dir, 'chapter', 1, {1: ch1Txt}, {
+    revision: 2,
+    p1Protocol: false,
+    r3Snapshot: legacySnap,
+  });
+  r3Plan.v3.r2.chapterReviews['1'] = legacyCh1Rec;
+  fs.writeFileSync(path.join(r3Dir, '02-写作计划.json'), JSON.stringify(r3Plan, null, 2) + '\n', 'utf8');
+  const resUnregLegacy = precheckChapterV2(r3Dir, 2);
+  assert.equal(resUnregLegacy.blocking, true);
+  assert.ok(resUnregLegacy.hardErrors.some(e => e.reason === 'R3_P1_UNREGISTERED_LEGACY_REVIEW'));
+
+  // B8 negative 3: Malformed v3.r3.p1 state -> R3_P1_STATE_INVALID
+  r3Plan.v3.r3.p1 = {schemaVersion: 1, baselineUpto: 0, projectId: '', legacyReviews: null, reviewHistory: 'bad'};
+  fs.writeFileSync(path.join(r3Dir, '02-写作计划.json'), JSON.stringify(r3Plan, null, 2) + '\n', 'utf8');
+  const resBadP1State = precheckChapterV2(r3Dir, 2);
+  assert.equal(resBadP1State.blocking, true);
+  assert.ok(resBadP1State.hardErrors.some(e => e.reason === 'R3_P1_STATE_INVALID'));
+
+  // Restore valid P1 state & test B9 negative cases
+  const b9BaseDir = makeTempProject(t, {
+    plan: {
+      minWordsPerChapter: 3000,
+      chapters: [
+        {chapterNumber: 1, title: '第一章', filePath: 'chapters/ch001.md', status: 'completed'},
+        {chapterNumber: 2, title: '第二章', filePath: 'chapters/ch002.md', status: 'draft'},
+      ],
+    },
+    chapters: {'chapters/ch001.md': ch1Txt, 'chapters/ch002.md': ch2Txt},
+  });
+
+  // B9 negative 1: Non-canonical manifest.json (minified single-line) -> R3_SNAPSHOT_MANIFEST_NONCANONICAL
+  const nonCanonSnap = writeCanonicalSnapshot(b9BaseDir, 'reviews/r3/manuscripts/chapter-1/v1', {
+    'chapter-0001.md': ch1Txt,
+  }, {nonCanonical: true});
+  const nonCanonRec = writeReviewBundle(b9BaseDir, 'chapter', 1, {1: ch1Txt}, {revision: 1, r3Snapshot: nonCanonSnap});
+  const b9Plan = JSON.parse(fs.readFileSync(path.join(b9BaseDir, '02-写作计划.json'), 'utf8'));
+  b9Plan.v3 = {
+    schemaVersion: 1,
+    r2: {schemaVersion: 1, chapterReviews: {'1': nonCanonRec}, arcReviews: {}},
+    r3: {schemaVersion: 1, mode: 'experimental'},
+  };
+  fs.writeFileSync(path.join(b9BaseDir, '02-写作计划.json'), JSON.stringify(b9Plan, null, 2) + '\n', 'utf8');
+  const resNonCanon = precheckChapterV2(b9BaseDir, 2);
+  assert.equal(resNonCanon.blocking, true);
+  assert.ok(resNonCanon.hardErrors.some(e => e.reason === 'R3_SNAPSHOT_MANIFEST_NONCANONICAL'));
+
+  // B9 negative 2: Canonical manifest containing extra unexpected file (`extra.txt`) -> R3_MANUSCRIPT_SNAPSHOT_EXTRA_FILE
+  const extraFileSnap = writeCanonicalSnapshot(b9BaseDir, 'reviews/r3/manuscripts/chapter-1/v2', {
+    'chapter-0001.md': ch1Txt,
+    'extra.txt': 'unexpected payload',
+  });
+  const extraFileRec = writeReviewBundle(b9BaseDir, 'chapter', 1, {1: ch1Txt}, {revision: 2, r3Snapshot: extraFileSnap});
+  b9Plan.v3.r2.chapterReviews['1'] = extraFileRec;
+  fs.writeFileSync(path.join(b9BaseDir, '02-写作计划.json'), JSON.stringify(b9Plan, null, 2) + '\n', 'utf8');
+  const resExtraFile = precheckChapterV2(b9BaseDir, 2);
+  assert.equal(resExtraFile.blocking, true);
+  assert.ok(resExtraFile.hardErrors.some(e => e.reason === 'R3_MANUSCRIPT_SNAPSHOT_EXTRA_FILE'));
+
+  // B9 negative 3: Snapshot missing expected chapter-0001.md (only diff.md) -> R3_MANUSCRIPT_SNAPSHOT_CONTENT_MISMATCH
+  const missingChSnap = writeCanonicalSnapshot(b9BaseDir, 'reviews/r3/manuscripts/chapter-1/v3', {
+    'diff.md': '# only diff\n',
+  });
+  const missingChRec = writeReviewBundle(b9BaseDir, 'chapter', 1, {1: ch1Txt}, {revision: 3, r3Snapshot: missingChSnap});
+  b9Plan.v3.r2.chapterReviews['1'] = missingChRec;
+  fs.writeFileSync(path.join(b9BaseDir, '02-写作计划.json'), JSON.stringify(b9Plan, null, 2) + '\n', 'utf8');
+  const resMissingChSnap = precheckChapterV2(b9BaseDir, 2);
+  assert.equal(resMissingChSnap.blocking, true);
+  assert.ok(resMissingChSnap.hardErrors.some(e => e.reason === 'R3_MANUSCRIPT_SNAPSHOT_CONTENT_MISMATCH'));
+});
+
+// ============================================================================
 // TC-P0-3-2: 作者显式硬约束阻断 vs 未配置非阻断 & 畸形配置 Fail-Closed
 // ============================================================================
 test('TC-P0-3-2: explicit author hardConstraints block when violated; absent hardConstraints never block', t => {
