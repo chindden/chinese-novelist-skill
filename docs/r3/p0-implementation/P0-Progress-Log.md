@@ -100,18 +100,33 @@
 
 ---
 
-### [2026-11-26] · `P0-0` · 整改补充提交（响应 `RW-P0-0-001`：`CHANGES_REQUESTED` → `IN_PROGRESS` → `READY_FOR_REVIEW`）
+### [2026-11-26] · `P0-0` · 第一轮整改补充提交（响应 `RW-P0-0-001`：`CHANGES_REQUESTED` → `IN_PROGRESS` → `READY_FOR_REVIEW`）
 
 | 字段 | 记录内容 |
 |---|---|
-| **关联任务** | `P0-0`（响应 `RW-P0-0-001` 整改补充；完整保留原始 `P0-0` 提交 `86cbc9f3ad37c635f134eeea2a89317d5eef0a3c`） |
-| **状态变更** | `CHANGES_REQUESTED` → `IN_PROGRESS` → **`READY_FOR_REVIEW`**（`P0-1` ~ `P0-6` 全部继续保持 `NOT_STARTED`） |
+| **GitHub 提交时间（UTC）** | `2026-11-26T03:11:59Z` |
+| **关联任务** | `P0-0`（响应 `RW-P0-0-001` 第一轮整改补充；完整保留原始 `P0-0` 提交 `86cbc9f3ad37c635f134eeea2a89317d5eef0a3c`） |
+| **状态变更** | `CHANGES_REQUESTED` → `IN_PROGRESS` → `READY_FOR_REVIEW`（GPT-6 二轮复审确认主体整改完成，提出 2 项最终补齐要求；`P0-1` ~ `P0-6` 全部继续保持 `NOT_STARTED`） |
 | **原始 `P0-0` Commit SHA** | `86cbc9f3ad37c635f134eeea2a89317d5eef0a3c`（`2026-11-26T02:58:13Z`） |
-| **本次补充 Commit SHA** | 本次独立文档整改补充提交（由 Git 历史与交付报告记录完整 40 位 SHA，不自引用） |
-| **整改内容** | ① 在 `P0-Progress-Log.md`、`P0-Implementation-PRD.md`、`README.md` 与 `P0-0-Baseline-Audit-Report.md` 全部补齐原始 `P0-0` Commit 完整 SHA `86cbc9f3ad37c635f134eeea2a89317d5eef0a3c` 与时间 `2026-11-26T02:58:13Z`；<br>② 在 `P0-0-Baseline-Audit-Report.md` 补齐附录 A（冻结基线 `b5572a94` 全量 73 文件清单，零通配符）与附录 B（`c0966b12` 完整 19 文件差异表，含路径、状态、行数、风险、对应 P0 任务及不合并决定）；<br>③ 补齐附录 C（G1/G2-A/G3/G4/G5 脱敏历史实验资产 Manifest：`<ART_ROOT>` 映射、文件大小、完整 64 位 SHA-256、章节/案例数、揭盲状态、Python 完整性校验命令及实测 `missing=0` 输出，以及 G2-B/G6 零样本搜索范围与核查依据）；<br>④ 保留原测试命令与实测结果（Node `71/71` + 10 独立脚本 + Python `12/12`），并明确解释零污染校验采用 `2d6061d6..86cbc9f3` 的原因 |
+| **本轮整改补充 Commit SHA** | `9747e146e016155055b928d7a664650cb76def5c`（`+206 / -19`，4 files changed） |
+| **整改内容** | ① 在 4 份管理文档补齐原始 `P0-0` Commit 完整 SHA `86cbc9f3ad37c635f134eeea2a89317d5eef0a3c` 与时间 `2026-11-26T02:58:13Z`；<br>② 补齐附录 A（冻结基线 `b5572a94` 全量 73 文件清单，零通配符）与附录 B（`c0966b12` 完整 19 文件差异表，保留不合并决定）；<br>③ 补齐附录 C（18 份历史实验文件脱敏 Manifest）与零污染区间 `2d6061d6..86cbc9f3` 说明 |
 | **修改文件** | 仅限 `docs/r3/p0-implementation/{P0-0-Baseline-Audit-Report.md,P0-Progress-Log.md,P0-Implementation-PRD.md,README.md}`，其余文件 0 改动 |
-| **GPT-6 审核结论** | **`PENDING`**（等待 GPT-6 最终复审） |
-| **返工及复审记录** | 对应 **`RW-P0-0-001`** 整改重提 |
+| **GPT-6 二轮复审结论** | 主体内容核验通过（73 文件与 GitHub 文件树逐项匹配、19 文件统计一致、零代码污染、`P0-1`~`P0-6` 保持 `NOT_STARTED`），要求补齐最后 2 项进入最终验收：① 正式登记 `9747e146e016155055b928d7a664650cb76def5c` 与提交时间；② 将附录 C.2 替换为真正可执行的只读 Python 校验代码与实跑输出（17 JSON + 1 MD = 18 份 + 62 引用稿件），并补充附录 C.3 G2-B/G6 实际扫描命令与排除依据 |
+| **返工及复审记录** | 关联下方返工台账 **`RW-P0-0-001`** |
+
+---
+
+### [2026-11-26] · `P0-0` · 二轮复审最终补齐提交（完成 `RW-P0-0-001` 全部 2 项收尾 → `READY_FOR_REVIEW`）
+
+| 字段 | 记录内容 |
+|---|---|
+| **关联任务** | `P0-0`（响应 GPT-6 对 `9747e146` 的二轮复审意见；完整保留 `86cbc9f3` 与 `9747e146` 全部历史提交） |
+| **状态变更** | `CHANGES_REQUESTED` → `IN_PROGRESS` → **`READY_FOR_REVIEW`**（`P0-1` ~ `P0-6` 全部继续保持 `NOT_STARTED`） |
+| **历史关联 Commit** | 原始交付：`86cbc9f3ad37c635f134eeea2a89317d5eef0a3c`（`2026-11-26T02:58:13Z`）；<br>一轮整改：`9747e146e016155055b928d7a664650cb76def5c`（`2026-11-26T03:11:59Z`） |
+| **整改内容** | ① 在 4 份文档正式登记一轮补充 Commit `9747e146e016155055b928d7a664650cb76def5c`（`2026-11-26T03:11:59Z`）；<br>② 附录 C.2 替换为真正可运行的只读 Python 校验脚本与原始运行 stdout（实测 `CORE_SUMMARY total=18 json_ok=17 md_ok=1 missing=0`、`REFS_SUMMARY total_files=62 total_missing=0 total_bytes=1044654`）；<br>③ 附录 C.3 补充 G2-B 与 G6 零样本实际扫描 Python 脚本、实跑输出（主仓 `holdout_data_files=0`，`scratch/` 全部 15 个子目录逐一计数）及逐目录排除依据 |
+| **修改文件** | 仅限 `docs/r3/p0-implementation/{P0-0-Baseline-Audit-Report.md,P0-Progress-Log.md,P0-Implementation-PRD.md,README.md}`，其余文件 0 改动（未重跑全量测试，完整保留原测试基线） |
+| **GPT-6 审核结论** | **`PENDING`**（等待 GPT-6 最终验收） |
+| **返工及复审记录** | 对应 **`RW-P0-0-001`** 二轮收尾重提 |
 
 ---
 
@@ -141,7 +156,7 @@
 | 返工编号 | 关联任务 | 退回日期 | 被退回 Commit SHA | GPT-6 退回原因与必须整改项 | 整改 Commit SHA | 整改后复测结果 | 复审结论（GPT-6） | 关闭状态 |
 |---|---|---|---|---|---|---|---|---|
 | **`RW-PRD-001`** | `P0-MGMT-INIT`（P0 实施管理 PRD `v1.0`） | `2026-11-25` | `95b0951d021eddf5d23a1710944550ccc38ca1ff` | ① `README.md` 与 `P0-Implementation-PRD.md` 中 `P0-2` 末尾顺序表述存在歧义，须严格按 `03` 2.1 节明确“倒数第二部分：本书文风锚点示范；最后一部分（最末位）：上一章结尾原文（500–900 字）”；② 补齐初始化 Commit 完整 40 位 SHA 与 GitHub 提交时间 `2026-11-25T17:12:50Z`（随后复审要求补齐 `v1.0.1` SHA `a12774f5` 追溯元数据） | 内容整改：`a12774f50956c5081252fe1722333893331ded5e`（`2026-11-25T17:23:04Z`）；<br>追溯补齐：`e52105adca3f994fca3cbdeef9aa935479ceaf9b`（`2026-11-25T17:44:23Z`） | 两项内容整改与追溯元数据全部通过核验；其余文件 0 改动；`P0-0` ~ `P0-6` 全部保持 `NOT_STARTED` | **`ACCEPTED`**（`2026-11-26`，审核基线 `e52105ad`） | **`CLOSED`** |
-| **`RW-P0-0-001`** | `P0-0`（研发基线审计与实施准备） | `2026-11-26` | `86cbc9f3ad37c635f134eeea2a89317d5eef0a3c` | 整体审计方向认可，要求补齐：① 原始 `P0-0` Commit 完整 SHA `86cbc9f3ad37c635f134eeea2a89317d5eef0a3c` 与提交时间 `2026-11-26T02:58:13Z`；② `b5572a94` 全量文件清单（零通配符）与 `c0966b12` 完整 19 文件差异清单；③ G1/G2-A/G3/G4/G5 脱敏历史资产 Manifest、完整性校验命令输出及 G2-B/G6 搜索核查依据；④ 解释零污染采用 `2d6061d6..86cbc9f3` 的原因 | 本次 `P0-0` 整改补充独立 Commit（见交付报告与 Git 历史；原始 `86cbc9f3` 保留不动） | 纯文档整改，按要求保留原实测基线（Node `71/71` + 10 脚本 + Python `12/12`）；Python 完整性校验全量历史样本 `missing = 0`；仅改 `docs/r3/p0-implementation/` | **`PENDING`**（已重提 `READY_FOR_REVIEW`，等待最终复审） | **`OPEN`** |
+| **`RW-P0-0-001`** | `P0-0`（研发基线审计与实施准备） | `2026-11-26` | 初审：`86cbc9f3ad37c635f134eeea2a89317d5eef0a3c`；<br>二轮复审：`9747e146e016155055b928d7a664650cb76def5c` | 初审要求补齐 SHA 追溯、73+19 完整文件清单、脱敏 Manifest 与零污染区间说明；二轮复审认可主体整改，要求最终补齐：① 正式登记 `9747e146` 完整 SHA 与提交时间；② 附录 C.2 换为真正可执行 Python 校验脚本与实跑输出（18 核心文件 + 62 引用稿件），附录 C.3 补 G2-B/G6 实际扫描命令与排除依据 | 一轮整改：`9747e146e016155055b928d7a664650cb76def5c`（`2026-11-26T03:11:59Z`）；<br>二轮收尾：本次独立文档提交（由交付报告提供完整 SHA，原始 `86cbc9f3` 与 `9747e146` 完整保留） | 纯文档整改，保留原自动化测试基线（Node `71/71` + 10 脚本 + Python `12/12`）；可执行脚本实跑 `total=18 (17 json + 1 md), missing=0` 与 `refs=62, missing=0`；主仓+`scratch/` 15 目录扫描证实 G2-B/G6 均 0 样本；仅改 `docs/r3/p0-implementation/` | **`PENDING`**（已重提 `READY_FOR_REVIEW`，等待最终验收） | **`OPEN`** |
 
 ---
 

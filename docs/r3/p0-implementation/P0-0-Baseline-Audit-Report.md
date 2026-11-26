@@ -1,8 +1,9 @@
 # P0-0 · 研发基线审计与实施准备报告
 
-> **任务编号**：`P0-0`（纯只读审计与实施准备，零生产代码改动） ｜ **提交状态**：`READY_FOR_REVIEW`（响应 `RW-P0-0-001` 整改重提，等待 GPT-6 最终复审；验收通过前严禁推进 `P0-1`）  
+> **任务编号**：`P0-0`（纯只读审计与实施准备，零生产代码改动） ｜ **提交状态**：`READY_FOR_REVIEW`（二轮复审收尾重提，等待 GPT-6 最终验收；验收通过前严禁推进 `P0-1`）  
 > **活跃分支**：`feat/r3-p0-controlled` ｜ **审计前前置基线 HEAD**：`2d6061d6cd0e8b4b2da77619cb58239c44dc332e`（`2026-11-26T00:52:10Z`，GPT-6 `ACCEPTED`）  
-> **原始 `P0-0` 正式交付 Commit**：`86cbc9f3ad37c635f134eeea2a89317d5eef0a3c`（GitHub 提交时间：`2026-11-26T02:58:13Z`；GPT-6 初审 `CHANGES_REQUESTED`，见返工项 `RW-P0-0-001`；本版为整改补充提交，原始提交完整保留）  
+> **原始 `P0-0` 正式交付 Commit**：`86cbc9f3ad37c635f134eeea2a89317d5eef0a3c`（GitHub 提交时间：`2026-11-26T02:58:13Z`；完整保留）  
+> **`RW-P0-0-001` 一轮整改补充 Commit**：`9747e146e016155055b928d7a664650cb76def5c`（GitHub 提交时间：`2026-11-26T03:11:59Z`；二轮复审确认主体整改完成，本版补齐登记该 SHA 与附录 C.2/C.3 可执行命令及实跑输出）  
 > **架构冻结基线**：`feat/r3-migration` @ `b5572a943f9157cda07faa7910dcbfd20b1a3ba5`（PR #3，`docs/r3/review-v3/` `v1.2.3`）  
 > **授权依据**：作者已预先授权 `PROJECT-CONTEXT` 与 `AGENT-HANDOFF` 经 GPT-6 验收通过后直接启动纯只读 `P0-0`；GPT-6 已于 `2d6061d6` 给出 `ACCEPTED`。  
 > **验证分层纪律**：本报告中自动化单测 100% 通过仅代表**工程基线零回归**，绝不代表文学质量提升或生产召回率证明；所有未就绪离线样本一律诚实标注 `underpowered` 与精确缺口。
@@ -292,23 +293,177 @@
 | `G5`（`V22-H4` 死锁章正文） | `scratch/phase1-calibration-v2.2/v22-holdout/texts/H4-ch01.md` | `13,362` | `ff15bffd673febfff1cd4d766cec61ebc5f629ad32f82b134b9b3ab45d18a607` | `1` 章（《盐引旧账》Ch 1，含 3000 引会计死锁 + 廿六/廿三日期差） | **已揭盲**（G5 死锁参考） |
 | `G5` / 黑名单（`V22-H1..4` 私钥） | `scratch/phase1-calibration-v2.2-private-key.json` | `589` | `7c75979b8690aef4d36ac37dd8e06e74eee2f98d324c12630fbaf8e42da228d0` | `4` 章标定键 | **已揭盲退役** |
 
-### C.2 完整性检查命令与实测输出摘要
-- **校验命令（只读 Python 脚本，`-B` 禁止生成字节码）**：
-  ```bash
-  python3 -B -c "对上述 14 个核心 JSON 清单/私钥执行 json.load + SHA-256 校验，并递归验证其引用的全部 manuscriptFile 与 priorChapterFinalFiles 存在性与字节数"
-  ```
-- **实测输出摘要（2026-11-26 实跑，exit `0`）**：
-  - 14 个 JSON 清单/私钥全部 `json=OK`、SHA-256 实算无报错；
-  - `Track2(batch-1..3)`：引用正文文件 `18` 个，`missing = 0`，总计 `309,045` bytes；
-  - `G4(four-class-24)`：引用正文文件 `21` 个，`missing = 0`，总计 `354,996` bytes；
-  - `OLD-HOLD-1..4`：引用正文文件 `7` 个，`missing = 0`，总计 `117,923` bytes；
-  - `NH-1..5`：引用正文文件 `10` 个，`missing = 0`，总计 `179,622` bytes；
-  - `V22-H1..4`：引用正文文件 `6` 个，`missing = 0`，总计 `83,068` bytes；
-  - **合计 62 份引用稿件全部完好存在（`missing = 0`）**。
+### C.2 完整性检查可执行命令与真实运行输出
 
-### C.3 `G2-B` 与 `G6` 当前 `0` 样本结论的搜索范围与核查依据
-1. **搜索范围**：
-   - ① 公开主仓库 `chindden/chinese-novelist-skill` 全树（`docs/`、`scripts/tests/`、`tests/`）：仅含工程单测夹具，无独立多题材小说 Holdout 数据集；
-   - ② 本地 VM Artifact 根目录 `<ART_ROOT>/` 及 `<ART_ROOT>/scratch/` 全部子目录（`live-eval/`、`step2-m1-replay/`、`step3-r3-trial/`、`phase1-throughput-exp/`、`phase1-blind-audit/`、`phase1-calibration-*`）：全部既有稿件均已用于历史实验、回归校准或已揭盲退役（见 §五禁入黑名单）；
-   - ③ 前序只读核验记录的 Google Drive 历史快照（`xianmen-dazhanggui-r3-*-20261124.zip`，见 [`PROJECT-ASSET-INDEX.md`](../../PROJECT-ASSET-INDEX.md)）：属历史单题材测试连载（《仙门大掌柜》Ch 1–12），未经独立双评委+第三仲裁定案，亦未满足跨 `>=3` / `4–6` 题材未揭盲独立要求。
-2. **核查结论**：确认当前符合冻结 `08` 标准的全新独立未揭盲 **`G2-B Independent Holdout` = `0` 章 / `0` 案例**、**`G6` 跨题材 Holdout = `0` 章 / `0` 案例**，维持 **`underpowered`** 诚实标记与精确缺口登记不变。
+> **校验范围说明**：C.1 共 18 份核心文件，其中 **17 份 `.json` 文件**全部执行 `json.loads` 解析 + 字节数 + SHA-256 校验；第 18 份 `scratch/phase1-calibration-v2.2/v22-holdout/texts/H4-ch01.md` 为 Markdown 章节正文（非 JSON），执行 UTF-8 解码 + 字节数 + SHA-256 校验；同时递归校验 5 组清单引用的全部 **62 份**稿件文件的存在性与总字节数。
+
+#### 实际执行的只读 Python 校验命令（`-B` 禁止生成字节码）
+```bash
+python3 -B - <<'PY'
+import hashlib, json, os
+
+ART = "/home/antigravity/.gemini/jetski/brain/v1/default/jetski_remote_agents_3p_devbox/bb9496c7-61be-4b01-ad65-2da947e559e6"
+C1_FILES = [
+    "scratch/phase1-calibration-offline/batch-1.json",
+    "scratch/phase1-calibration-offline/batch-2.json",
+    "scratch/phase1-calibration-offline/batch-3.json",
+    "scratch/phase1-calibration-offline-private-key.json",
+    "scratch/phase1-cal-r1-hostonly.json",
+    "scratch/phase1-cal-r2-hostonly.json",
+    "scratch/phase1-r3-arbitration-cases-hostonly.json",
+    "scratch/phase1-calibration-offline/track1-chapters/DOC-1.json",
+    "scratch/phase1-calibration-offline/track1-chapters/DOC-4.json",
+    "scratch/phase1-calibration-offline/track1-chapters/DOC-5.json",
+    "scratch/phase1-calibration-v2/holdout/holdout-manifest.json",
+    "scratch/phase1-calibration-v2/four-class-24.json",
+    "scratch/phase1-calibration-v2-private-key.json",
+    "scratch/phase1-calibration-v2.1/new-holdout/new-holdout-manifest.json",
+    "scratch/phase1-calibration-v2.1-private-key.json",
+    "scratch/phase1-calibration-v2.2/v22-holdout/v22-holdout-manifest.json",
+    "scratch/phase1-calibration-v2.2/v22-holdout/texts/H4-ch01.md",
+    "scratch/phase1-calibration-v2.2-private-key.json",
+]
+
+json_ok = md_ok = missing_core = 0
+for rel in C1_FILES:
+    p = os.path.join(ART, rel)
+    if not os.path.exists(p):
+        missing_core += 1
+        print(f"MISSING {rel}")
+        continue
+    raw = open(p, "rb").read()
+    digest = hashlib.sha256(raw).hexdigest()
+    if rel.endswith(".json"):
+        json.loads(raw.decode("utf-8"))
+        json_ok += 1
+        kind = "json=OK"
+    else:
+        raw.decode("utf-8")
+        md_ok += 1
+        kind = "utf8_md=OK"
+    print(f"OK {rel} bytes={len(raw)} sha256={digest[:16]}... {kind}")
+print(f"CORE_SUMMARY total={len(C1_FILES)} json_ok={json_ok} md_ok={md_ok} missing={missing_core}")
+
+GROUPS = [
+    ("Track2(batch-1..3)", "scratch/phase1-calibration-offline", ["batch-1.json", "batch-2.json", "batch-3.json"]),
+    ("G4(four-class-24)", "scratch/phase1-calibration-v2", ["four-class-24.json"]),
+    ("OLD-HOLD-1..4", "scratch/phase1-calibration-v2/holdout", ["holdout-manifest.json"]),
+    ("NH-1..5", "scratch/phase1-calibration-v2.1/new-holdout", ["new-holdout-manifest.json"]),
+    ("V22-H1..4", "scratch/phase1-calibration-v2.2/v22-holdout", ["v22-holdout-manifest.json"]),
+]
+total_refs = total_missing = total_bytes_all = 0
+for name, base_rel, fns in GROUPS:
+    base = os.path.join(ART, base_rel)
+    refs = set()
+    for fn in fns:
+        for item in json.load(open(os.path.join(base, fn), encoding="utf-8")):
+            if item.get("manuscriptFile"):
+                refs.add(item["manuscriptFile"])
+            for pf in item.get("priorChapterFinalFiles") or []:
+                refs.add(pf)
+    miss = gbytes = 0
+    for r in sorted(refs):
+        cand = r if os.path.isabs(r) else os.path.join(base, r)
+        if not os.path.exists(cand):
+            cand = os.path.join(os.path.dirname(base), r)
+        if os.path.exists(cand):
+            gbytes += os.path.getsize(cand)
+        else:
+            miss += 1
+    total_refs += len(refs)
+    total_missing += miss
+    total_bytes_all += gbytes
+    print(f"GROUP {name}: files={len(refs)} missing={miss} total_bytes={gbytes}")
+print(f"REFS_SUMMARY total_files={total_refs} total_missing={total_missing} total_bytes={total_bytes_all}")
+PY
+```
+
+#### 真实运行原始输出（exit code = `0`）
+```text
+OK scratch/phase1-calibration-offline/batch-1.json bytes=31810 sha256=6858cbfb5fca6f67... json=OK
+OK scratch/phase1-calibration-offline/batch-2.json bytes=29776 sha256=dd8b7426651412fb... json=OK
+OK scratch/phase1-calibration-offline/batch-3.json bytes=29258 sha256=1ac1d8970aef79c2... json=OK
+OK scratch/phase1-calibration-offline-private-key.json bytes=17856 sha256=669b00a3985a2a45... json=OK
+OK scratch/phase1-cal-r1-hostonly.json bytes=7711 sha256=552ffd81fa8cf9fc... json=OK
+OK scratch/phase1-cal-r2-hostonly.json bytes=16117 sha256=b8dc5c427d9f150e... json=OK
+OK scratch/phase1-r3-arbitration-cases-hostonly.json bytes=49220 sha256=5ad1274620f332ac... json=OK
+OK scratch/phase1-calibration-offline/track1-chapters/DOC-1.json bytes=117 sha256=c04e0f3076e9071a... json=OK
+OK scratch/phase1-calibration-offline/track1-chapters/DOC-4.json bytes=150 sha256=ab5c9ab8b11662d7... json=OK
+OK scratch/phase1-calibration-offline/track1-chapters/DOC-5.json bytes=181 sha256=d1bc9efd23ab1fed... json=OK
+OK scratch/phase1-calibration-v2/holdout/holdout-manifest.json bytes=914 sha256=d7bfa9120f328b97... json=OK
+OK scratch/phase1-calibration-v2/four-class-24.json bytes=22186 sha256=b679ae43d204c5c6... json=OK
+OK scratch/phase1-calibration-v2-private-key.json bytes=3389 sha256=a07c24d1acac6591... json=OK
+OK scratch/phase1-calibration-v2.1/new-holdout/new-holdout-manifest.json bytes=1228 sha256=e110d4f52e21e307... json=OK
+OK scratch/phase1-calibration-v2.1-private-key.json bytes=760 sha256=3b4f8f2086b06950... json=OK
+OK scratch/phase1-calibration-v2.2/v22-holdout/v22-holdout-manifest.json bytes=905 sha256=f80fd776c4aa3bcb... json=OK
+OK scratch/phase1-calibration-v2.2/v22-holdout/texts/H4-ch01.md bytes=13362 sha256=ff15bffd673febff... utf8_md=OK
+OK scratch/phase1-calibration-v2.2-private-key.json bytes=589 sha256=7c75979b8690aef4... json=OK
+CORE_SUMMARY total=18 json_ok=17 md_ok=1 missing=0
+GROUP Track2(batch-1..3): files=18 missing=0 total_bytes=309045
+GROUP G4(four-class-24): files=21 missing=0 total_bytes=354996
+GROUP OLD-HOLD-1..4: files=7 missing=0 total_bytes=117923
+GROUP NH-1..5: files=10 missing=0 total_bytes=179622
+GROUP V22-H1..4: files=6 missing=0 total_bytes=83068
+REFS_SUMMARY total_files=62 total_missing=0 total_bytes=1044654
+```
+
+### C.3 `G2-B` 与 `G6` 当前 `0` 样本结论的实际扫描命令、输出与排除依据
+
+#### 实际执行的只读扫描命令
+```bash
+python3 -B - <<'PY'
+import glob, os
+
+REPO = "/home/antigravity/chindden/chinese-novelist-skill"
+ART = "/home/antigravity/.gemini/jetski/brain/v1/default/jetski_remote_agents_3p_devbox/bb9496c7-61be-4b01-ad65-2da947e559e6"
+
+repo_hits = sorted(
+    os.path.relpath(p, REPO)
+    for sub in ("docs", "scripts/tests", "tests")
+    for p in glob.glob(os.path.join(REPO, sub, "**/*"), recursive=True)
+    if os.path.isfile(p) and any(k in os.path.basename(p).lower() for k in ("holdout", "g2b", "g2-b", "g6", "blind", "calib"))
+)
+print(f"REPO_SCAN dirs=[docs,scripts/tests,tests] holdout_data_files={len(repo_hits)} hits={repo_hits}")
+
+scr = os.path.join(ART, "scratch")
+print("SCRATCH_DIR_SCAN:")
+for name in sorted(os.listdir(scr)):
+    p = os.path.join(scr, name)
+    if os.path.isdir(p):
+        md_cnt = sum(1 for r, _, fs in os.walk(p) for f in fs if f.endswith(".md"))
+        js_cnt = sum(1 for r, _, fs in os.walk(p) for f in fs if f.endswith(".json"))
+        print(f"  DIR scratch/{name}: md={md_cnt} json={js_cnt}")
+PY
+```
+
+#### 真实运行原始输出（exit code = `0`）
+```text
+REPO_SCAN dirs=[docs,scripts/tests,tests] holdout_data_files=0 hits=[]
+SCRATCH_DIR_SCAN:
+  DIR scratch/live-eval: md=48 json=132
+  DIR scratch/phase1-blind-audit: md=30 json=5
+  DIR scratch/phase1-calibration-offline: md=21 json=11
+  DIR scratch/phase1-calibration-v2: md=38 json=7
+  DIR scratch/phase1-calibration-v2-out: md=0 json=8
+  DIR scratch/phase1-calibration-v2.1: md=20 json=4
+  DIR scratch/phase1-calibration-v2.1-out: md=0 json=9
+  DIR scratch/phase1-calibration-v2.2: md=27 json=1
+  DIR scratch/phase1-calibration-v2.2-out: md=0 json=9
+  DIR scratch/phase1-throughput-exp: md=171 json=295
+  DIR scratch/ref-penglonghuang-cns: md=24 json=1
+  DIR scratch/ref-webnovel-writer: md=182 json=13
+  DIR scratch/ref-webnovel-writer-v8: md=74 json=33
+  DIR scratch/step2-m1-replay: md=38 json=74
+  DIR scratch/step3-r3-trial: md=49 json=95
+```
+
+#### 逐目录排除依据（证实 `G2-B = 0` 章 / `0` 案例、`G6 = 0` 章 / `0` 案例）
+| 扫描范围 / 目录 | 候选文件量 | 排除依据（为何不可充当 `G2-B` 或 `G6`） |
+|---|---:|---|
+| 公开主仓 `docs/`、`scripts/tests/`、`tests/` | `0` 个 Holdout 数据集 | 仅含工程单测夹具与规范文档，无独立多题材小说 Holdout 数据集 |
+| `scratch/ref-{penglonghuang-cns,webnovel-writer,webnovel-writer-v8}`（3 目录） | `md=280, json=47` | 外部参考 Skill 源码镜像，非小说章节样本 |
+| `scratch/phase1-calibration-{offline,v2,v2-out,v2.1,v2.1-out,v2.2,v2.2-out}`（7 目录） | `md=106, json=49` | 全部属于已揭盲历史校准集或已揭盲退役 Holdout（`OLD-HOLD-1..4`、`NH-1..5`、`V22-H1..4`）及评测输出，强制列入禁入黑名单 |
+| `scratch/{live-eval,step2-m1-replay,step3-r3-trial,phase1-throughput-exp,phase1-blind-audit}`（5 目录） | `md=336, json=601` | 全部为既有《残器长生》《降本增笑》《器痕录》历史实验正文、账本与盲审记录（仅 2 题材，且章节已参与历史回归/校准或已揭盲，不满足 0 重叠跨 `>=3` / `4–6` 题材未揭盲硬约束） |
+| Google Drive 历史实验快照（前序只读核验，`PROJECT-ASSET-INDEX.md` Tier 3） | `3` 份 ZIP | 仅含单题材仙侠《仙门大掌柜》Ch 1–12，未经双评委+第三仲裁定案，亦不满足跨 `>=3` / `4–6` 题材未揭盲独立要求 |
+
+> **核查结论不变**：`G2-B Independent Holdout` = **`0` 章 / `0` 案例（`underpowered`）**，`G6` 跨题材 Holdout = **`0` 章 / `0` 案例（`underpowered`）**，维持所有冻结验收门槛不变。
