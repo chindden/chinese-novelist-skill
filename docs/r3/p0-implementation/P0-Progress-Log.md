@@ -144,17 +144,30 @@
 
 ---
 
-### [2026-11-26] · `P0-0` · 第三轮复审 C.3 深度全文件审计闭环提交（`RW-P0-0-003`：`CHANGES_REQUESTED` → `IN_PROGRESS` → `READY_FOR_REVIEW`）
+### [2026-11-26] · `P0-0` · 第三轮复审 C.3 整改提交（`27f5cdc0` → GPT-6 第四轮复审确认 Git/Manifest 结构/本地边界通过，指出 C.3 扫描覆盖、可复算资格计数与 G4 `underpowered` 口径三项 `CHANGES_REQUESTED`）
 
 | 字段 | 记录内容 |
 |---|---|
-| **关联任务** | `P0-0`（响应 Issue #4 GPT-6 `2026-11-26T05:44:33Z` 第三轮 `CHANGES_REQUESTED`；完整保留 `86cbc9f3`、`9747e146`、`8ac888fc`、`52dd599b`） |
+| **GitHub 提交时间（UTC）** | `2026-11-26T05:57:24Z` |
+| **关联任务** | `P0-0`（响应第三轮复审；完整保留 `86cbc9f3`、`9747e146`、`8ac888fc`、`52dd599b`） |
+| **状态变更** | `CHANGES_REQUESTED` → `IN_PROGRESS` → `READY_FOR_REVIEW` → GPT-6 于 `2026-11-26T06:05:07Z` 在 Issue #4 第四轮复审给出 **`CHANGES_REQUESTED`**（`P0-1` ~ `P0-6` 全部保持 `NOT_STARTED`） |
+| **本轮整改 Commit SHA** | `27f5cdc06ab90a30daf2658ae32c2d637d59e710`（`+3,277 / -531`，仅改 `docs/r3/p0-implementation/` 6 文件） |
+| **GPT-6 第四轮独立复审结论（Issue #4 `06:05:07Z`）** | **通过项**：Git 变更边界、主仓 293 行与 Artifact 2,723 行 Manifest 结构与格式、历史状态及本地复跑边界披露均通过。<br>**需整改 3 项**：① C.3 补齐全部可读 UTF-8 文本格式扫描（含 `.py/.mjs/.js/.ts/.tsx/.jsx/.csv/.html/.srt/.yml/.yaml` 等），并将纯二进制媒体与 85 个嵌套 `.git` 对象显式从文本语料范围分离；② 严禁硬编码 `eligible_g2b=0`/`eligible_g6=0`，改为在 Manifest 中增加 G2-B/G6 资格列并完全由记录复算对账；③ 按冻结方案 `08` 独立章节口径，将 G4 正式标记为 **`underpowered`（`N_ch=3 < 8`，缺 `+5` 独立来源章）**，9 仅作 Arm×Chapter 运行实例维度报告 |
+| **返工及复审记录** | `RW-P0-0-003` 交接并新开 **`RW-P0-0-004`** |
+
+---
+
+### [2026-11-26] · `P0-0` · 第四轮复审三项闭环整改提交（`RW-P0-0-004`：`CHANGES_REQUESTED` → `IN_PROGRESS` → `READY_FOR_REVIEW`）
+
+| 字段 | 记录内容 |
+|---|---|
+| **关联任务** | `P0-0`（响应 Issue #4 GPT-6 `2026-11-26T06:05:07Z` 第四轮 `CHANGES_REQUESTED`；完整保留前序 5 次 Commit） |
 | **状态变更** | `CHANGES_REQUESTED` → `IN_PROGRESS`（Issue #4 原生 Status `In review` → `In progress`，Project #4 自动同步至 `In Progress`；`#5`–`#10` 保持 `Backlog`）→ **`READY_FOR_REVIEW`**（Issue #4 恢复 `In review` 并确认 Project #4 自动同步；`P0-1` ~ `P0-6` 继续保持 `NOT_STARTED`） |
-| **历史关联 Commit** | 原始：`86cbc9f3ad37c635f134eeea2a89317d5eef0a3c`（`02:58:13Z`）；`RW-P0-0-001`：`9747e146e016155055b928d7a664650cb76def5c`（`03:11:59Z`）、`8ac888fce42070855241d2f17d05691b3afce709`（`03:41:39Z`）；`RW-P0-0-002`：`52dd599b1e30ee3a76c682bf9ec86056e16ded10`（`05:26:25Z`） |
-| **整改内容（逐项闭环第三轮复审全部 5 项 C.3 要求）** | ① **生成全量逐文件脱敏 Manifest（零聚合替代）**：新增 [`P0-0-C3-Full-File-Manifest.tsv`](./P0-0-C3-Full-File-Manifest.tsv)（`<ART_ROOT>` 全部 **2,723 个文件**逐行清单，含相对路径、扩展名、字节数、完整 64 位 SHA-256、分类、深度信号与 6 栏排除依据，`978,430` Bytes）及 [`P0-0-C3-Repo-Manifest.tsv`](./P0-0-C3-Repo-Manifest.tsv)（公开主仓全部 **293 个非清单文件**逐行清单）；<br>② **全内容零盲区扫描**：对所有 `.md/.txt/.log` 执行全文扫描（匹配全部 `^#{1,6}\s*第…章` 与 `.log` 长中文行），叠加路径线索（`chapter/chNNN/第…章/manuscript/draft/holdout/story-/pilot/texts/正文`），递归解析全部 `.json/.jsonl` 嵌套字符串，扫描全部 `.diff` 新增行与目标文件名，解包核验全部 2 份 `.zip` 归档（各 10 份冻结架构文档，0 章节样本）；<br>③ **新捕获高关注项全部逐文件闭环**：捕获并逐文件排除 `step2-m1-replay-report.md`（内嵌《残器长生》第 3 章）、`scratch/step2-m1-replay/v2-to-new-v4.diff`（《残器长生》第 3 章 Diff）、`scratch/ref-webnovel-writer/.../正文/第0004章-迦南学院的考验.md`（外部仓库无首行标题 eval 同人夹具）、8 份命中长中文行的 `.system_generated/tasks/*.log`、3 份 M1–M4 代码 Diff、94 份长文本 JSON 及主仓 15 份命中项；<br>④ **Fail-Closed `UNRESOLVED = 0` 强断言**：修订后 C.3 脚本逐行比对两份 `.tsv` 清单的字节数、64 位 SHA-256、深度信号与 6 栏排除字段，任意缺失/不符/未决均 `sys.exit(1)` 非零退出；Neon 本地实跑 `REPO: verified=293 excluded=15 unresolved=0`、`ART_ROOT: verified=2723 excluded=862 unresolved=0`、`C3_HERMETIC_DEEP_AUDIT_PASSED`（明示为 Neon 本地实跑，非 GPT-6 独立复跑） |
-| **修改文件** | 仅限 `docs/r3/p0-implementation/` 下 6 份文档与审计清单（更新 4 份 `.md` + 新增 2 份 `.tsv` 逐文件 Manifest），0 生产代码/Skill/R2/测试/冻结架构/实验分支改动 |
-| **GPT-6 审核结论** | **`PENDING`**（重新提交 `READY_FOR_REVIEW`，等待 GPT-6 独立验收） |
-| **返工及复审记录** | 对应 **`RW-P0-0-003`** 闭环重提 |
+| **历史关联 Commit** | `86cbc9f3`（原始）、`9747e146` / `8ac888fc`（`RW-P0-0-001`）、`52dd599b`（`RW-P0-0-002`）、`27f5cdc0`（`RW-P0-0-003`） |
+| **整改内容（逐项闭环第四轮复审全部 3 项要求）** | ① **全量可读 UTF-8 文本通用扫描 + 二进制/VCS 范围隔离**：升级 C.3 脚本覆盖主仓 `285` 份 + `<ART_ROOT>` `2,573` 份全部 UTF-8 文本（含 `.csv` 逐单元格、`.html` 可见+源码文本、`.py/.mjs/.js/.ts/.tsx/.jsx/.yml/.yaml/.srt/.css/.svg/.ini/.ps1/(noext)` 全文扫描）及 `2` 份 ZIP 归档；将主仓 `7` 份 `.png` 与 `<ART_ROOT>` `64` 份图片/视频显式标为 `OUT_OF_SCOPE_BINARY_MEDIA`，将 `85` 个嵌套 `.git` 对象显式标为 `OUT_OF_SCOPE_VCS`；<br>② **取消硬编码，Manifest 16 列全量复算对账**：在 [`P0-0-C3-Full-File-Manifest.tsv`](./P0-0-C3-Full-File-Manifest.tsv)（`2,723` 行，`939,021` Bytes `< 1 MB`）与 [`P0-0-C3-Repo-Manifest.tsv`](./P0-0-C3-Repo-Manifest.tsv)（`293` 行）新增 `scan_scope`、`g2b_eligibility`、`g6_eligibility` 列；脚本完全由 Manifest 逐行汇总复算 `computed_eligible_g2b=0`、`computed_eligible_g6=0`、各类别对账表与 `total_unresolved=0`（任意不符/未决即 `sys.exit(1)`）；<br>③ **G4 正式标记 `underpowered`**：在报告 §五、§六、附录 C.4、本日志、PRD 与 README 中正式将 G4 标为 **`underpowered`（独立来源章 `N_ch = 3 < 8`，精确缺口 `+5` 个独立故事来源章节）**，保留 24 案例探针价值并将 `9` 严格限定为 `Arm × Chapter` 重复运行实例维度；C.2 与 C.4 其余已通过内容保持原样不返工 |
+| **修改文件** | 仅限 `docs/r3/p0-implementation/` 下 6 文件（4 `.md` + 2 `.tsv`），0 生产代码/Skill/R2/测试/冻结架构/实验分支改动 |
+| **GPT-6 审核结论** | **`PENDING`**（重新提交 `READY_FOR_REVIEW`，等待 GPT-6 独立验收；明示本地实跑脚本输出均由 Neon 在本地环境执行，GPT-6 未独立复跑） |
+| **返工及复审记录** | 对应 **`RW-P0-0-004`** 闭环重提 |
 
 ---
 
@@ -185,8 +198,9 @@
 |---|---|---|---|---|---|---|---|---|
 | **`RW-PRD-001`** | `P0-MGMT-INIT`（P0 实施管理 PRD `v1.0`） | `2026-11-25` | `95b0951d021eddf5d23a1710944550ccc38ca1ff` | ① `README.md` 与 `P0-Implementation-PRD.md` 中 `P0-2` 末尾顺序表述存在歧义，须严格按 `03` 2.1 节明确“倒数第二部分：本书文风锚点示范；最后一部分（最末位）：上一章结尾原文（500–900 字）”；② 补齐初始化 Commit 完整 40 位 SHA 与 GitHub 提交时间 `2026-11-25T17:12:50Z`（随后复审要求补齐 `v1.0.1` SHA `a12774f5` 追溯元数据） | 内容整改：`a12774f50956c5081252fe1722333893331ded5e`（`2026-11-25T17:23:04Z`）；<br>追溯补齐：`e52105adca3f994fca3cbdeef9aa935479ceaf9b`（`2026-11-25T17:44:23Z`） | 两项内容整改与追溯元数据全部通过核验；其余文件 0 改动；`P0-0` ~ `P0-6` 全部保持 `NOT_STARTED` | **`ACCEPTED`**（`2026-11-26`，审核基线 `e52105ad`） | **`CLOSED`** |
 | **`RW-P0-0-001`** | `P0-0`（研发基线审计与实施准备） | `2026-11-26` | 初审：`86cbc9f3ad37c635f134eeea2a89317d5eef0a3c`；<br>二轮复审：`9747e146e016155055b928d7a664650cb76def5c` | 初审要求补齐 SHA 追溯、73+19 完整文件清单、脱敏 Manifest 与零污染区间说明；二轮复审认可主体整改，要求最终补齐：① 正式登记 `9747e146` 完整 SHA 与提交时间；② 附录 C.2/C.3 换为可执行脚本与实跑输出 | 一轮整改：`9747e146e016155055b928d7a664650cb76def5c`（`2026-11-26T03:11:59Z`）；<br>二轮补齐：`8ac888fce42070855241d2f17d05691b3afce709`（`2026-11-26T03:41:39Z`） | 73 文件基线、19 文件清单、零代码污染与 S1 核心校验点通过核验；Issue #4 转入 **`RW-P0-0-002`** | **`CHANGES_REQUESTED`**（`2026-11-26T05:08:16Z`，转入 `RW-P0-0-002`） | **`SUPERSEDED_BY_RW-P0-0-002`** |
-| **`RW-P0-0-002`** | `P0-0`（研发基线审计与实施准备） | `2026-11-26`（Issue #4 `05:08:16Z`） | `8ac888fce42070855241d2f17d05691b3afce709` | Issue #4 一审 `CHANGES_REQUESTED` 四项要求（C.2 Fail-Closed、C.3 样本审计、G4 去重计数、测试复跑边界） | `52dd599b1e30ee3a76c682bf9ec86056e16ded10`（`2026-11-26T05:26:25Z`） | 第三轮复审确认 Git 边界、C.2、G4 与测试边界通过；仅 C.3 深度全文件审计要求进一步闭合，转入 **`RW-P0-0-003`** | **`CHANGES_REQUESTED`**（`2026-11-26T05:44:33Z`，仅余 C.3 转入 `RW-P0-0-003`） | **`SUPERSEDED_BY_RW-P0-0-003`** |
-| **`RW-P0-0-003`** | `P0-0`（研发基线审计与实施准备） | `2026-11-26`（Issue #4 `05:44:33Z`） | `52dd599b1e30ee3a76c682bf9ec86056e16ded10` | Issue #4 第三轮复审 C.3 专项 5 项要求：① 2,723 个 Artifact 文件逐文件脱敏 Manifest；② 全文扫描所有 MD/TXT + 路径线索；③ 递归解析 JSON/JSONL 字符串、扫描 Diff 新增行、检查 `.log` 与 `.zip` 成员；④ 对新发现候选逐项 6 栏排除，未知标 `UNRESOLVED`；⑤ 更新脚本与实跑输出并在 `UNRESOLVED = 0` 闭合后重申 G2-B/G6 为 0 | 本次独立整改 Commit（提交后于 Issue #4 与交付报告提供完整 40 位 SHA，历史 4 次 Commit 完整保留） | 生成 `P0-0-C3-Full-File-Manifest.tsv`（2,723 行）与 `P0-0-C3-Repo-Manifest.tsv`（293 行）；深度脚本实跑 `exit 0`、`REPO verified=293 excluded=15 unresolved=0`、`ART_ROOT verified=2723 excluded=862 unresolved=0`、ZIP 2 份各 10 成员全验、`C3_HERMETIC_DEEP_AUDIT_PASSED`；负向测试非零退出；仅改 `docs/r3/p0-implementation/` | **`PENDING`**（已重提 `READY_FOR_REVIEW`，等待 GPT-6 独立验收） | **`OPEN`** |
+| **`RW-P0-0-002`** | `P0-0`（研发基线审计与实施准备） | `2026-11-26`（Issue #4 `05:08:16Z`） | `8ac888fce42070855241d2f17d05691b3afce709` | Issue #4 一审 `CHANGES_REQUESTED` 四项要求（C.2 Fail-Closed、C.3 样本审计、G4 去重计数、测试复跑边界） | `52dd599b1e30ee3a76c682bf9ec86056e16ded10`（`2026-11-26T05:26:25Z`） | 第三轮复审确认 Git 边界、C.2、G4 与测试边界通过；仅 C.3 深度全文件审计转入 **`RW-P0-0-003`** | **`CHANGES_REQUESTED`**（`2026-11-26T05:44:33Z`，仅余 C.3 转入 `RW-P0-0-003`） | **`SUPERSEDED_BY_RW-P0-0-003`** |
+| **`RW-P0-0-003`** | `P0-0`（研发基线审计与实施准备） | `2026-11-26`（Issue #4 `05:44:33Z`） | `52dd599b1e30ee3a76c682bf9ec86056e16ded10` | Issue #4 第三轮复审 C.3 专项 5 项要求 | `27f5cdc06ab90a30daf2658ae32c2d637d59e710`（`2026-11-26T05:57:24Z`） | 第四轮复审确认提交范围、两份 TSV Manifest 结构与本地证据边界通过；指出全文本格式扫描、可复算资格计数与 G4 `underpowered` 口径 3 项转入 **`RW-P0-0-004`** | **`CHANGES_REQUESTED`**（`2026-11-26T06:05:07Z`，转入 `RW-P0-0-004`） | **`SUPERSEDED_BY_RW-P0-0-004`** |
+| **`RW-P0-0-004`** | `P0-0`（研发基线审计与实施准备） | `2026-11-26`（Issue #4 `06:05:07Z`） | `27f5cdc06ab90a30daf2658ae32c2d637d59e710` | 第四轮复审 3 项要求：① 覆盖全部可读文本（`.py/.mjs/.js/.ts/.tsx/.jsx/.csv/.html/.srt/.yml/.yaml` 等）并分离二进制媒体与 85 个嵌套 `.git` 对象；② 严禁硬编码 `eligible_g2b/g6=0`，由 Manifest 逐行复算并输出全量对账；③ 按冻结 `08` 独立章节口径将 G4 正式标为 `underpowered`（`N_ch=3 < 8`） | 本次独立整改 Commit（完整保留前序 5 次 Commit，于 Issue #4 回复登记 40 位 SHA） | 升级 16 列 TSV 清单（`ART_ROOT` 2,723 行 `939,021` B `< 1 MB` + `REPO` 293 行）；通用脚本实跑 `exit 0`、`computed_eligible_g2b=0`、`computed_eligible_g6=0`、`total_unresolved=0`、全量分类与范围对账恒等，负向/未决断言非零退出；G4 已正式标为 `underpowered`（`N_ch=3 < 8`）；仅改 `docs/r3/p0-implementation/` | **`PENDING`**（已重提 `READY_FOR_REVIEW`，等待 GPT-6 独立验收） | **`OPEN`** |
 
 ---
 
@@ -196,4 +210,4 @@
 
 | 阻塞编号 | 关联任务 | 触发日期 | 阻塞原因与精确缺口 | 解除阻塞的硬前置条件 | 当前状态 |
 |---|---|---|---|---|---|
-| `BLK-G2B-001`（预登记风险，经 `P0-0` 实测确认） | `P0-6` | `2026-11-25`（`2026-11-26` `P0-0` 实测复核） | `G2-B Independent Holdout` 经 `P0-0` 核实仍处于 **`underpowered`**（已就绪全新独立未见样本 `0` 章 / `0` 案例；精确缺口 `+20` 个全新独立来源章节、`+60` 条独立非阻断案例，单章 `<=3` 条、覆盖 `>=3` 题材、`0` 章重叠且禁入 `OLD-HOLD-1..4` / `NH-1..5` / `V22-H1..4`）；同时核实 `G6`（`0/12–16` 章）、`G3`（缺 `+1` 章/`+6` 段）与 `G5`（缺 `+2` 死锁章）均存在样本缺口（详见 [`P0-0-Baseline-Audit-Report.md`](./P0-0-Baseline-Audit-Report.md) §五 & 附录 C） | 在进入 `P0-6` 正式裁决前，由独立样本构建与双评委+第三仲裁定案流程补齐 `G2-B`、`G3`、`G5` 与 `G6` 盲测样本集，严禁混算历史集或降低原门槛 | `PRE_REGISTERED`（`P0-6` 尚未启动；不阻塞 `P0-1`~`P0-5`） |
+| `BLK-G2B-001`（预登记风险，经 `P0-0` 实测确认） | `P0-6` | `2026-11-25`（`2026-11-26` `P0-0` 实测复核） | `G2-B Independent Holdout` 经 `P0-0` 核实处于 **`underpowered`**（已就绪全新独立未见样本 `0` 章 / `0` 案例；精确缺口 `+20` 个全新独立来源章节、`+60` 条独立非阻断案例，单章 `<=3` 条、覆盖 `>=3` 题材、`0` 章重叠且禁入 `OLD-HOLD-1..4` / `NH-1..5` / `V22-H1..4`）；同时核实 **`G6`**（`0/12–16` 章，`underpowered`）、**`G4`**（独立来源章 `N_ch = 3 < 8`，**`underpowered`**，精确缺口 `+5` 个独立来源章节；9 个 `Arm × Chapter` 运行实例仅作重复运行维度，不充当独立来源章）、**`G3`**（缺 `+1` 章/`+6` 段）与 **`G5`**（缺 `+2` 死锁章）均存在样本缺口（详见 [`P0-0-Baseline-Audit-Report.md`](./P0-0-Baseline-Audit-Report.md) §五 & 附录 C） | 在进入 `P0-6` 正式裁决前，由独立样本构建与双评委+第三仲裁定案流程补齐 `G2-B`、`G3`、`G4`、`G5` 与 `G6` 样本缺口，严禁混算历史集或降低原门槛 | `PRE_REGISTERED`（`P0-6` 尚未启动；不阻塞 `P0-1`~`P0-5`） |

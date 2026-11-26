@@ -58,13 +58,13 @@
 
 | 任务 ID | 任务名称 | 前置依赖 | 当前状态 | 独立 Commit SHA | GPT-6 验收状态 | 关键风险 / 当前备注 |
 |---|---|---|---|---|---|---|
-| **P0-0** | 研发基线审计与实施准备 | PRD `ACCEPTED` + 文档 `2d6061d6` `ACCEPTED` + 作者预授权（均已满足） | **`READY_FOR_REVIEW`** | 原始：`86cbc9f3ad37c635f134eeea2a89317d5eef0a3c`（`02:58:13Z`）；<br>`RW-P0-0-001`：`9747e146e016155055b928d7a664650cb76def5c`、`8ac888fce42070855241d2f17d05691b3afce709`；<br>`RW-P0-0-002`：`52dd599b1e30ee3a76c682bf9ec86056e16ded10`（`05:26:25Z`） | `PENDING`（`RW-P0-0-003` 重提） | 第三轮复审已通过 Git 边界、C.2、G4 与测试边界；现已完成 C.3 最终深度审计整改：新增 `P0-0-C3-Full-File-Manifest.tsv`（2,723 行）与 `P0-0-C3-Repo-Manifest.tsv`（293 行），完成全文/JSON/JSONL/Diff/日志/ZIP 扫描与 `UNRESOLVED = 0` 强断言（明示 Neon 本地实跑，GPT-6 未独立复跑）；0 代码改动，等待 GPT-6 独立验收 |
+| **P0-0** | 研发基线审计与实施准备 | PRD `ACCEPTED` + 文档 `2d6061d6` `ACCEPTED` + 作者预授权（均已满足） | **`READY_FOR_REVIEW`** | 原始：`86cbc9f3`；`RW-001`：`9747e146`/`8ac888fc`；`RW-002`：`52dd599b`；`RW-003`：`27f5cdc0`（`05:57:24Z`） | `PENDING`（`RW-P0-0-004` 重提） | 第四轮复审已通过 Git 边界与 Manifest 结构；现已完成 3 项闭环整改：C.3 覆盖全部可读文本格式并隔离二进制媒体与 85 个嵌套 `.git` 对象、16 列 TSV 复算 G2-B/G6 资格零硬编码（`total_unresolved=0`）、G4 按冻结 `08` 独立章节口径正式标为 `underpowered`（`N_ch=3 < 8`，缺 `+5` 独立来源章）；0 代码改动，等待 GPT-6 独立验收 |
 | **P0-1** | S1 四级枚举及下游兼容（含 `ENG-FIX-P1`） | `P0-0 (ACCEPTED)` | `NOT_STARTED` | `—` | `NOT_SUBMITTED` | 严守 R2 零破坏与 `SUGGESTION` 0% 阻断（`08` E1 & G5）；须待 `P0-0` 获 `ACCEPTED` 后方可启动 |
 | **P0-2** | 写手语域防火墙 | `P0-0 (ACCEPTED)` | `NOT_STARTED` | `—` | `NOT_SUBMITTED` | 写手上下文治理词/限时压迫词 `= 0`；末尾严格按“倒数第二部分：本书文风锚点示范 → 最后一部分（最末位）：上一章结尾原文（500–900 字）”排列（`03` 2.1 节 & `08` E5） |
 | **P0-3** | `precheck v2` | `P0-0 (ACCEPTED)` | `NOT_STARTED` | `—` | `NOT_SUBMITTED` | 仅文件破损与作者显式硬约束阻断；字数/重复段/跨段引语不阻断 |
 | **P0-4** | 复合审读指纹与 Fail-Closed | `P0-1 (ACCEPTED)` | `NOT_STARTED` | `—` | `NOT_SUBMITTED` | 五元组复合指纹 + 6 维取证槽 + 修空增 `revision` Bug（`08` E2） |
 | **P0-5** | A/B/C 三方案审稿原型（含 `PLANNING_CONFLICT_BLOCK`） | `P0-2`, `P0-3`, `P0-4 (均 ACCEPTED)` | `NOT_STARTED` | `—` | `NOT_SUBMITTED` | 仅在隔离沙箱落地原型，**禁止提前替换生产主审稿模板** |
-| **P0-6** | G1–G6 统计与文学质量验收 | `P0-5 (ACCEPTED)` | `NOT_STARTED` | `—` | `NOT_SUBMITTED` | **G2-A 与 G2-B 严格分离；G2-B 当前 `underpowered`（0/20 章、0/60 案例），同时已核实 G3（缺 +1 章/+6 段）、G5（缺 +2 死锁章）与 G6（0/12–16 章）缺口** |
+| **P0-6** | G1–G6 统计与文学质量验收 | `P0-5 (ACCEPTED)` | `NOT_STARTED` | `—` | `NOT_SUBMITTED` | **G2-A 与 G2-B 严格分离；G2-B（`0/20` 章、`0/60` 案例）、G4（独立来源章 `N_ch=3 < 8`，缺 `+5` 章）与 G6（`0/12–16` 章）均标记 `underpowered`，同时已核实 G3（缺 `+1` 章/`+6` 段）与 G5（缺 `+2` 死锁章）缺口** |
 
 ---
 
