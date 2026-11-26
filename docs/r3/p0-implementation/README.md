@@ -1,7 +1,7 @@
 # R3 审核体系 v3 · P0 受控研发实施管理总览
 
-> **管理体系定位**：本目录（`docs/r3/p0-implementation/`）是 R3 审核体系 v3 **P0 阶段受控研发**的独立日常实施与验收管理体系，**只负责 P0 专项实施与验收**（全仓库长期历史、创作原则、实验证据与跨会话恢复上下文见仓库级档案 [`docs/PROJECT-CONTEXT.md`](../../PROJECT-CONTEXT.md)，本目录不复制该档案）。  
-> **红线声明**：本目录文档**不重新设计、不覆盖、不降低**已冻结架构 PRD `v1.2.3` 的任何设计约束与验收门槛；`P0-0` 已于 `2026-11-26T06:59:01Z` 获 GPT-6 独立验收 **`ACCEPTED`**（`2b51cc262db9fb9cd9b030977b418f362b9fb002`）；**`P0-1` 已获作者正式启动及 A+ 方案授权（Issue #5 Comment `7186679073`，PRD 修订 Commit `2b6236553c983a93b128758a5343fcac49f00c42`），当前已完成实施与全量本地回归并置为 `READY_FOR_REVIEW`，等待 GPT-6 独立验收；`P0-2` 至 `P0-6` 全部继续保持 `NOT_STARTED`，严禁越权启动或自行宣布 `ACCEPTED`**。
+> **目录定位**：本目录（`docs/r3/p0-implementation/`）提供 R3 审核体系 v3 **P0 阶段的专项范围说明、技术文档导航与历史基线索引**。全仓库长期背景与协作治理见 [`docs/PROJECT-CONTEXT.md`](../../PROJECT-CONTEXT.md)；本 README 不承担日常任务状态或实施进度维护，实时状态以 GitHub Issues 与 Project #4 为准。  
+> **规范与证据边界**：本目录文档**不重新设计、不覆盖、不降低**已冻结架构 PRD `v1.2.3` 的任何设计约束与验收门槛；`P0-0` 已于 `2026-11-26T06:59:01Z` 获 GPT-6 独立验收 **`ACCEPTED`**（`2b51cc262db9fb9cd9b030977b418f362b9fb002`），作为已完成的历史里程碑保留。其他任务的实时状态、授权、实施进度与审查结论统一查阅对应 GitHub Issue，并通过 [Project #4](https://github.com/users/chindden/projects/4) 查看全局状态；本 README 不复制动态状态。
 
 ---
 
@@ -41,8 +41,6 @@
 | **`P0-0` 最终验收基线 Commit SHA** | **`2b51cc262db9fb9cd9b030977b418f362b9fb002`**（GitHub 提交时间 `2026-11-26T06:45:42Z`；**GPT-6 第六轮独立验收 `ACCEPTED`，验收时间 `2026-11-26T06:59:01Z`**） |
 | **`P0-1` A+ 方案作者授权与 PRD 补充基线 SHA** | **`2b6236553c983a93b128758a5343fcac49f00c42`**（GitHub Issue #5 Comment `7186679073`，将 `v3_common.mjs` `structuredReportValid()` 与 `r3_plan_common.mjs` `validCoreReview()` 纳入 `P0-1` 最小修改白名单） |
 | **历史本地实验参考（未合入基线）** | `feat/r3-phase1-throughput-o1-o3` @ `c0966b1`（已在 `P0-0` 完成只读差异审计，严禁整枝盲目合入） |
-| **当前阶段** | **`P0-1：S1 四级枚举及下游兼容（含 ENG-FIX-P1）` 已按作者批准的 A+ 方案完成研发与全量本地回归，状态置为 `READY_FOR_REVIEW`（Issue #5 转 `In review`），等待 GPT-6 独立验收；`P0-2`～`P0-6` 维持 `NOT_STARTED`（Issue `#6`～`#10` 保持 `Backlog`）。** |
-| **总体进度** | **`1 / 7` 任务已验收（`14.3%`）**（`P0-0` = **`ACCEPTED`**；`P0-1` = **`READY_FOR_REVIEW`**；`P0-2` ~ `P0-6` 全部保持 `NOT_STARTED`） |
 
 ### 引用的正式冻结架构基线文档（只读权威，禁止修改）
 - [`docs/r3/review-v3/03-R3审核体系v3总体架构设计.md`](../review-v3/03-R3审核体系v3总体架构设计.md)（`v1.2.2` 对齐冻结）
@@ -53,20 +51,21 @@
 
 ---
 
-## 三、P0-0 至 P0-6 状态面板
+## 三、实时任务状态与沟通入口（动态权威）
 
-> **状态枚举硬规范**：仅允许使用 `NOT_STARTED` | `IN_PROGRESS` | `READY_FOR_REVIEW` | `CHANGES_REQUESTED` | `ACCEPTED` | `BLOCKED`。  
-> **验收权限铁律**：**Neon 仅能将任务推进至 `READY_FOR_REVIEW`，绝不得自行置为 `ACCEPTED`**；`ACCEPTED` 仅在 **GPT-6 明确验收通过**后方可写入；任一任务未获 `ACCEPTED`（或被置为 `CHANGES_REQUESTED`），严禁绕过验收启动后续依赖任务。
+本目录不再维护 P0-0 至 P0-6 的本地状态面板。每项任务的实时状态、授权、执行记录、Commit、测试证据、审查意见与验收结论，以对应 GitHub Issue 为准；全局任务展示与状态推进统一使用 [Project #4 · Chinese Novelist Skill R3](https://github.com/users/chindden/projects/4)。
 
-| 任务 ID | 任务名称 | 前置依赖 | 当前状态 | 独立 Commit SHA | GPT-6 验收状态 | 关键风险 / 当前备注 |
-|---|---|---|---|---|---|---|
-| **P0-0** | 研发基线审计与实施准备 | PRD `ACCEPTED` + 文档 `2d6061d6` `ACCEPTED` + 作者预授权（均已满足） | **`ACCEPTED`** | 原始：`86cbc9f3`；`RW-001`：`9747e146`/`8ac888fc`；`RW-002`：`52dd599b`；`RW-003`：`27f5cdc0`；`RW-004`：`4d0abeac`；`RW-005`（验收基线）：`2b51cc262db9fb9cd9b030977b418f362b9fb002`（`2026-11-26T06:45:42Z`） | **`ACCEPTED`**（`2026-11-26T06:59:01Z`，Issue #4 第六轮复审） | 仅表示 P0-0 基线审计、证据整理与样本现状核查达标（0 代码改动）；**不表示文学质量提升、不表示 G2-B/G4/G6 已过统计验收、不表示生产改造完成，也不构成 `P0-1` 自动启动授权**；Issue #4 已关闭归档、Project #4 转 `Done` |
-| **P0-1** | S1 四级枚举及下游兼容（含 `ENG-FIX-P1`） | `P0-0 (ACCEPTED)` + 作者 A+ 授权（`2b623655`） | **`READY_FOR_REVIEW`** | 本独立 Commit（基于 `2b623655` 提交，完整 40 位 SHA 见 GitHub Issue #5 提审报告与 `git log`） | **`PENDING`**（等待 GPT-6 独立验收） | 已按 A+ 方案完成 5 个白名单脚本最小改造 + 3 份测试（新增 `r3_s1_severity_compat.test.mjs`，追加 `r2_review.test.mjs`/`v3_gate.test.mjs`）；Neon 本地全量 20 份测试文件 100% 通过（`node --test` `76/76` + 独立 Node `10/10` + Python `12/12`，未由 GPT-6 独立复跑）；纯 R2 三级行为与 `record_pilot_approval.mjs`/`r3_delivery_check.mjs`/`plan_review_common.mjs` 0 改动 |
-| **P0-2** | 写手语域防火墙 | `P0-0 (ACCEPTED)` | `NOT_STARTED` | `—` | `NOT_SUBMITTED` | 写手上下文治理词/限时压迫词 `= 0`；末尾严格按“倒数第二部分：本书文风锚点示范 → 最后一部分（最末位）：上一章结尾原文（500–900 字）”排列（`03` 2.1 节 & `08` E5） |
-| **P0-3** | `precheck v2` | `P0-0 (ACCEPTED)` | `NOT_STARTED` | `—` | `NOT_SUBMITTED` | 仅文件破损与作者显式硬约束阻断；字数/重复段/跨段引语不阻断 |
-| **P0-4** | 复合审读指纹与 Fail-Closed | `P0-1 (ACCEPTED)` | `NOT_STARTED` | `—` | `NOT_SUBMITTED` | 五元组复合指纹 + 6 维取证槽 + 修空增 `revision` Bug（`08` E2） |
-| **P0-5** | A/B/C 三方案审稿原型（含 `PLANNING_CONFLICT_BLOCK`） | `P0-2`, `P0-3`, `P0-4 (均 ACCEPTED)` | `NOT_STARTED` | `—` | `NOT_SUBMITTED` | 仅在隔离沙箱落地原型，**禁止提前替换生产主审稿模板** |
-| **P0-6** | G1–G6 统计与文学质量验收 | `P0-5 (ACCEPTED)` | `NOT_STARTED` | `—` | `NOT_SUBMITTED` | **G2-A 与 G2-B 严格分离；G2-B（`0/20` 章、`0/60` 案例）、G4（独立来源章 `N_ch=3 < 8`，缺 `+5` 章）与 G6（`0/12–16` 章）均标记 `underpowered`，同时已核实 G3（缺 `+1` 章/`+6` 段）与 G5（缺 `+2` 死锁章）缺口** |
+| 任务 | 任务记录与执行证据 |
+|---|---|
+| **P0-0** | [GitHub Issue #4](https://github.com/chindden/chinese-novelist-skill/issues/4) |
+| **P0-1** | [GitHub Issue #5](https://github.com/chindden/chinese-novelist-skill/issues/5) |
+| **P0-2** | [GitHub Issue #6](https://github.com/chindden/chinese-novelist-skill/issues/6) |
+| **P0-3** | [GitHub Issue #7](https://github.com/chindden/chinese-novelist-skill/issues/7) |
+| **P0-4** | [GitHub Issue #8](https://github.com/chindden/chinese-novelist-skill/issues/8) |
+| **P0-5** | [GitHub Issue #9](https://github.com/chindden/chinese-novelist-skill/issues/9) |
+| **P0-6** | [GitHub Issue #10](https://github.com/chindden/chinese-novelist-skill/issues/10) |
+
+> **查询纪律**：先查看 Project #4 识别任务状态，再进入对应 Issue 阅读具体执行上下文与证据。README 中的任务编号与 Issue 链接仅作导航，不记录任务状态；不得依据本文件、历史 Progress Log 或其他静态快照推断当前进度。
 
 ---
 
@@ -74,9 +73,9 @@
 
 | 文件 | 职责说明 |
 |---|---|
-| [`README.md`](./README.md)（本文件） | 项目目标与范围、基线元信息、当前阶段、总体进度与 `P0-0` ~ `P0-6` 状态总览面板 |
-| [`P0-Implementation-PRD.md`](./P0-Implementation-PRD.md) | `P0-0` ~ `P0-6` 逐项完整实施规范（含全部 11 个标准字段）、权限与提交规范、回滚预案及 GPT-6 验收记录表 |
-| [`P0-Progress-Log.md`](./P0-Progress-Log.md) | 按时间线记录每次实施活动、Commit SHA、变更文件、测试输出、GPT-6 审核结论及返工/复审闭环台账 |
+| [`README.md`](./README.md)（本文件） | P0 项目目标与范围、历史基线索引、GitHub Issue / Project #4 实时状态入口与专项文档导航；不维护动态进度 |
+| [`P0-Implementation-PRD.md`](./P0-Implementation-PRD.md) | `P0-0` ~ `P0-6` 的实施规范、技术边界、允许/禁止修改范围、测试要求与验收标准；按全局 `DEC-13` 管理冻结后变更及阶段结项总结 |
+| [`P0-Progress-Log.md`](./P0-Progress-Log.md) | **历史实施与验收记录归档**：保留既有内容，自全局 `DEC-13` 生效后停止追加或修改；不作为当前任务状态或执行证据的权威来源 |
 | [`P0-0-Baseline-Audit-Report.md`](./P0-0-Baseline-Audit-Report.md) | `P0-0` 纯只读基线审计报告（代码基线、与 `c0966b12` 差异、Node/Python 固化测试基线、全仓 S1 消费者与 `ENG-FIX-P1` 拆解、G1–G6 样本就绪度与附录 A/B/C） |
 | [`P0-0-C3-Full-File-Manifest.tsv`](./P0-0-C3-Full-File-Manifest.tsv) | `P0-0` 附录 C.3 配套审计证据：本地 `<ART_ROOT>` 全部 2,723 个文件逐文件脱敏 Manifest（含字节数、完整 64 位 SHA-256、深度信号与 6 栏排除记录） |
 | [`P0-0-C3-Repo-Manifest.tsv`](./P0-0-C3-Repo-Manifest.tsv) | `P0-0` 附录 C.3 配套审计证据：公开主仓全部 293 个非清单文件逐文件脱敏 Manifest（含字节数、完整 64 位 SHA-256、深度信号与排除记录） |
