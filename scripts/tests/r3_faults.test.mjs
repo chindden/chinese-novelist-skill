@@ -112,3 +112,26 @@ test('quote invented by model is rejected even when report claims a pass',t=>{
   fs.writeFileSync(path.join(root,'bad-report.json'),JSON.stringify(report));
   assert.equal(run(root,'core-submit','--role','architecture','--report','bad-report.json').status,2);
 });
+test('P0-4 fault injection: review kernel rejects symlinked outline/ledger and symlinked review-v3 dir with exit code 2',t=>{
+  const kernelCli=fileURLToPath(new URL('../r3_review_kernel.mjs',import.meta.url));
+  const root=project(t),outside=tmp(t,'r3-p04-ext-');
+  fs.mkdirSync(path.join(root,'chapter'),{recursive:true});
+  fs.writeFileSync(path.join(root,'chapter','1.md'),'# 第一章\n\n周衡推开木门，查看屋内陈设。\n','utf8');
+  fs.writeFileSync(path.join(outside,'evil-outline.md'),'# 大纲\n## 核心契约\n伪造\n## 滚动卷纲\n### 第1卷\n伪造\n','utf8');
+  fs.rmSync(path.join(root,'01-大纲.md'));
+  fs.symlinkSync(path.join(outside,'evil-outline.md'),path.join(root,'01-大纲.md'));
+  const fpOut=spawnSync(process.execPath,[kernelCli,root,'fingerprint','--chapter','1'],{encoding:'utf8'});
+  assert.equal(fpOut.status,2);
+  assert.match(fpOut.stdout,/R3_FP_PLANNING_FILE_UNSAFE/);
+
+  // Restore real outline, symlink reviews/r3/review-v3 outside project -> prepare must fail closed with 0 external writes
+  fs.rmSync(path.join(root,'01-大纲.md'));
+  fs.writeFileSync(path.join(root,'01-大纲.md'),
+    '# 大纲\n## 核心契约\n不能读心。\n## 滚动卷纲\n### 第1卷\n开灵米店。\n','utf8');
+  fs.mkdirSync(path.join(root,'reviews','r3'),{recursive:true});
+  fs.symlinkSync(outside,path.join(root,'reviews','r3','review-v3'),'dir');
+  const prepOut=spawnSync(process.execPath,[kernelCli,root,'prepare','--chapter','1','--writer-run-id','w','--writer-context-id','wc'],{encoding:'utf8'});
+  assert.equal(prepOut.status,2);
+  assert.equal(fs.existsSync(path.join(outside,'input-ch001-v1.json')),false);
+});
+
