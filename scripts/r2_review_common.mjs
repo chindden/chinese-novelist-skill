@@ -37,10 +37,12 @@ export function validate(report,packet,allowP1=false){
      typeof report?.summary!=='string'||!report.summary.trim()||
      !Array.isArray(report?.issues))errors.push('R2_REPORT_INVALID');
   if(Array.isArray(report?.issues)){
+    const allowS1=Boolean(allowP1&&packet?.p1Protocol===1);
+    const allowedSeverities=allowS1?['BLOCKER','MAJOR','MINOR','SUGGESTION']:['BLOCKER','MAJOR','MINOR'];
     const ids=new Set();
     for(const i of report.issues){
       if(typeof i?.id!=='string'||!i.id.trim()||ids.has(i.id)||
-        !['BLOCKER','MAJOR','MINOR'].includes(i.severity)||
+        !allowedSeverities.includes(i.severity)||
         !['open','resolved','accepted'].includes(i.status)||
         !range(packet.kind,packet.end).includes(i.chapter)||
         typeof i.quote!=='string'||!i.quote.trim()||
@@ -48,6 +50,12 @@ export function validate(report,packet,allowP1=false){
         typeof i.suggestion!=='string'||!i.suggestion.trim()||
         (i.status==='accepted'&&!(typeof i.acceptanceReason==='string'&&i.acceptanceReason.trim()))){
         errors.push('R2_INVALID_ISSUE');break;
+      }
+      if(i.severity==='SUGGESTION'&&
+        ((i.blocking!==undefined&&i.blocking!==false)||
+         (i.mustCloseInReReview!==undefined&&i.mustCloseInReReview!==false)||
+         i.disposition==='fix_now'||i.disposition==='fix_in_arc')){
+        errors.push('R2_SUGGESTION_CANNOT_BLOCK');break;
       }
       ids.add(i.id);
     }

@@ -1,7 +1,7 @@
 # R3 审核体系 v3 · P0 受控研发实施管理总览
 
 > **管理体系定位**：本目录（`docs/r3/p0-implementation/`）是 R3 审核体系 v3 **P0 阶段受控研发**的独立日常实施与验收管理体系，**只负责 P0 专项实施与验收**（全仓库长期历史、创作原则、实验证据与跨会话恢复上下文见仓库级档案 [`docs/PROJECT-CONTEXT.md`](../../PROJECT-CONTEXT.md)，本目录不复制该档案）。  
-> **红线声明**：本目录文档**不重新设计、不覆盖、不降低**已冻结架构 PRD `v1.2.3` 的任何设计约束与验收门槛；当前纯只读 **`P0-0`** 已于 `2026-11-26T06:59:01Z` 获 GPT-6 独立验收 **`ACCEPTED`**（验收基线 `2b51cc262db9fb9cd9b030977b418f362b9fb002`）；**本次验收不构成下游任务自动启动授权，`P0-1` 至 `P0-6` 全部继续保持 `NOT_STARTED`，等待作者后续安排，零生产代码修改、零 Skill/R2/测试改动、零新小说实验**。
+> **红线声明**：本目录文档**不重新设计、不覆盖、不降低**已冻结架构 PRD `v1.2.3` 的任何设计约束与验收门槛；`P0-0` 已于 `2026-11-26T06:59:01Z` 获 GPT-6 独立验收 **`ACCEPTED`**（`2b51cc262db9fb9cd9b030977b418f362b9fb002`）；**`P0-1` 已获作者正式启动及 A+ 方案授权（Issue #5 Comment `7186679073`，PRD 修订 Commit `2b6236553c983a93b128758a5343fcac49f00c42`），当前已完成实施与全量本地回归并置为 `READY_FOR_REVIEW`，等待 GPT-6 独立验收；`P0-2` 至 `P0-6` 全部继续保持 `NOT_STARTED`，严禁越权启动或自行宣布 `ACCEPTED`**。
 
 ---
 
@@ -39,9 +39,10 @@
 | **P0 管理 PRD 验收基线 Commit SHA** | **`e52105adca3f994fca3cbdeef9aa935479ceaf9b`**（GitHub 提交时间 `2026-11-25T17:44:23Z`；**GPT-6 最终验收 `ACCEPTED`，验收日期 `2026-11-26`**） |
 | **上下文与 Handoff 验收基线 Commit SHA** | **`2d6061d6cd0e8b4b2da77619cb58239c44dc332e`**（GitHub 提交时间 `2026-11-26T00:52:10Z`；**GPT-6 最终验收 `ACCEPTED`**，正式触发作者预授权的纯只读 `P0-0` 启动） |
 | **`P0-0` 最终验收基线 Commit SHA** | **`2b51cc262db9fb9cd9b030977b418f362b9fb002`**（GitHub 提交时间 `2026-11-26T06:45:42Z`；**GPT-6 第六轮独立验收 `ACCEPTED`，验收时间 `2026-11-26T06:59:01Z`**） |
+| **`P0-1` A+ 方案作者授权与 PRD 补充基线 SHA** | **`2b6236553c983a93b128758a5343fcac49f00c42`**（GitHub Issue #5 Comment `7186679073`，将 `v3_common.mjs` `structuredReportValid()` 与 `r3_plan_common.mjs` `validCoreReview()` 纳入 `P0-1` 最小修改白名单） |
 | **历史本地实验参考（未合入基线）** | `feat/r3-phase1-throughput-o1-o3` @ `c0966b1`（已在 `P0-0` 完成只读差异审计，严禁整枝盲目合入） |
-| **当前阶段** | **纯只读 `P0-0：研发基线审计与实施准备` 已获 GPT-6 独立验收 `ACCEPTED`（Issue #4 已关闭归档、Project #4 转 `Done`）；`P0-1`～`P0-6` 维持 `NOT_STARTED`，等待作者后续明确授权与安排。** |
-| **总体进度** | **`1 / 7` 任务已验收（`14.3%`）**（`P0-0` = **`ACCEPTED`**；`P0-1` ~ `P0-6` 全部保持 `NOT_STARTED`） |
+| **当前阶段** | **`P0-1：S1 四级枚举及下游兼容（含 ENG-FIX-P1）` 已按作者批准的 A+ 方案完成研发与全量本地回归，状态置为 `READY_FOR_REVIEW`（Issue #5 转 `In review`），等待 GPT-6 独立验收；`P0-2`～`P0-6` 维持 `NOT_STARTED`（Issue `#6`～`#10` 保持 `Backlog`）。** |
+| **总体进度** | **`1 / 7` 任务已验收（`14.3%`）**（`P0-0` = **`ACCEPTED`**；`P0-1` = **`READY_FOR_REVIEW`**；`P0-2` ~ `P0-6` 全部保持 `NOT_STARTED`） |
 
 ### 引用的正式冻结架构基线文档（只读权威，禁止修改）
 - [`docs/r3/review-v3/03-R3审核体系v3总体架构设计.md`](../review-v3/03-R3审核体系v3总体架构设计.md)（`v1.2.2` 对齐冻结）
@@ -60,7 +61,7 @@
 | 任务 ID | 任务名称 | 前置依赖 | 当前状态 | 独立 Commit SHA | GPT-6 验收状态 | 关键风险 / 当前备注 |
 |---|---|---|---|---|---|---|
 | **P0-0** | 研发基线审计与实施准备 | PRD `ACCEPTED` + 文档 `2d6061d6` `ACCEPTED` + 作者预授权（均已满足） | **`ACCEPTED`** | 原始：`86cbc9f3`；`RW-001`：`9747e146`/`8ac888fc`；`RW-002`：`52dd599b`；`RW-003`：`27f5cdc0`；`RW-004`：`4d0abeac`；`RW-005`（验收基线）：`2b51cc262db9fb9cd9b030977b418f362b9fb002`（`2026-11-26T06:45:42Z`） | **`ACCEPTED`**（`2026-11-26T06:59:01Z`，Issue #4 第六轮复审） | 仅表示 P0-0 基线审计、证据整理与样本现状核查达标（0 代码改动）；**不表示文学质量提升、不表示 G2-B/G4/G6 已过统计验收、不表示生产改造完成，也不构成 `P0-1` 自动启动授权**；Issue #4 已关闭归档、Project #4 转 `Done` |
-| **P0-1** | S1 四级枚举及下游兼容（含 `ENG-FIX-P1`） | `P0-0 (ACCEPTED)` | `NOT_STARTED` | `—` | `NOT_SUBMITTED` | 严守 R2 零破坏与 `SUGGESTION` 0% 阻断（`08` E1 & G5）；**`P0-0` 已验收，继续维持 `NOT_STARTED` 等待作者后续安排** |
+| **P0-1** | S1 四级枚举及下游兼容（含 `ENG-FIX-P1`） | `P0-0 (ACCEPTED)` + 作者 A+ 授权（`2b623655`） | **`READY_FOR_REVIEW`** | 本独立 Commit（基于 `2b623655` 提交，完整 40 位 SHA 见 GitHub Issue #5 提审报告与 `git log`） | **`PENDING`**（等待 GPT-6 独立验收） | 已按 A+ 方案完成 5 个白名单脚本最小改造 + 3 份测试（新增 `r3_s1_severity_compat.test.mjs`，追加 `r2_review.test.mjs`/`v3_gate.test.mjs`）；Neon 本地全量 20 份测试文件 100% 通过（`node --test` `76/76` + 独立 Node `10/10` + Python `12/12`，未由 GPT-6 独立复跑）；纯 R2 三级行为与 `record_pilot_approval.mjs`/`r3_delivery_check.mjs`/`plan_review_common.mjs` 0 改动 |
 | **P0-2** | 写手语域防火墙 | `P0-0 (ACCEPTED)` | `NOT_STARTED` | `—` | `NOT_SUBMITTED` | 写手上下文治理词/限时压迫词 `= 0`；末尾严格按“倒数第二部分：本书文风锚点示范 → 最后一部分（最末位）：上一章结尾原文（500–900 字）”排列（`03` 2.1 节 & `08` E5） |
 | **P0-3** | `precheck v2` | `P0-0 (ACCEPTED)` | `NOT_STARTED` | `—` | `NOT_SUBMITTED` | 仅文件破损与作者显式硬约束阻断；字数/重复段/跨段引语不阻断 |
 | **P0-4** | 复合审读指纹与 Fail-Closed | `P0-1 (ACCEPTED)` | `NOT_STARTED` | `—` | `NOT_SUBMITTED` | 五元组复合指纹 + 6 维取证槽 + 修空增 `revision` Bug（`08` E2） |

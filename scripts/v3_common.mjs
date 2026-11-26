@@ -76,7 +76,7 @@ export function structuredReportValid(report, revision, hashes) {
     const ids = new Set();
     for (const issue of report.issues) {
       if (typeof issue?.id !== 'string' || !issue.id.trim() || ids.has(issue.id) ||
-          !['BLOCKER', 'MAJOR', 'MINOR'].includes(issue.severity) ||
+          !['BLOCKER', 'MAJOR', 'MINOR', 'SUGGESTION'].includes(issue.severity) ||
           !['open', 'resolved', 'accepted'].includes(issue.status) ||
           !Number.isInteger(issue.chapter) || issue.chapter < 1 || issue.chapter > 3 ||
           typeof issue.quote !== 'string' || !issue.quote.trim() ||
@@ -84,6 +84,12 @@ export function structuredReportValid(report, revision, hashes) {
           typeof issue.suggestion !== 'string' || !issue.suggestion.trim() ||
           (issue.status === 'accepted' && (!issue.acceptanceReason || !issue.acceptanceReason.trim()))) {
         errors.push('INVALID_ISSUE'); break;
+      }
+      if (issue.severity === 'SUGGESTION' &&
+          ((issue.blocking !== undefined && issue.blocking !== false) ||
+           (issue.mustCloseInReReview !== undefined && issue.mustCloseInReReview !== false) ||
+           issue.disposition === 'fix_now')) {
+        errors.push('SUGGESTION_CANNOT_BLOCK'); break;
       }
       ids.add(issue.id);
     }

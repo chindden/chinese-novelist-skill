@@ -67,5 +67,28 @@ try{
   fs.writeFileSync(path.join(root,'chapter-2.md'),'第2章\n正文');
   fs.appendFileSync(path.join(root,'reviews/pilot-review-v2.json'),' ');
   assert.ok(run('v3_gate','--chapter','4').out.issues.some(x=>x.code==='REVIEW_CHANGED'));
-  console.log('PASS integrated V3 pilot gate: 16 assertions');
+  // P0-1 compatibility check: Pilot gate accepts non-blocking SUGGESTION and rejects blocking override via shared validator
+  fs.writeFileSync(path.join(root,'reviews/pilot-review-v2.json'),fs.readFileSync(path.join(root,'reviews/pilot-review-v2.json'),'utf8').trimEnd());
+  fs.appendFileSync(path.join(root,'chapter-3.md'),'\n润色微调');
+  assert.equal(run('prepare_pilot_review','--restart').out.revision,3);
+  const sugReport={schemaVersion:1,revision:3,reviewer:{...reviewer,runId:'test-fixture-revision-3'},
+    manuscriptHashes:plan().v3.pilotGate.reviewedChapterHashes,decision:'pass_candidate',summary:'测试夹具：含 SUGGESTION 非阻断通过。',
+    strengths:['节奏稳定'],issues:[{id:'SUG-1',severity:'SUGGESTION',status:'open',chapter:3,quote:'正文',reason:'可选润色建议',suggestion:'可酌情补细节'}]};
+  fs.writeFileSync(path.join(root,'review-source.json'),JSON.stringify({...sugReport,issues:[{...sugReport.issues[0],blocking:true}]}));
+  assert.match(run('submit_pilot_review','review-source.json').out.error,/SUGGESTION_CANNOT_BLOCK/);
+  fs.writeFileSync(path.join(root,'review-source.json'),JSON.stringify(sugReport));
+  assert.equal(run('submit_pilot_review','review-source.json').code,0,'accepts Pilot report with non-blocking SUGGESTION');
+  const gate3=plan().v3.pilotGate;
+  fs.writeFileSync(path.join(root,'user-confirmation-v3.json'),JSON.stringify({schemaVersion:1,approved:true,revision:3,
+    reviewSha256:gate3.reviewSha256,quote:'测试夹具模拟批准v3。',source:'test_fixture',approvedAt:'2026-11-26T00:00:00Z'}));
+  assert.equal(run('record_pilot_approval','--evidence','user-confirmation-v3.json').code,0,'unmodified record_pilot_approval accepts SUGGESTION via shared validator');
+  assert.equal(run('r2_review','prepare','--scope','chapter','--end','3','--writer-run-id','writer3b','--writer-context-id','writer-context3b').code,0);
+  const rec3=plan().v3.r2.chapterReviews['3'];
+  const pkt3=JSON.parse(fs.readFileSync(path.join(root,rec3.inputPath),'utf8'));
+  fs.writeFileSync(path.join(root,'r2-source-3b.json'),JSON.stringify({schemaVersion:1,kind:'chapter',end:3,revision:rec3.revision,
+    manuscriptHashes:pkt3.manuscriptHashes,reviewer:{kind:'independent_agent',runId:'editor3b',contextId:'editor-context3b'},
+    decision:'pass_candidate',summary:'测试：重审通过',issues:[]}));
+  assert.equal(run('r2_review','submit','--scope','chapter','--end','3','--report','r2-source-3b.json').code,0);
+  assert.equal(run('v3_gate','--chapter','4').code,0,'allows chapter 4 with Pilot SUGGESTION report');
+  console.log('PASS integrated V3 pilot gate: 16 assertions + P0-1 SUGGESTION compat');
 }finally{fs.rmSync(root,{recursive:true,force:true});}

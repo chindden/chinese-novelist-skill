@@ -22,6 +22,14 @@ function quoteValid(root,plan,n,quote,scope){
   const p=safeFile(root,plan.chapters.find(c=>c.chapterNumber===n)?.filePath);
   return !!p&&fs.readFileSync(p,'utf8').includes(quote);
 }
+export const S1_SEVERITIES=Object.freeze(['BLOCKER','MAJOR','MINOR','SUGGESTION']);
+export const S1_BLOCKING_SEVERITIES=Object.freeze(['BLOCKER','MAJOR']);
+export const isS1BlockingSeverity=s=>S1_BLOCKING_SEVERITIES.includes(s);
+export function mustCloseInReReviewIssues(report){
+  if(!Array.isArray(report?.issues))return [];
+  return report.issues.filter(i=>i&&i.status==='open'&&S1_BLOCKING_SEVERITIES.includes(i.severity)&&
+    !(i.severity==='MAJOR'&&i.classification==='B'&&i.disposition==='fix_in_arc'));
+}
 export function readFeedback(root,plan,{upto=Infinity}={}){
   const state=p1State(plan),issues=new Map(),signals=[],strengths=[],seen=new Set();
   if(!state)return {deferredIssues:[],signals:[],strengths:[]};
@@ -43,6 +51,7 @@ export function readFeedback(root,plan,{upto=Infinity}={}){
       issues.set(f.trackingId,{...old,status:f.status,resolution:{...f,source}});
     }
     for(const i of r.issues){
+      if(i.severity==='SUGGESTION')continue;
       if(!['fix_in_arc','defer_to_final'].includes(i.disposition))continue;
       const id=issueKey(i),old=issues.get(id);
       const references=[...(old?.references??[]),source];
@@ -105,17 +114,40 @@ export function checkP1Report(root,plan,report,kind,end,packet){
   const keys=new Set();
   for(const [idx,i] of report.issues.entries()){
     const label='R3_P1_ISSUE_'+idx;
+    if(!S1_SEVERITIES.includes(i?.severity))fail(label+'_INVALID_SEVERITY');
+    if(i.severity==='SUGGESTION'){
+      if(!where(i.chapter,i.quote))fail(label+'_EVIDENCE_OR_DISPOSITION');
+      if(i.evidenceLevel==='causal_break')fail(label+'_CAUSAL_BREAK_MUST_FIX_NOW');
+      if((i.blocking!==undefined&&i.blocking!==false)||
+         (i.mustCloseInReReview!==undefined&&i.mustCloseInReReview!==false)||
+         ['fix_now','fix_in_arc'].includes(i.disposition))
+        fail(label+'_SUGGESTION_CANNOT_BLOCK');
+      if(['A','B'].includes(i.classification))fail(label+'_SUGGESTION_INVALID_CLASSIFICATION');
+      if((i.classification!==undefined&&!['C','blank','advisory'].includes(i.classification))||
+         (i.evidenceLevel!==undefined&&!['explicit_conflict','narrative_risk','reasonable_blank'].includes(i.evidenceLevel))||
+         (i.evidenceBasis!==undefined&&!['explicit_text','reasonable_inference','requires_new_setting'].includes(i.evidenceBasis))||
+         (i.disposition!==undefined&&!['defer_to_final','keep_as_blank','advisory'].includes(i.disposition)))
+        fail(label+'_EVIDENCE_OR_DISPOSITION');
+      if(i.classification==='blank'&&(i.disposition!=='keep_as_blank'||i.evidenceLevel!=='reasonable_blank'||
+         i.evidenceBasis==='requires_new_setting'||i.status!=='accepted'||!nonempty(i.acceptanceReason)))
+        fail(label+'_BLANK');
+      continue;
+    }
     if(!where(i.chapter,i.quote)||!['A','B','C','blank'].includes(i.classification)||
       !['explicit_conflict','causal_break','narrative_risk','reasonable_blank'].includes(i.evidenceLevel)||
       !['explicit_text','reasonable_inference','requires_new_setting'].includes(i.evidenceBasis)||
       !['fix_now','fix_in_arc','defer_to_final','keep_as_blank'].includes(i.disposition))
       fail(label+'_EVIDENCE_OR_DISPOSITION');
+    if(i.severity==='MINOR'&&
+      ((i.blocking!==undefined&&i.blocking!==false)||
+       (i.mustCloseInReReview!==undefined&&i.mustCloseInReReview!==false)))
+      fail(label+'_MINOR_CANNOT_BLOCK');
     if(['BLOCKER','MAJOR'].includes(i.severity)&&
       !(nonempty(i.reverseDefense?.reason)&&where(i.reverseDefense.chapter,i.reverseDefense.quote)))
       fail(label+'_REVERSE_DEFENSE_REQUIRED');
     if(i.evidenceLevel==='causal_break'&&i.classification!=='A')fail(label+'_CAUSAL_BREAK_MUST_FIX_NOW');
     if(i.severity==='BLOCKER'||i.classification==='A'){
-      if(i.classification!=='A'||i.severity==='MINOR'||i.disposition!=='fix_now'||i.status==='accepted'||
+      if(i.classification!=='A'||!['BLOCKER','MAJOR'].includes(i.severity)||i.disposition!=='fix_now'||i.status==='accepted'||
         (i.status==='open'&&report.decision==='pass_candidate'))fail(label+'_HARD_CAUSAL_FLOOR');
     }else if(i.classification==='B'){
       if(i.severity!=='MAJOR'||!['fix_now','fix_in_arc'].includes(i.disposition)||i.status==='accepted'||

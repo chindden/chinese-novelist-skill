@@ -115,11 +115,15 @@ export function validCoreReview(report,packet,role,other=null,sourceFiles=null){
     report.preserveStrengths.length!==3||!report.preserveStrengths.every(text)))return false;
   const ids=new Set();
   for(const item of report.issues){
-    if(!text(item.id)||ids.has(item.id)||!['BLOCKER','MAJOR','MINOR'].includes(item.severity)||
+    if(!text(item.id)||ids.has(item.id)||!['BLOCKER','MAJOR','MINOR','SUGGESTION'].includes(item.severity)||
       !['open','resolved','accepted'].includes(item.status)||!coreNames.includes(item.artifact)||
       !text(item.quote)||!text(item.reason)||!text(item.suggestion)||
       !['explicit_conflict','causal_break','narrative_risk','reasonable_blank'].includes(item.evidenceLevel)||
       (['BLOCKER','MAJOR'].includes(item.severity)&&!text(item.reverseDefense))||
+      (item.severity==='SUGGESTION'&&(
+        (item.blocking!==undefined&&item.blocking!==false)||
+        (item.mustCloseInReReview!==undefined&&item.mustCloseInReReview!==false)||
+        item.disposition==='fix_now'))||
       (item.status==='accepted'&&!text(item.acceptanceReason)))
       return false;
     ids.add(item.id);

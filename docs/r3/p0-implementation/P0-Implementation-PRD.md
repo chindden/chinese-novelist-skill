@@ -222,15 +222,15 @@ flowchart LR
 #### 10. 实际证据记录
 | 证据项 | 当前记录 |
 |---|---|
-| **独立 Commit SHA** | `待实施` |
-| **修改文件与 Diff 摘要** | `待实施` |
-| **测试命令与结果** | `待实施` |
-| **下游消费者兼容核验表** | `待实施` |
+| **独立 Commit SHA** | 本独立 Commit（基于作者 A+ 授权与 PRD 补充基线 `2b6236553c983a93b128758a5343fcac49f00c42` 提交，完整 40 位 SHA 见 GitHub Issue #5 提审报告与 `git log`） |
+| **修改文件与 Diff 摘要** | 严格位于 A+ 白名单内共 11 个文件（5 个生产脚本最小修改 + 3 个测试文件 + 3 份 P0 管理文档）：<br>① `scripts/v3_common.mjs`（`+7/-1`）：仅扩展 `structuredReportValid()` 接受合法非阻断 `SUGGESTION`，对 `blocking !== false` / `mustCloseInReReview !== false` / `disposition === 'fix_now'` 硬返回 `SUGGESTION_CANNOT_BLOCK`，保持 `BLOCKER`/`MAJOR`/`MINOR` 规则不变；<br>② `scripts/r3_plan_common.mjs`（`+5/-1`）：仅扩展 `validCoreReview()` 接受非阻断 `SUGGESTION`（不要求 `reverseDefense`），硬拒绝 `blocking`/`mustCloseInReReview`/`fix_now` 越权标记，保持三级既有规则不变；<br>③ `scripts/r2_review_common.mjs`（`+9/-1`）：仅在 `allowS1 = Boolean(allowP1 && packet?.p1Protocol === 1)` 下接受 `SUGGESTION` 并硬返回 `R2_SUGGESTION_CANNOT_BLOCK` 拦截 `blocking`/`mustCloseInReReview`/`fix_now`/`fix_in_arc`；纯 R2 模式 100% 维持三级白名单不变；<br>④ `scripts/r3_p1_common.mjs`（`+33/-1`）：导出 `S1_SEVERITIES` / `S1_BLOCKING_SEVERITIES` / `isS1BlockingSeverity` / `mustCloseInReReviewIssues`；`readFeedback()` 跳过 `SUGGESTION`（0% 进 `deferredIssues`）；`checkP1Report()` 校验 S1 四级、硬拒 `SUGGESTION` 越权阻断/`A`/`B`/`causal_break`、修复 `ENG-FIX-P1` L118（改为 `!['BLOCKER','MAJOR'].includes(i.severity)`）并拦截 `MINOR` 越权阻断；<br>⑤ `scripts/r3_feedback_view.mjs`（`+1/-1`）：`cascadeWarnings()` 增加 `i.severity !== 'SUGGESTION'` 防御性过滤；<br>⑥ 测试：新增 `scripts/tests/r3_s1_severity_compat.test.mjs`（覆盖 `TC-P0-1-1`～`TC-P0-1-6`）；仅追加兼容断言至 `scripts/tests/r2_review.test.mjs`（`+10/-0`）与 `scripts/tests/v3_gate.test.mjs`（`+24/-1`，仅扩充末行 PASS 日志与追加断言，0 删改旧断言）；<br>⑦ 禁改边界核验：`record_pilot_approval.mjs`、`r3_delivery_check.mjs`、`plan_review_common.mjs`、`r2_review.mjs`、`SKILL.md`、`references/**`、`docs/r3/review-v3/**`、`.github/workflows/**` 均 **0 字节改动** |
+| **测试命令与结果** | **（以下为 Neon 在本地受控环境实测结果，GPT-6 尚未独立复跑）**<br>① `node --test tests/r3-routing.test.mjs scripts/tests/r3_s1_severity_compat.test.mjs scripts/tests/r3_intake.test.mjs scripts/tests/r3_plan_sections.test.mjs scripts/tests/r3_plan_protocol.test.mjs scripts/tests/r3_faults.test.mjs scripts/tests/r3_experience.test.mjs scripts/tests/r3_experience_drive.test.mjs` → **`# tests 76 / # pass 76 / # fail 0 / # skipped 0`**（原有 7 文件 `71/71` + 新增 `r3_s1_severity_compat.test.mjs` `5/5`，`exit 0`）；<br>② 全部 10 个独立 V3/R2 Node 脚本（`reference_catalog`、`init_chapter_summaries`、`validate_project`、`init_v3_state`、`plan_review`、`v3_gate`、`r2_review`、`audit_story_state`、`check_repetition`、`prepare_pilot_review`）→ **`10 / 10` 全绿（`exit 0`）**；<br>③ `PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s scripts/tests -p 'test_*.py' -v` → **`Ran 12 tests in 0.932s — OK`**（`exit 0`）；<br>④ 汇总：全仓 **20 个测试文件 100% 通过，0 失败、0 跳过、0 删改既有断言** |
+| **下游消费者兼容核验表** | ① `scripts/v3_common.mjs`（`structuredReportValid`）：已改并直接单测（`TC-P0-1-6a`）；<br>② `scripts/r3_plan_common.mjs`（`validCoreReview`）：已改并直接单测 + `r3_plan core-submit` 集成验证（`TC-P0-1-6b`、`TC-P0-1-3b`）；<br>③ `scripts/r2_review_common.mjs`：已改，纯 R2 拒绝 `SUGGESTION`（`r2_review.test.mjs`），R3/P1 模式接受非阻断 `SUGGESTION` 并硬拒越权（`TC-P0-1-3`、`TC-P0-1-4`）；<br>④ `scripts/r3_p1_common.mjs`：已改，S1 校验 + `ENG-FIX-P1` + 0% `deferredIssues` + 0% `mustCloseInReReview`（`TC-P0-1-1`～`4`）；<br>⑤ `scripts/r3_feedback_view.mjs`：已改并实测 `cascadeWarnings()` 0% 泄漏 `SUGGESTION`；<br>⑥ 未改动直接透传/调用方：`submit_pilot_review.mjs`、`record_pilot_approval.mjs`、`v3_gate.mjs`（含 `--chapter 4`）、`r3_delivery_check.mjs`、`r2_review.mjs`、`r3_p1.mjs` 全部经端到端链条实测 0 崩溃、0 误阻断、0 绕过共享校验器；<br>⑦ `scripts/plan_review_common.mjs`（R2/V3 Stage 2）：保持 0 改动，`plan_review.test.mjs` 100% 通过 |
 
 #### 11. GPT-6 验收状态
-- **当前状态**：`NOT_STARTED`
-- **GPT-6 验收结论**：`NOT_SUBMITTED`
-- **审核时间与意见**：`—`
+- **当前状态**：`READY_FOR_REVIEW`
+- **GPT-6 验收结论**：`PENDING`（等待 GPT-6 独立验收；Neon 不自行置为 `ACCEPTED`）
+- **审核时间与意见**：`待 GPT-6 独立审核（GitHub Issue #5）`
 
 ---
 
@@ -618,7 +618,7 @@ flowchart LR
 | **P0 实施管理 PRD `v1.0`（初始化建档）** | `CHANGES_REQUESTED` | `95b0951d021eddf5d23a1710944550ccc38ca1ff` | `2026-11-25T17:12:50Z` *(GitHub 提交时间)* | **`CHANGES_REQUESTED`** | `2026-11-25` | 整体结构与管理机制认可；要求修正两处（`RW-PRD-001`）：① 统一 `P0-2` 末尾顺序为“倒数第二：本书文风锚点示范 → 最末位：上一章结尾原文（500–900 字）”；② 补齐初始化 Commit 完整 40 位 SHA 与 GitHub 提交时间 |
 | **P0 实施管理 PRD `v1.0.1`（内容整改 + 元数据补齐验收）** | **`ACCEPTED`** | 内容修订 `a12774f50956c5081252fe1722333893331ded5e`；<br>审核基线 `e52105adca3f994fca3cbdeef9aa935479ceaf9b` | `2026-11-25T17:23:04Z` / `2026-11-25T17:44:23Z` *(GitHub 提交时间，非实际研发开始时间)* | **`ACCEPTED`** | **`2026-11-26`** | GPT-6 基于 `e52105ad` 最终验收通过，关闭 `RW-PRD-001`，管理 PRD `v1.0.1` 正式冻结；**管理 PRD 验收通过不代表 `P0-0` 已获启动授权** |
 | **`P0-0` · 研发基线审计与实施准备** | **`ACCEPTED`** | 原始：`86cbc9f3`；`RW-001`：`9747e146`/`8ac888fc`；`RW-002`：`52dd599b`；`RW-003`：`27f5cdc0`；`RW-004`：`4d0abeac`；`RW-005`（验收基线）：`2b51cc262db9fb9cd9b030977b418f362b9fb002`（`2026-11-26T06:45:42Z`） | `2026-11-26` | **`ACCEPTED`**（第六轮复审） | **`2026-11-26T06:59:01Z`** | Issue #4 Comment `7184975761` 确认 Git 边界、C.3 全文与 JSON/ZIP/CSV 聚合扫描、两份 16 列 Manifest 结构与复算、G2-B/G4/G6 `underpowered` 口径及本地证据边界全部达标；仅表示 P0-0 审计准备完成，不表示文学质量提升或下游自动启动，`P0-1`～`P0-6` 维持 `NOT_STARTED` |
-| **`P0-1` · S1 四级枚举及下游兼容** | `NOT_STARTED` | `—` | `—` | `NOT_SUBMITTED` | `—` | — |
+| **`P0-1` · S1 四级枚举及下游兼容** | **`READY_FOR_REVIEW`** | 本独立 Commit（基于 A+ 基线 `2b623655`，完整 SHA 见 Issue #5 与 `git log`） | `2026-11-26` | **`PENDING`** | `—` | 按作者 A+ 方案完成 5 脚本最小修改 + 3 份测试（Neon 本地 20 份测试文件 100% 通过：Node `76/76` + 独立脚本 `10/10` + Python `12/12`，未由 GPT-6 独立复跑），等待 Issue #5 独立验收 |
 | **`P0-2` · 写手语域防火墙** | `NOT_STARTED` | `—` | `—` | `NOT_SUBMITTED` | `—` | — |
 | **`P0-3` · `precheck v2`** | `NOT_STARTED` | `—` | `—` | `NOT_SUBMITTED` | `—` | — |
 | **`P0-4` · 复合审读指纹与 Fail-Closed** | `NOT_STARTED` | `—` | `—` | `NOT_SUBMITTED` | `—` | — |

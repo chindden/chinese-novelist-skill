@@ -32,7 +32,7 @@ export function momentum(feedback,ledger,upto){
     latestCharacterProgress:[...characters.values()],warnings,literaryStatus:'UNVERIFIED'};
 }
 export function cascadeWarnings(feedback,anchors){
-  return feedback.deferredIssues.filter(i=>i.status==='open'&&anchors.some(f=>
+  return feedback.deferredIssues.filter(i=>i.status==='open'&&i.severity!=='SUGGESTION'&&anchors.some(f=>
     (i.factId&&f.id===i.factId)||(f.subject===i.subject&&f.key===i.key)))
     .map(i=>({code:'DEFERRED_CASCADE_RISK',trackingId:i.trackingId,chapter:i.chapter,
       subject:i.subject,key:i.key,factId:i.factId,reason:i.reason,

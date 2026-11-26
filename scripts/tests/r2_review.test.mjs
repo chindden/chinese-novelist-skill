@@ -89,5 +89,15 @@ try{
   assert.equal(submit('arc',6).code,0);
   assert.deepEqual(checkGate(root,plan(),7),[]);
   assert.equal(run('v3_gate','--finalize','5').out.issues.some(i=>i.code==='R2_FINALIZE_NOT_LAST_CHAPTER'),true);
+  // P0-1 compatibility check: pure R2 mode (without R3/P1) preserves strict 3-tier severity behavior
+  assert.equal(prepare('chapter',6).code,0);
+  const sugInR2=submit('chapter',6,'pass_candidate',[{id:'R2-SUG',severity:'SUGGESTION',status:'open',chapter:6,
+    quote:'这是章节正文',reason:'legacy R2 rejects SUGGESTION',suggestion:'none'}]);
+  assert.equal(sugInR2.code,2);
+  assert.match(sugInR2.out.error,/R2_INVALID_ISSUE/);
+  assert.equal(submit('chapter',6).code,0);
+  assert.equal(prepare('arc',6).code,0);
+  assert.equal(submit('arc',6).code,0);
+  assert.deepEqual(checkGate(root,plan(),7),[]);
   console.log('PASS R2 reviews: isolation IDs, no-skips, blockers, stale hashes, arc, finalization');
 }finally{fs.rmSync(root,{recursive:true,force:true});}
