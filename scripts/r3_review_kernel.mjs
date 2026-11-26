@@ -1034,22 +1034,49 @@ export function validateR3ReviewReport(projectDir, chapterNumber, reportObj, {al
         }
         assertVerbatimQuote(issue.quote, idLabel);
 
-        // S1 SUGGESTION invariant: never blocks, never enters mustCloseInReReview
+        // S1 non-blocking invariants: SUGGESTION and MINOR never block and never enter mustCloseInReReview (06 §3.1)
         if (issue.severity === 'SUGGESTION') {
           if (issue.blocking === true || issue.mustCloseInReReview === true) {
             addErr('R3_SUGGESTION_CANNOT_BLOCK', `${idLabel} 为 SUGGESTION，禁止设置 blocking=true 或 mustCloseInReReview=true。`, {issueId: issue.id});
           }
+        } else if (issue.severity === 'MINOR') {
+          if (issue.blocking === true || issue.mustCloseInReReview === true) {
+            addErr('R3_MINOR_CANNOT_BLOCK', `${idLabel} 为 MINOR，禁止设置 blocking=true 或 mustCloseInReReview=true。`, {issueId: issue.id});
+          }
         }
 
-        // Mandatory reverseDefense & impactScope for BLOCKER / MAJOR
+        // Mandatory reverseDefense, impactScope, and S1 blocking/mustCloseInReReview invariants for BLOCKER / MAJOR
         if (issue.severity === 'BLOCKER' || issue.severity === 'MAJOR') {
-          if (issue.severity === 'BLOCKER' && (issue.blocking === false || issue.mustCloseInReReview === false)) {
-            addErr(
-              'R3_BLOCKER_CANNOT_BE_NONBLOCKING',
-              `${idLabel} 为 BLOCKER，不可豁免阻断或复审闭环。`,
-              {issueId: issue.id}
-            );
+          const isValidImpactScope = ALLOWED_IMPACT_SCOPES.includes(issue.impactScope);
+          const isArcDeferredMajor =
+            issue.severity === 'MAJOR' &&
+            issue.classification === 'B' &&
+            issue.disposition === 'fix_in_arc' &&
+            issue.impactScope === 'draft_only';
+
+          if (issue.severity === 'BLOCKER') {
+            if (issue.blocking !== true || issue.mustCloseInReReview !== true) {
+              addErr(
+                'R3_BLOCKER_CANNOT_BE_NONBLOCKING',
+                `${idLabel} 为 BLOCKER，必须显式设置 blocking=true 且 mustCloseInReReview=true（不可豁免）。`,
+                {issueId: issue.id}
+              );
+            }
+          } else {
+            // MAJOR: must always close in re-review; single-chapter blocking is required unless explicitly
+            // modeled as B-class draft_only fix_in_arc deferral per frozen 06 §3.1 & r3_p1_common.mjs L31.
+            const validBlocking = isArcDeferredMajor
+              ? typeof issue.blocking === 'boolean'
+              : issue.blocking === true;
+            if (issue.mustCloseInReReview !== true || !validBlocking) {
+              addErr(
+                'R3_MAJOR_MUST_BLOCK_AND_CLOSE',
+                `${idLabel} 为 MAJOR，默认必须显式设置 blocking=true 且 mustCloseInReReview=true（仅 B 类 draft_only + fix_in_arc 允许免单章阻断且仍须 mustCloseInReReview=true）。`,
+                {issueId: issue.id}
+              );
+            }
           }
+
           if (!isNonEmptyString(issue.reverseDefense)) {
             addErr(
               'R3_MISSING_REVERSE_DEFENSE',
@@ -1057,7 +1084,7 @@ export function validateR3ReviewReport(projectDir, chapterNumber, reportObj, {al
               {issueId: issue.id, severity: issue.severity}
             );
           }
-          if (!ALLOWED_IMPACT_SCOPES.includes(issue.impactScope)) {
+          if (!isValidImpactScope) {
             addErr(
               'R3_INVALID_IMPACT_SCOPE',
               `${idLabel}（${issue.severity}）缺少合法的 impactScope（期望 draft_only | upstream_planning | finalized_canon）。`,
@@ -1066,7 +1093,7 @@ export function validateR3ReviewReport(projectDir, chapterNumber, reportObj, {al
           } else if (issue.impactScope === 'upstream_planning' || issue.impactScope === 'finalized_canon') {
             hasPlanningOrCanonConflict = true;
           }
-          if (issue.blocking !== false) {
+          if (!isArcDeferredMajor || issue.blocking === true) {
             hasBlockingIssue = true;
           }
         } else if (issue.impactScope !== undefined && !ALLOWED_IMPACT_SCOPES.includes(issue.impactScope)) {
@@ -1078,11 +1105,17 @@ export function validateR3ReviewReport(projectDir, chapterNumber, reportObj, {al
         }
       }
 
-      // OR6 & decision consistency checks
+      // OR6 & bidirectional decision consistency checks (06 §3.2)
       if (hasPlanningOrCanonConflict && reportObj.decision !== 'PLANNING_CONFLICT_BLOCK') {
         addErr(
           'R3_PLANNING_CONFLICT_MUST_BLOCK',
-          '存在 impactScope 为 upstream_planning 或 finalized_canon 的阻断项，decision 必须为 PLANNING_CONFLICT_BLOCK（严禁洗白为 pass_candidate 或混入 revise）。'
+          '存在 impactScope 为 upstream_planning 或 finalized_canon 的 BLOCKER/MAJOR 项，decision 必须为 PLANNING_CONFLICT_BLOCK（严禁洗白为 pass_candidate 或混入 revise）。'
+        );
+      }
+      if (reportObj.decision === 'PLANNING_CONFLICT_BLOCK' && !hasPlanningOrCanonConflict) {
+        addErr(
+          'R3_PLANNING_CONFLICT_BLOCK_WITHOUT_CONFLICT_ISSUE',
+          'decision 为 PLANNING_CONFLICT_BLOCK 时，必须至少包含一条 impactScope 为 upstream_planning 或 finalized_canon 的合法 BLOCKER/MAJOR 项。'
         );
       }
       if (hasBlockingIssue && reportObj.decision === 'pass_candidate') {

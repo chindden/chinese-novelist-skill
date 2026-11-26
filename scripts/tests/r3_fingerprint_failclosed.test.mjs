@@ -682,3 +682,223 @@ test('TC-P0-4-7: valid reports (pass + SUGGESTION, PLANNING_CONFLICT_BLOCK, Pass
   );
   assert.equal(r2Prep.status, 0, `Legacy r2_review.mjs must remain 100% compatible: ${r2Prep.stdout} ${r2Prep.stderr}`);
 });
+
+// ============================================================================
+// TC-P0-4-B1: S1 阻断契约严校验（MAJOR 默认阻断+闭环，仅 B 类 draft_only fix_in_arc 例外；MINOR 永不阻断）
+// ============================================================================
+test('TC-P0-4-B1: MAJOR cannot waive blocking/mustCloseInReReview arbitrarily and MINOR cannot block (exit code 2, 0 writes)', t => {
+  const root = makeTempProject(t);
+  const prep = prepareR3Review(root, 2, {writerRunId: 'w-1', writerContextId: 'w-ctx-1'});
+  assert.equal(prep.ok, true);
+  const planBefore = fs.readFileSync(path.join(root, '02-写作计划.json'), 'utf8');
+  const q = '赵有福站在院角，目光掠过半掩的门缝，始终没有开口。';
+  const committedPath = path.join(root, 'reviews/r3/review-v3/report-ch002-v1.json');
+
+  // 1. MAJOR with blocking:false attempting pass_candidate -> rejected (exit code 2)
+  const majorBlockingFalse = makeValidFinalReport(prep, {
+    decision: 'pass_candidate',
+    issues: [{
+      id: 'ISS-M-WAIVE1',
+      dimension: 'HL-4',
+      severity: 'MAJOR',
+      impactScope: 'draft_only',
+      blocking: false,
+      mustCloseInReReview: true,
+      quote: q,
+      evidence: '人物动机缺少铺垫',
+      reverseDefense: '即使考虑留白，当前动机跳转仍损害普通读者理解。',
+    }],
+  });
+  const r1 = runKernelCli(root, 'apply-review', '--chapter', '2', '--report', writeReport(root, 'b1-m-bf.json', majorBlockingFalse));
+  assert.equal(r1.status, 2);
+  assert.ok(r1.json.errors.some(e => e.code === 'R3_MAJOR_MUST_BLOCK_AND_CLOSE'));
+
+  // 2. MAJOR with mustCloseInReReview:false -> rejected (exit code 2)
+  const majorCloseFalse = makeValidFinalReport(prep, {
+    decision: 'revise',
+    issues: [{
+      id: 'ISS-M-WAIVE2',
+      dimension: 'HL-4',
+      severity: 'MAJOR',
+      impactScope: 'draft_only',
+      blocking: true,
+      mustCloseInReReview: false,
+      quote: q,
+      evidence: '人物动机缺少铺垫',
+      reverseDefense: '动机跳转损害读者理解。',
+    }],
+  });
+  const r2 = runKernelCli(root, 'apply-review', '--chapter', '2', '--report', writeReport(root, 'b1-m-cf.json', majorCloseFalse));
+  assert.equal(r2.status, 2);
+  assert.ok(r2.json.errors.some(e => e.code === 'R3_MAJOR_MUST_BLOCK_AND_CLOSE'));
+
+  // 3. MINOR with blocking:true -> rejected (exit code 2)
+  const minorBlockTrue = makeValidFinalReport(prep, {
+    decision: 'revise',
+    issues: [{
+      id: 'ISS-MIN-1',
+      dimension: 'HL-4',
+      severity: 'MINOR',
+      blocking: true,
+      mustCloseInReReview: false,
+      quote: q,
+      evidence: '局部称谓微瑕',
+    }],
+  });
+  const r3 = runKernelCli(root, 'apply-review', '--chapter', '2', '--report', writeReport(root, 'b1-min-bt.json', minorBlockTrue));
+  assert.equal(r3.status, 2);
+  assert.ok(r3.json.errors.some(e => e.code === 'R3_MINOR_CANNOT_BLOCK'));
+
+  // 4. MINOR with mustCloseInReReview:true -> rejected (exit code 2)
+  const minorCloseTrue = makeValidFinalReport(prep, {
+    decision: 'pass_candidate',
+    issues: [{
+      id: 'ISS-MIN-2',
+      dimension: 'HL-4',
+      severity: 'MINOR',
+      blocking: false,
+      mustCloseInReReview: true,
+      quote: q,
+      evidence: '局部细节微瑕',
+    }],
+  });
+  const r4 = runKernelCli(root, 'apply-review', '--chapter', '2', '--report', writeReport(root, 'b1-min-ct.json', minorCloseTrue));
+  assert.equal(r4.status, 2);
+  assert.ok(r4.json.errors.some(e => e.code === 'R3_MINOR_CANNOT_BLOCK'));
+
+  // 5. B-class fix_in_arc MAJOR with mustCloseInReReview:false is still rejected
+  const badArcMajor = makeValidFinalReport(prep, {
+    decision: 'pass_candidate',
+    issues: [{
+      id: 'ISS-M-ARC-BAD',
+      dimension: 'HL-4',
+      severity: 'MAJOR',
+      classification: 'B',
+      disposition: 'fix_in_arc',
+      impactScope: 'draft_only',
+      blocking: false,
+      mustCloseInReReview: false,
+      quote: q,
+      evidence: '弧内人物动机需在卷末收束',
+      reverseDefense: '虽可延至弧审，但仍须进入复审闭环。',
+    }],
+  });
+  const r5 = runKernelCli(root, 'apply-review', '--chapter', '2', '--report', writeReport(root, 'b1-arc-bad.json', badArcMajor));
+  assert.equal(r5.status, 2);
+  assert.ok(r5.json.errors.some(e => e.code === 'R3_MAJOR_MUST_BLOCK_AND_CLOSE'));
+
+  // Zero disk writes across all 5 rejections
+  assert.equal(fs.existsSync(committedPath), false);
+  assert.equal(fs.readFileSync(path.join(root, '02-写作计划.json'), 'utf8'), planBefore);
+
+  // 6. Positive controls: valid non-blocking MINOR + explicitly modeled B-class draft_only fix_in_arc MAJOR can pass_candidate
+  const okRep = makeValidFinalReport(prep, {
+    decision: 'pass_candidate',
+    issues: [
+      {
+        id: 'ISS-MIN-OK',
+        dimension: 'HL-4',
+        severity: 'MINOR',
+        blocking: false,
+        mustCloseInReReview: false,
+        quote: q,
+        evidence: '局部用词微瑕，不影响理解',
+      },
+      {
+        id: 'ISS-M-ARC-OK',
+        dimension: 'HL-4',
+        severity: 'MAJOR',
+        classification: 'B',
+        disposition: 'fix_in_arc',
+        impactScope: 'draft_only',
+        blocking: false,
+        mustCloseInReReview: true,
+        quote: q,
+        evidence: '跨三章弧内伏笔动机张力需在本弧完结前闭环',
+        reverseDefense: '单章内逻辑可成立，按 06 §3.1 允许 B 类弧内风险走 fix_in_arc 并在复审闭环。',
+      },
+    ],
+  });
+  const rOk = runKernelCli(root, 'apply-review', '--chapter', '2', '--report', writeReport(root, 'b1-ok.json', okRep));
+  assert.equal(rOk.status, 0, `Valid MINOR + B-class fix_in_arc MAJOR should pass, got: ${JSON.stringify(rOk.json)}`);
+  assert.equal(rOk.json.status, 'passed');
+});
+
+// ============================================================================
+// TC-P0-4-B2: OR6 双向一致性（PLANNING_CONFLICT_BLOCK 必须存在合法 upstream_planning / finalized_canon 阻断项）
+// ============================================================================
+test('TC-P0-4-B2: PLANNING_CONFLICT_BLOCK requires an upstream_planning or finalized_canon BLOCKER/MAJOR issue', t => {
+  const root = makeTempProject(t);
+  const prep = prepareR3Review(root, 2, {writerRunId: 'w-1', writerContextId: 'w-ctx-1'});
+  assert.equal(prep.ok, true);
+  const planBefore = fs.readFileSync(path.join(root, '02-写作计划.json'), 'utf8');
+  const q = '冷库木门正上方三米处有一道半尺宽的排风口，寒风顺着木格灌进屋内，灯芯轻轻摇晃。';
+  const committedPath = path.join(root, 'reviews/r3/review-v3/report-ch002-v1.json');
+
+  // 1. PLANNING_CONFLICT_BLOCK with empty issues -> rejected (exit code 2)
+  const emptyPcb = makeValidFinalReport(prep, {decision: 'PLANNING_CONFLICT_BLOCK', issues: []});
+  const r1 = runKernelCli(root, 'apply-review', '--chapter', '2', '--report', writeReport(root, 'b2-empty.json', emptyPcb));
+  assert.equal(r1.status, 2);
+  assert.ok(r1.json.errors.some(e => e.code === 'R3_PLANNING_CONFLICT_BLOCK_WITHOUT_CONFLICT_ISSUE'));
+
+  // 2. PLANNING_CONFLICT_BLOCK with only draft_only BLOCKER -> rejected (exit code 2)
+  const draftOnlyPcb = makeValidFinalReport(prep, {
+    decision: 'PLANNING_CONFLICT_BLOCK',
+    issues: [{
+      id: 'ISS-DRAFT-ONLY',
+      dimension: 'HL-6',
+      severity: 'BLOCKER',
+      impactScope: 'draft_only',
+      blocking: true,
+      mustCloseInReReview: true,
+      quote: q,
+      evidence: '草稿局部空间笔误，与大纲无关',
+      reverseDefense: '确认大纲无矛盾，纯正文写错。',
+    }],
+  });
+  const r2 = runKernelCli(root, 'apply-review', '--chapter', '2', '--report', writeReport(root, 'b2-draft.json', draftOnlyPcb));
+  assert.equal(r2.status, 2);
+  assert.ok(r2.json.errors.some(e => e.code === 'R3_PLANNING_CONFLICT_BLOCK_WITHOUT_CONFLICT_ISSUE'));
+
+  // 3. PLANNING_CONFLICT_BLOCK with only MINOR claiming upstream_planning -> rejected (exit code 2)
+  const minorPcb = makeValidFinalReport(prep, {
+    decision: 'PLANNING_CONFLICT_BLOCK',
+    issues: [{
+      id: 'ISS-MIN-PLAN',
+      dimension: 'HL-6',
+      severity: 'MINOR',
+      impactScope: 'upstream_planning',
+      blocking: false,
+      mustCloseInReReview: false,
+      quote: q,
+      evidence: '轻微规划建议，非阻断冲突',
+    }],
+  });
+  const r3 = runKernelCli(root, 'apply-review', '--chapter', '2', '--report', writeReport(root, 'b2-minor.json', minorPcb));
+  assert.equal(r3.status, 2);
+  assert.ok(r3.json.errors.some(e => e.code === 'R3_PLANNING_CONFLICT_BLOCK_WITHOUT_CONFLICT_ISSUE'));
+
+  // Zero disk writes across all 3 rejections
+  assert.equal(fs.existsSync(committedPath), false);
+  assert.equal(fs.readFileSync(path.join(root, '02-写作计划.json'), 'utf8'), planBefore);
+
+  // 4. Positive control: finalized_canon MAJOR with PLANNING_CONFLICT_BLOCK applies cleanly
+  const canonPcb = makeValidFinalReport(prep, {
+    decision: 'PLANNING_CONFLICT_BLOCK',
+    issues: [{
+      id: 'ISS-CANON',
+      dimension: 'HL-2',
+      severity: 'MAJOR',
+      impactScope: 'finalized_canon',
+      blocking: true,
+      mustCloseInReReview: true,
+      quote: q,
+      evidence: '本章暴露第一章已定稿账目既成事实错误，须走显式 retcon',
+      reverseDefense: '核对第一章冻结正文后确认矛盾源头在已定稿前文，不能静默覆盖。',
+    }],
+  });
+  const rOk = runKernelCli(root, 'apply-review', '--chapter', '2', '--report', writeReport(root, 'b2-canon-ok.json', canonPcb));
+  assert.equal(rOk.status, 0, `Valid finalized_canon PLANNING_CONFLICT_BLOCK should apply, got: ${JSON.stringify(rOk.json)}`);
+  assert.equal(rOk.json.status, 'planning_conflict_block');
+});
+
