@@ -160,6 +160,8 @@ flowchart LR
 ### 任务 `P0-1`：S1 四级枚举及下游兼容（含 `ENG-FIX-P1`）
 
 > **对应冻结架构**：[`06`](../review-v3/06-审核修复复审及版本失效协议.md) 三.1 节、[`07`](../review-v3/07-P0-P1-P2开发任务与依赖关系.md) `P0-1`、[`08`](../review-v3/08-工程效率与文学质量双重验收方案.md) E1 & G5。
+>
+> **作者授权补充（2026-11-26；决策记录见 GitHub Issue #5）**：为消除 `P0-0` 全仓消费者审计发现的共享校验器边界冲突，作者批准将 `scripts/v3_common.mjs` 中的 `structuredReportValid()` 与 `scripts/r3_plan_common.mjs` 中的 `validCoreReview()` 纳入 `P0-1` 最小修改范围。此项仅补充本任务允许修改的文件及对应测试边界；不改变冻结架构、其他 P0/P1/P2 任务范围、R2 既有三级语义或本 PRD 其余验收要求。
 
 #### 1. 任务目标
 在正式代码库中落地 S1 四级严重程度枚举（`BLOCKER` / `MAJOR` / `MINOR` / **`SUGGESTION`**）与 `ENG-FIX-P1` 遗留字段校验修复，确保 **`SUGGESTION` 永不阻断单章通过且 0% 进入必改闭环**，同时保证既有 R2 三级历史报告与所有下游消费者 100% 向后兼容、零行为破坏。
@@ -168,20 +170,22 @@ flowchart LR
 - `P0-0` 状态为 **`ACCEPTED`**（且已产出全仓 S1 消费者清单与固化基线测试数）。
 
 #### 3. 具体实施步骤
-1. 依据 `P0-0` 产出的 S1 下游消费者清单，逐一核对枚举定义与解析入口（`r2_review_common.mjs`、`r3_p1_common.mjs`、`v3_gate.mjs`、`submit_pilot_review.mjs`、`r3_feedback_view.mjs` 及其他命中脚本）。
+1. 依据 `P0-0` 产出的 S1 下游消费者清单，逐一核对枚举定义与解析入口（包括 `r2_review_common.mjs`、`r3_p1_common.mjs`、`v3_common.mjs` 的 `structuredReportValid()`、`r3_plan_common.mjs` 的 `validCoreReview()`、`v3_gate.mjs`、`submit_pilot_review.mjs`、`record_pilot_approval.mjs`、`r3_delivery_check.mjs`、`r3_feedback_view.mjs`、`r3_p1.mjs` 及其他命中脚本）。两个共享校验器作为统一校验入口；调用方必须继续使用共享校验，不得复制或绕过校验逻辑。
 2. 在 R3/共享校验模块扩展 S1 四级枚举，正式纳入 `SUGGESTION`：
    - `BLOCKER`：`blocking = true`、`mustCloseInReReview = true`、`reverseDefense` 必填；
    - `MAJOR`：`blocking = true`、`mustCloseInReReview = true`、`reverseDefense` 必填；
    - `MINOR`：`blocking = false`、`mustCloseInReReview = false`、`reverseDefense` 可选；
    - `SUGGESTION`：`blocking = false`（永不阻断）、`mustCloseInReReview = false`（0% 进必改闭环）、`reverseDefense` 非必填；若报告误将 `SUGGESTION` 标为 `blocking: true` 或 `mustCloseInReReview: true`，校验器强制报错拒收或按协议硬拦截。
 3. 修复 `ENG-FIX-P1` 已知字段校验遗留问题（以 `P0-0` 基线审计清单中核实的精确遗留项为准），确保不破坏旧三级历史报告的只读解析与门禁判定。
-4. 编写新读旧（旧三级历史报告在新校验器下无回归）与旧容新（含 `SUGGESTION` 的新四级报告在全部下游消费者及门禁脚本中不崩、不误阻断）双向兼容自动化测试。
+4. 编写新读旧（旧三级历史报告在新校验器下无回归）与旧容新（含 `SUGGESTION` 的新四级报告在全部下游消费者及门禁脚本中不崩、不误阻断）双向兼容自动化测试。测试必须直接覆盖 `structuredReportValid()` 与 `validCoreReview()`，并验证完整 Pilot 审批链 `prepare_pilot_review → submit_pilot_review → record_pilot_approval → v3_gate --chapter 4`、`r3_delivery_check` 及 R3 Core 规划审稿入口；确认调用方无需局部绕过共享校验器。
 5. 全量运行既有 Node + Python 回归测试及新增单测，登记完整证据并独立提交 Commit，置状态为 `READY_FOR_REVIEW`。
 
 #### 4. 允许修改的文件
 - `scripts/r3_p1_common.mjs`、`scripts/r3_p1.mjs`、`scripts/r3_feedback_view.mjs`、`scripts/v3_gate.mjs`、`scripts/submit_pilot_review.mjs`
-- `scripts/r2_review_common.mjs`（**仅限向后兼容的共享枚举/只读解析扩展，严禁改变任何 R2 既有行为与旧三级判定逻辑**）
-- 对应单元测试：`scripts/tests/r2_review.test.mjs`（仅追加兼容断言，不删改旧断言）、`scripts/tests/v3_gate.test.mjs`、新增 `scripts/tests/r3_s1_severity_compat.test.mjs`
+- `scripts/r2_review_common.mjs`（**仅限向后兼容的共享枚举/只读解析扩展；仅在 R3/S1 四级模式下接受 `SUGGESTION`，严禁改变任何 R2 既有行为与旧三级判定逻辑**）
+- `scripts/v3_common.mjs`（**仅限扩展 `structuredReportValid()`：合法接受 `SUGGESTION`，确保其不阻断；对 `SUGGESTION` 的 `blocking: true` / `mustCloseInReReview: true` 越权标记硬拒绝；BLOCKER/MAJOR/MINOR 既有规则保持不变**）
+- `scripts/r3_plan_common.mjs`（**仅限扩展 `validCoreReview()`：合法接受 `SUGGESTION`，不要求 `reverseDefense`，确保其不阻断且不进入必改闭环；对适用的 `blocking: true` / `mustCloseInReReview: true` / `disposition: 'fix_now'` 越权标记硬拒绝；BLOCKER/MAJOR/MINOR 既有规则保持不变**）
+- 对应单元测试：`scripts/tests/r2_review.test.mjs`（仅追加兼容断言，不删改旧断言）、`scripts/tests/v3_gate.test.mjs`、新增 `scripts/tests/r3_s1_severity_compat.test.mjs`（须覆盖两个共享校验器及上述全链路消费者）
 - 管理记录：`docs/r3/p0-implementation/{README.md,P0-Implementation-PRD.md,P0-Progress-Log.md}`
 
 #### 5. 禁止修改的文件
@@ -189,6 +193,8 @@ flowchart LR
 - `SKILL.md`、`references/**`（写手/审稿生产模板与 Skill 路由）
 - `.github/workflows/**`
 - `scripts/r2_review.mjs` 的既有 R2 门禁决策分支及任何既有测试断言的削弱/删除
+- `scripts/record_pilot_approval.mjs`、`scripts/r3_delivery_check.mjs`（作为调用方保持不变，继续使用 `v3_common.mjs` 的共享校验器；严禁在调用方添加局部绕过或重复校验逻辑）
+- `scripts/plan_review_common.mjs`（R2/V3 Stage 2 蓝图审稿路径保持原有三级逻辑不变）
 - 任何 P1/P2 模块或历史实验基线数据
 
 #### 6. 交付物
@@ -199,9 +205,10 @@ flowchart LR
 #### 7. 测试用例
 - **TC-P0-1-1（`SUGGESTION` 零阻断）**：仅含 `MINOR` 与 `SUGGESTION` 的四级审稿报告通过校验，判定为非阻断通过、`mustCloseInReReview` 计数为 `0`。
 - **TC-P0-1-2（`SUGGESTION` 越权阻断硬拒绝）**：故意将 `SUGGESTION` 设置 `blocking: true` 或 `mustCloseInReReview: true`，校验器拒绝落盘（非零退出码）。
-- **TC-P0-1-3（双向兼容）**：① 用新解析器读取真实 R2 三级历史报告夹具，解析与门禁结果与基线 100% 等价；② 将含 `SUGGESTION` 的报告喂入全部下游消费者（`v3_gate`、`r3_feedback_view`、`r3_p1`、`submit_pilot_review`），零崩溃、零误阻断。
+- **TC-P0-1-3（双向兼容与真实调用链）**：① 用新解析器读取真实 R2 三级历史报告夹具，解析与门禁结果与基线 100% 等价；② 将含 `SUGGESTION` 的报告送入全部相关下游消费者，至少覆盖完整 Pilot 审批链（`prepare_pilot_review`、`submit_pilot_review`、`record_pilot_approval`、`v3_gate --chapter 4`）、`r3_delivery_check`、`r3_feedback_view`、`r3_p1` 及 R3 Core 规划审稿入口；零崩溃、零误阻断、零局部绕过共享校验器。
 - **TC-P0-1-4（`ENG-FIX-P1` 回归）**：覆盖全部已知 P1 遗留字段校验边界用例，100% 精准命中。
 - **TC-P0-1-5（全量基线零回归）**：既有全部 Node 与 Python 自动化测试 100% 通过。
+- **TC-P0-1-6（共享校验器契约）**：分别直接验证 `structuredReportValid()` 与 `validCoreReview()`：合法 `SUGGESTION` 可通过且不阻断、不要求 `reverseDefense`；适用时对 `blocking: true`、`mustCloseInReReview: true`、`disposition: 'fix_now'` 越权组合硬拒绝；BLOCKER/MAJOR/MINOR 规则与历史三级报告判定保持不变。
 
 #### 8. 明确的通过条件
 1. 对应 `08` 文档 **E1**：原有基线全部 Node 与 Python 回归测试 100% 通过（0 跳过、0 删改旧断言）。
