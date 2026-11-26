@@ -363,10 +363,21 @@ export function assertWriterBriefTailOrder(briefText, {hasPrevChapter = true, mi
  *      - Runs assertWriterContextPurity() before returning.
  */
 export function compileRevisionCard(report, {chapterNumber = null, extraDirectives = ''} = {}) {
-  if (!report || typeof report !== 'object') {
+  if (!report || typeof report !== 'object' || Array.isArray(report)) {
     throw new Error('REVISION_CARD_INVALID_REPORT');
   }
   if (extraDirectives) assertNoTimePressure(extraDirectives, 'extraDirectives');
+
+  // Distinguish absent p1 (eligible for legacy R2 compatibility) from explicit malformed p1 (Fail-Closed).
+  const hasExplicitP1 = Object.prototype.hasOwnProperty.call(report, 'p1');
+  if (hasExplicitP1) {
+    if (!report.p1 || typeof report.p1 !== 'object' || Array.isArray(report.p1)) {
+      throw new Error('REVISION_CARD_P1_INVALID');
+    }
+    if (report.p1.preserveStrengths !== undefined && !Array.isArray(report.p1.preserveStrengths)) {
+      throw new Error('REVISION_CARD_P1_STRENGTHS_NOT_ARRAY');
+    }
+  }
 
   // 1. Strict preserveStrengths whitelist (B3):
   //    Fail-Closed purity check FIRST; if clean, preserve quote 100% verbatim without calling sanitizeNarrativeText().
@@ -400,10 +411,10 @@ export function compileRevisionCard(report, {chapterNumber = null, extraDirectiv
   }
 
   // 2. Strict blocking issue selection & full P0-1 S1 severity x classification x disposition validation (B1):
-  //    Explicitly distinguishes R3/P1 reports (report.p1 present or any issue carries P1 fields)
-  //    from legacy R2 reports (no p1 object and no P1 classification/disposition/evidence fields).
+  //    Explicitly distinguishes R3/P1 reports (valid report.p1 object or any issue carrying P1 fields)
+  //    from legacy R2 reports (absent p1 and no P1 classification/disposition/evidence fields).
   //    - In R3/P1 mode: BLOCKER/MAJOR/MINOR MUST supply valid classification & disposition matching r3_p1_common.mjs.
-  //    - In legacy R2 mode: still enforces explicit status/severity & blocking consistency.
+  //    - In legacy R2 mode: still enforces explicit status/severity & strict boolean blocking consistency.
   //    - NEVER reads or emits reverseDefense, reason, suggestion, or issue.quote.
   if (report.issues !== undefined && !Array.isArray(report.issues)) {
     throw new Error('REVISION_CARD_ISSUES_NOT_ARRAY');
@@ -414,19 +425,19 @@ export function compileRevisionCard(report, {chapterNumber = null, extraDirectiv
   const p1Classifications = ['A', 'B', 'C', 'blank'];
   const p1Dispositions = ['fix_now', 'fix_in_arc', 'defer_to_final', 'keep_as_blank'];
   const isR3P1 = Boolean(
-    report.p1 ||
+    hasExplicitP1 ||
     rawIssues.some(i => i && typeof i === 'object' && (
-      i.classification !== undefined ||
-      i.disposition !== undefined ||
-      i.evidenceLevel !== undefined ||
-      i.evidenceBasis !== undefined
+      Object.prototype.hasOwnProperty.call(i, 'classification') ||
+      Object.prototype.hasOwnProperty.call(i, 'disposition') ||
+      Object.prototype.hasOwnProperty.call(i, 'evidenceLevel') ||
+      Object.prototype.hasOwnProperty.call(i, 'evidenceBasis')
     ))
   );
   const reportMode = isR3P1 ? 'r3_p1' : 'legacy_r2';
 
   const guidanceItems = [];
   for (const [idx, i] of rawIssues.entries()) {
-    if (!i || typeof i !== 'object') {
+    if (!i || typeof i !== 'object' || Array.isArray(i)) {
       throw new Error(`REVISION_CARD_ISSUE_INVALID: issues[${idx}]`);
     }
     if (!validStatuses.includes(i.status)) {
@@ -434,6 +445,12 @@ export function compileRevisionCard(report, {chapterNumber = null, extraDirectiv
     }
     if (!validSeverities.includes(i.severity)) {
       throw new Error(`REVISION_CARD_ISSUE_SEVERITY_INVALID: issues[${idx}].severity`);
+    }
+    if (i.blocking !== undefined && typeof i.blocking !== 'boolean') {
+      throw new Error(`REVISION_CARD_ISSUE_BLOCKING_TYPE_INVALID: issues[${idx}].blocking`);
+    }
+    if (i.mustCloseInReReview !== undefined && typeof i.mustCloseInReReview !== 'boolean') {
+      throw new Error(`REVISION_CARD_ISSUE_MUST_CLOSE_TYPE_INVALID: issues[${idx}].mustCloseInReReview`);
     }
 
     if (isR3P1) {

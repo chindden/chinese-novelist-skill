@@ -799,16 +799,71 @@ test('TC-P0-2-5: Revision Card enforces strict writer-safe whitelist, retains 10
     issues: [{severity: 'MINOR', status: 'open'}],
   }, {chapterNumber: 2}), /REVISION_CARD_R3_CLASSIFICATION_REQUIRED_OR_INVALID/);
 
-  // 5. Explicit R3/P1 legal non-blocking / resolved / arc-deferred (MAJOR + B + fix_in_arc) items are cleanly skipped
+  // B1-a: non-boolean blocking / mustCloseInReReview MUST Fail-Closed (both R3/P1 and legacy_r2)
+  const nonBoolBlockingCases = [
+    {
+      report: {p1: {preserveStrengths: []}, issues: [{severity: 'SUGGESTION', status: 'open', blocking: 'true'}]},
+      err: /REVISION_CARD_ISSUE_BLOCKING_TYPE_INVALID/,
+    },
+    {
+      report: {p1: {preserveStrengths: []}, issues: [{severity: 'MINOR', status: 'open', classification: 'C', disposition: 'defer_to_final', mustCloseInReReview: 1}]},
+      err: /REVISION_CARD_ISSUE_MUST_CLOSE_TYPE_INVALID/,
+    },
+    {
+      report: {p1: {preserveStrengths: []}, issues: [{severity: 'MINOR', status: 'open', classification: 'C', disposition: 'defer_to_final', blocking: null}]},
+      err: /REVISION_CARD_ISSUE_BLOCKING_TYPE_INVALID/,
+    },
+    {
+      report: {p1: {preserveStrengths: []}, issues: [{severity: 'SUGGESTION', status: 'open', blocking: 0}]},
+      err: /REVISION_CARD_ISSUE_BLOCKING_TYPE_INVALID/,
+    },
+    {
+      report: {p1: {preserveStrengths: []}, issues: [{severity: 'BLOCKER', status: 'open', classification: 'A', disposition: 'fix_now', blocking: 'false', narrativeGuidance: '说明'}]},
+      err: /REVISION_CARD_ISSUE_BLOCKING_TYPE_INVALID/,
+    },
+    {
+      report: {decision: 'revise', issues: [{severity: 'MINOR', status: 'open', mustCloseInReReview: 'no'}]},
+      err: /REVISION_CARD_ISSUE_MUST_CLOSE_TYPE_INVALID/,
+    },
+  ];
+  for (const {report: badBoolReport, err} of nonBoolBlockingCases) {
+    assert.throws(
+      () => compileRevisionCard(badBoolReport, {chapterNumber: 2}),
+      err,
+      `Expected Fail-Closed throw for non-boolean flag: ${JSON.stringify(badBoolReport)}`,
+    );
+  }
+
+  // B1-b: explicit malformed p1 property (null / false / 0 / '' / string / array / undefined / bad preserveStrengths) MUST Fail-Closed
+  const malformedP1Values = [null, false, true, 0, 123, '', 'v1', [], undefined];
+  for (const badP1 of malformedP1Values) {
+    assert.throws(
+      () => compileRevisionCard({
+        schemaVersion: 1,
+        p1: badP1,
+        decision: 'revise',
+        issues: [{severity: 'MAJOR', status: 'accepted', acceptanceReason: '暂不处理'}],
+      }, {chapterNumber: 2}),
+      /REVISION_CARD_P1_INVALID/,
+      `Expected REVISION_CARD_P1_INVALID for explicit p1=${String(badP1)}`,
+    );
+  }
+  assert.throws(() => compileRevisionCard({
+    p1: {preserveStrengths: 'not-an-array'},
+    decision: 'pass_candidate',
+    issues: [],
+  }, {chapterNumber: 2}), /REVISION_CARD_P1_STRENGTHS_NOT_ARRAY/);
+
+  // 5. Explicit R3/P1 legal non-blocking / resolved / arc-deferred (with legal boolean false flags) are cleanly skipped
   const nonBlockingCard = compileRevisionCard({
     decision: 'pass_candidate',
-    strengths: ['开篇三句落笔极稳，人物气口准确。'],
+    p1: {schemaVersion: 1, preserveStrengths: [{id: 'STR-NB', status: 'observed', chapter: 2, quote: '开篇三句落笔极稳，人物气口准确。'}]},
     issues: [
-      {severity: 'BLOCKER', status: 'resolved', classification: 'A', disposition: 'fix_now'},
-      {severity: 'MAJOR', status: 'resolved', classification: 'A', disposition: 'fix_now'},
-      {severity: 'MAJOR', status: 'open', classification: 'B', disposition: 'fix_in_arc'},
-      {severity: 'MINOR', status: 'open', chapter: 2, classification: 'C', disposition: 'defer_to_final'},
-      {severity: 'SUGGESTION', status: 'open', chapter: 2, classification: 'advisory', disposition: 'advisory'},
+      {severity: 'BLOCKER', status: 'resolved', classification: 'A', disposition: 'fix_now', blocking: true, mustCloseInReReview: true},
+      {severity: 'MAJOR', status: 'resolved', classification: 'A', disposition: 'fix_now', blocking: true, mustCloseInReReview: true},
+      {severity: 'MAJOR', status: 'open', classification: 'B', disposition: 'fix_in_arc', blocking: false, mustCloseInReReview: false},
+      {severity: 'MINOR', status: 'open', chapter: 2, classification: 'C', disposition: 'defer_to_final', blocking: false, mustCloseInReReview: false},
+      {severity: 'SUGGESTION', status: 'open', chapter: 2, classification: 'advisory', disposition: 'advisory', blocking: false, mustCloseInReReview: false},
     ],
   }, {chapterNumber: 2});
   assert.equal(nonBlockingCard.reportMode, 'r3_p1');
@@ -816,13 +871,15 @@ test('TC-P0-2-5: Revision Card enforces strict writer-safe whitelist, retains 10
   assert.equal(nonBlockingCard.blockingGuidanceCount, 0);
   assert.ok(nonBlockingCard.markdown.includes('开篇三句落笔极稳，人物气口准确。'));
 
-  // 6. Explicit Legacy R2 compatibility path (no report.p1 and no P1 fields on any issue)
+  // 6. Explicit Legacy R2 compatibility path (absent p1 and no P1 fields on any issue; legal boolean flags still supported)
   const legacyR2Card = compileRevisionCard({
+    schemaVersion: 1,
     decision: 'revise',
     strengths: ['旧版R2亮点原句——  保留原始双空格与破折号。'],
     issues: [
-      {severity: 'MAJOR', status: 'open', chapter: 2, narrativeGuidance: '旧版兼容路径下请修正人物入场顺序。'},
-      {severity: 'MINOR', status: 'open', chapter: 2},
+      {severity: 'MAJOR', status: 'open', chapter: 2, blocking: true, narrativeGuidance: '旧版兼容路径下请修正人物入场顺序。'},
+      {severity: 'MAJOR', status: 'accepted', chapter: 2},
+      {severity: 'MINOR', status: 'open', chapter: 2, blocking: false, mustCloseInReReview: false},
     ],
   }, {chapterNumber: 2});
   assert.equal(legacyR2Card.reportMode, 'legacy_r2');
