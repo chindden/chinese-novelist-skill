@@ -58,7 +58,7 @@
 
 | 任务 ID | 任务名称 | 前置依赖 | 当前状态 | 独立 Commit SHA | GPT-6 验收状态 | 关键风险 / 当前备注 |
 |---|---|---|---|---|---|---|
-| **P0-0** | 研发基线审计与实施准备 | PRD `ACCEPTED` + 文档 `2d6061d6` `ACCEPTED` + 作者预授权（均已满足） | **`READY_FOR_REVIEW`** | 原始：`86cbc9f3`；`RW-001`：`9747e146`/`8ac888fc`；`RW-002`：`52dd599b`；`RW-003`：`27f5cdc0`（`05:57:24Z`） | `PENDING`（`RW-P0-0-004` 重提） | 第四轮复审已通过 Git 边界与 Manifest 结构；现已完成 3 项闭环整改：C.3 覆盖全部可读文本格式并隔离二进制媒体与 85 个嵌套 `.git` 对象、16 列 TSV 复算 G2-B/G6 资格零硬编码（`total_unresolved=0`）、G4 按冻结 `08` 独立章节口径正式标为 `underpowered`（`N_ch=3 < 8`，缺 `+5` 独立来源章）；0 代码改动，等待 GPT-6 独立验收 |
+| **P0-0** | 研发基线审计与实施准备 | PRD `ACCEPTED` + 文档 `2d6061d6` `ACCEPTED` + 作者预授权（均已满足） | **`READY_FOR_REVIEW`** | 原始：`86cbc9f3`；`RW-001`：`9747e146`/`8ac888fc`；`RW-002`：`52dd599b`；`RW-003`：`27f5cdc0`；`RW-004`：`4d0abeac`（`06:16:16Z`） | `PENDING`（`RW-P0-0-005` 重提） | 第五轮复审已通过 Git 边界、16 列 Manifest 结构、Manifest 复算资格计数、二进制/VCS 隔离与 G4 `underpowered` 口径；现已闭环 MD/TXT 全文信号（文件级 CJK 总量/长段落/章号提及）与 JSON 文件级递归累计检测，`<ART_ROOT>` 新增捕获 512 份（`EXCLUDED_CANDIDATE=1,409`，`989,626` B `< 1 MB`）、`REPO` 新增捕获 129 份（`EXCLUDED_CANDIDATE=148`），77 份 `.txt` 全量实测 0 隐藏章节，`computed_eligible_g2b=0` / `computed_eligible_g6=0` / `total_unresolved=0`；0 代码改动，等待 GPT-6 独立验收 |
 | **P0-1** | S1 四级枚举及下游兼容（含 `ENG-FIX-P1`） | `P0-0 (ACCEPTED)` | `NOT_STARTED` | `—` | `NOT_SUBMITTED` | 严守 R2 零破坏与 `SUGGESTION` 0% 阻断（`08` E1 & G5）；须待 `P0-0` 获 `ACCEPTED` 后方可启动 |
 | **P0-2** | 写手语域防火墙 | `P0-0 (ACCEPTED)` | `NOT_STARTED` | `—` | `NOT_SUBMITTED` | 写手上下文治理词/限时压迫词 `= 0`；末尾严格按“倒数第二部分：本书文风锚点示范 → 最后一部分（最末位）：上一章结尾原文（500–900 字）”排列（`03` 2.1 节 & `08` E5） |
 | **P0-3** | `precheck v2` | `P0-0 (ACCEPTED)` | `NOT_STARTED` | `—` | `NOT_SUBMITTED` | 仅文件破损与作者显式硬约束阻断；字数/重复段/跨段引语不阻断 |

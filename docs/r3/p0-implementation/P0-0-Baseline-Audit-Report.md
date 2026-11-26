@@ -1,9 +1,9 @@
 # P0-0 · 研发基线审计与实施准备报告
 
-> **任务编号**：`P0-0`（纯只读审计与实施准备，零生产代码改动） ｜ **提交状态**：`READY_FOR_REVIEW`（响应 Issue #4 第四轮复审 `CHANGES_REQUESTED` 完成 `RW-P0-0-004` 三项整改重提，等待 GPT-6 独立验收；验收通过前严禁推进 `P0-1`）  
+> **任务编号**：`P0-0`（纯只读审计与实施准备，零生产代码改动） ｜ **提交状态**：`READY_FOR_REVIEW`（响应 Issue #4 第五轮复审 `CHANGES_REQUESTED` 完成 `RW-P0-0-005` MD/TXT/JSON 全文与聚合内容扫描整改重提，等待 GPT-6 独立验收；验收通过前严禁推进 `P0-1`）  
 > **活跃分支**：`feat/r3-p0-controlled` ｜ **审计前前置基线 HEAD**：`2d6061d6cd0e8b4b2da77619cb58239c44dc332e`（`2026-11-26T00:52:10Z`，GPT-6 `ACCEPTED`）  
 > **原始 `P0-0` 正式交付 Commit**：`86cbc9f3ad37c635f134eeea2a89317d5eef0a3c`（`2026-11-26T02:58:13Z`；完整保留）  
-> **历史整改 Commit**：`RW-P0-0-001` `9747e146e016155055b928d7a664650cb76def5c`（`03:11:59Z`）、`8ac888fce42070855241d2f17d05691b3afce709`（`03:41:39Z`）；`RW-P0-0-002` `52dd599b1e30ee3a76c682bf9ec86056e16ded10`（`05:26:25Z`）；`RW-P0-0-003` `27f5cdc06ab90a30daf2658ae32c2d637d59e710`（`05:57:24Z`；GPT-6 于 `2026-11-26T06:05:07Z` 第四轮复审确认 Git 边界、Manifest 结构与本地边界披露通过，要求补齐全部可读文本扫描、Manifest 可复算资格计数及 G4 `underpowered` 口径 → 本版 `RW-P0-0-004`）  
+> **历史整改 Commit**：`RW-P0-0-001` `9747e146e016155055b928d7a664650cb76def5c`（`03:11:59Z`）、`8ac888fce42070855241d2f17d05691b3afce709`（`03:41:39Z`）；`RW-P0-0-002` `52dd599b1e30ee3a76c682bf9ec86056e16ded10`（`05:26:25Z`）；`RW-P0-0-003` `27f5cdc06ab90a30daf2658ae32c2d637d59e710`（`05:57:24Z`）；`RW-P0-0-004` `4d0abeac56faa7aab1ecad2f6d476885eda2ca15`（`06:16:16Z`；GPT-6 于 `2026-11-26T06:31:55Z` 第五轮复审确认提交边界、16 列 Manifest 结构、Manifest 复算资格计数、二进制/VCS 隔离与 G4 `underpowered` 口径均通过，要求补齐 MD/TXT 全文内容信号与 JSON 文件级聚合中文检测 → 本版 `RW-P0-0-005`）  
 > **架构冻结基线**：`feat/r3-migration` @ `b5572a943f9157cda07faa7910dcbfd20b1a3ba5`（PR #3，`docs/r3/review-v3/` `v1.2.3`）  
 > **授权依据**：作者已预先授权 `PROJECT-CONTEXT` 与 `AGENT-HANDOFF` 经 GPT-6 验收通过后直接启动纯只读 `P0-0`；GPT-6 已于 `2d6061d6` 给出 `ACCEPTED`。  
 > **验证分层纪律**：本报告中自动化单测 100% 通过仅代表**工程基线零回归**，绝不代表文学质量提升或生产召回率证明；所有未就绪离线样本一律诚实标注 `underpowered` 与精确缺口。
@@ -576,25 +576,25 @@ REFS_SUMMARY total_files=62 total_bytes=1044654 errors=0
 ALL_INTEGRITY_ASSERTIONS_PASSED
 ```
 
-### C.3 通用全文本格式深度样本审计、Manifest 可复算资格计数与范围隔离（`RW-P0-0-004`）
+### C.3 通用全文本与 JSON 聚合深度样本审计、Manifest 可复算资格计数与范围隔离（`RW-P0-0-005`）
 
-> **整改说明（响应 Issue #4 第四轮复审 `CHANGES_REQUESTED` 全部要求）**：
-> 1. **覆盖全部可读 UTF-8 文本格式（零格式遗漏）**：不再仅扫描 `.md/.txt/.log/.diff/.json/.jsonl/.zip`；对全部 UTF-8 可解码文本文件执行全量扫描：
->    - `.csv`：逐单元格解析（`csv.reader`），扫描章节标题、长中文单元格（`>=200` 字）及章号提及；
->    - `.html`/`.htm`：提取可见文本（`HTMLParser`）并联合源码扫描章节标题、章号提及与长中文文本（`>=500` 字）；
->    - 全部代码/配置/标记文本（`.py`, `.mjs`, `.js`, `.ts`, `.tsx`, `.jsx`, `.yml`, `.yaml`, `.srt`, `.css`, `.svg`, `.ini`, `.ps1`, `.license`, `.license-mpl`, `(noext)` 等）：全文 UTF-8 解码扫描章节标题、长中文行（`>=200` 字）及含章号长中文文本（`>=1,000` 字）；
->    - `.md`/`.txt`/`.log`/`.diff`/`.json`/`.jsonl`/`.zip`：延续第三轮全文、新增行、递归字符串叶节点与 ZIP 内部成员扫描。
-> 2. **严格隔离二进制媒体与嵌套 `.git` 元数据（绝不对非文本宣称“全文扫描”）**：
->    - **二进制媒体（`BIN_MEDIA`）**：主仓 `7` 份 `.png`、`ART_ROOT` `64` 份纯图片/视频（`52 .png + 1 .jpg + 1 .mp4 + 10 .webm`，0 份 PDF/DOCX）显式标为 `OUT_OF_SCOPE_BINARY_MEDIA`（未做 OCR）；
->    - **嵌套外部仓库 `.git` 内部对象（`VCS_META`）**：`scratch/ref-*/.git/` 共 `85` 个版本控制元数据对象显式标为 `OUT_OF_SCOPE_VCS`，从样本语料范围分离并单独对账（`2,723 = 2,573 TEXT + 1 ZIP + 64 BIN_MEDIA + 85 VCS_META`）。
-> 3. **禁止硬编码 `eligible_g2b=0` / `eligible_g6=0`，100% 由逐文件 Manifest 复算对账**：
->    - 两份配套清单均升级为 **16 列逐文件脱敏 TSV**：新增 `scan_scope`、`g2b_eligibility`、`g6_eligibility`（枚举 `ELIGIBLE` | `INELIGIBLE` | `OUT_OF_SCOPE` | `UNRESOLVED`）：
->      - [`P0-0-C3-Full-File-Manifest.tsv`](./P0-0-C3-Full-File-Manifest.tsv)（`2,723` 行，`939,021` Bytes `< 1 MB`，SHA-256 `f05f0fe8c82a9ac47806e70f47748363e1313c26fa54c54bcc13deb2ef3d3fbe`）；
+> **整改说明（响应 Issue #4 第五轮复审 `CHANGES_REQUESTED` 全部要求）**：
+> 1. **消除 Markdown / TXT 全文内容扫描盲区（不再仅检测章节标题）**：`inspect_universal()` 对全部 `.md` / `.txt` / `.log` 执行四重内容信号扫描：
+>    - `text_heading`：Markdown 章节标题（`^#{1,6}\s*第…章`）；
+>    - `ch_ref`：全文本任意位置的章节提及（`第[0-9零一二三四五六七八九十百千]+章`）；
+>    - `cjk_p>=200`：任意单行/段落中文字符数 `>= 200`（`.log` 另保留 `log_cjk>=150`）；
+>    - `cjk_tot>=1k`：文件级总中文字符数 `>= 1,000`。
+>    - 同时统一升级 `.zip` 内部 `.md`/`.txt` 成员（`zip_heading` / `zip_ch_ref` / `zip_cjk_p>=200` / `zip_cjk_tot>=1k`）、`.csv` 全表累计（`csv_cjk_tot>=1k`）及全部其他 UTF-8 代码/配置/字幕文本（`cjk_tot>=1k` / `cjk_p>=200` / `ch_ref` / `text_heading`）。
+> 2. **消除 JSON / JSONL 多字段拆段漏检风险（文件级递归聚合）**：递归遍历 JSON / JSONL 全部字符串叶节点，在保留单叶节点 `json_str_cjk>=500` 与 `json_str_heading` 的同时，新增**文件级跨叶节点累计中文 `json_cjk_tot>=1k`** 与 **`json_ch_ref`**，彻底防止正文拆分到多个短段落字段后绕过检测。
+> 3. **严格保留第四轮已通过项（零返工、零退步）**：
+>    - **二进制媒体（`BIN_MEDIA`）与嵌套 `.git` 元数据（`VCS_META`）显式隔离**：主仓 `7` 份 `.png`、`<ART_ROOT>` `64` 份图片/视频（`OUT_OF_SCOPE_BINARY_MEDIA`）及 `85` 个嵌套 `.git` 对象（`OUT_OF_SCOPE_VCS`）明确不宣称全文扫描；
+>    - **16 列逐文件脱敏 TSV 全量复算（零硬编码）**：
+>      - [`P0-0-C3-Full-File-Manifest.tsv`](./P0-0-C3-Full-File-Manifest.tsv)（`2,723` 行，`989,626` Bytes `< 1 MB`，SHA-256 `49fa30c7f25d91692238abef69da3dc28ca3d64e331b77b6970c053f1ead5f47`）；
 >      - [`P0-0-C3-Repo-Manifest.tsv`](./P0-0-C3-Repo-Manifest.tsv)（`293` 行，与最终提交树字节和 64 位 SHA-256 逐行一致）。
->    - 脚本**完全从 Manifest 字段汇总计算** `computed_eligible_g2b`、`computed_eligible_g6` 及每类候选/排除/合格/非样本/范围外/未决计数，强断言全部总数对账相等且 `total_unresolved == 0`（任意不符或未决即 `sys.exit(1)`）。
+>    - 所有新增捕获项全部进入 `EXCLUDED_CANDIDATE` 并逐文件补齐非 `N/A` 的 6 栏排除依据；`NON_SAMPLE_VERIFIED` 仅授予全量内容扫描 `0` 信号文件（且针对此前无信号的 `77` 份 `.txt` 全量核实为 `76` 份 0 汉字英文文件 + `1` 份 `requirements.txt` 53 汉字注释，`0` 隐藏小说正文）。
 > 4. **独立复跑边界**：以下运行输出由 Neon 在本地 `<ART_ROOT>` 环境执行并留痕；GPT-6 仅独立核验代码逻辑、Manifest 结构与提交输出，未访问本地 `<ART_ROOT>`，不表述为 GPT-6 独立复跑。
 
-#### 1. 通用全文本格式扫描与 Manifest 可复算对账脚本（Fail-Closed，零硬编码）
+#### 1. 通用全文本与 JSON 聚合扫描及 Manifest 可复算对账脚本（Fail-Closed，零硬编码）
 ```bash
 python3 -B - <<'PY'
 import collections, csv, hashlib, html.parser, io, json, os, re, sys, zipfile
@@ -611,6 +611,7 @@ MANIFEST_SELF = {
 HEADING_RE = re.compile(r"(?:^|\n)\s*#{1,6}\s*第[0-9零一二三四五六七八九十百千]+章[^\n]*")
 CHAPTER_STR_RE = re.compile(r"第[0-9零一二三四五六七八九十百千]+章")
 PATH_CLUE_RE = re.compile(r"(chapter|ch\d+|第[0-9零一二三四五六七八九十百千]+章|manuscript|draft|holdout|story-|pilot|texts/|正文)", re.I)
+CJK_RE = re.compile(r"[\u4e00-\u9fff]")
 
 class HTMLTextExtractor(html.parser.HTMLParser):
     def __init__(self):
@@ -621,14 +622,15 @@ class HTMLTextExtractor(html.parser.HTMLParser):
             self.chunks.append(data)
 
 def walk_json_strings(obj):
-    if isinstance(obj, str):
-        yield obj
-    elif isinstance(obj, dict):
-        for v in obj.values():
-            yield from walk_json_strings(v)
-    elif isinstance(obj, list):
-        for v in obj:
-            yield from walk_json_strings(v)
+    stack = [obj]
+    while stack:
+        cur = stack.pop()
+        if isinstance(cur, str):
+            yield cur
+        elif isinstance(cur, dict):
+            stack.extend(cur.values())
+        elif isinstance(cur, list):
+            stack.extend(cur)
 
 def inspect_universal(fp, rel, ext, raw):
     if "/.git/" in f"/{rel}":
@@ -642,8 +644,15 @@ def inspect_universal(fp, rel, ext, raw):
                 if PATH_CLUE_RE.search(m):
                     sigs.append("zip_member_path")
                 if m.endswith((".md", ".txt")):
-                    if HEADING_RE.search(zf.read(m).decode("utf-8", errors="replace")):
-                        sigs.append("zip_member_heading")
+                    mt = zf.read(m).decode("utf-8", errors="replace")
+                    if HEADING_RE.search(mt):
+                        sigs.append("zip_heading")
+                    if CHAPTER_STR_RE.search(mt):
+                        sigs.append("zip_ch_ref")
+                    if any(len(CJK_RE.findall(l)) >= 200 for l in mt.splitlines()):
+                        sigs.append("zip_cjk_p>=200")
+                    if len(CJK_RE.findall(mt)) >= 1000:
+                        sigs.append("zip_cjk_tot>=1k")
         return "ZIP", sorted(set(sigs))
 
     is_binary = b"\x00" in raw
@@ -663,25 +672,38 @@ def inspect_universal(fp, rel, ext, raw):
     if ext in (".md", ".txt", ".log"):
         if HEADING_RE.search(txt):
             sigs.append("text_heading")
-        if ext == ".log" and any(len(re.findall(r"[\u4e00-\u9fff]", l)) >= 150 for l in txt.splitlines()):
-            sigs.append("log_long_cjk")
+        if CHAPTER_STR_RE.search(txt):
+            sigs.append("ch_ref")
+        max_p = max((len(CJK_RE.findall(l)) for l in txt.splitlines()), default=0)
+        tot_cjk = len(CJK_RE.findall(txt))
+        if max_p >= 200:
+            sigs.append("cjk_p>=200")
+        elif ext == ".log" and max_p >= 150:
+            sigs.append("log_cjk>=150")
+        if tot_cjk >= 1000:
+            sigs.append("cjk_tot>=1k")
     elif ext == ".diff":
         added = "\n".join(l[1:] for l in txt.splitlines() if l.startswith("+") and not l.startswith("+++"))
         if HEADING_RE.search(added):
             sigs.append("diff_added_heading")
         if re.search(r"^\+\+\+\s+b/.*?(chapter|ch\d+|第.*?章)", txt, re.M | re.I):
             sigs.append("diff_chapter_target")
-        if len(re.findall(r"[\u4e00-\u9fff]", added)) >= 500:
+        if len(CJK_RE.findall(added)) >= 500:
             sigs.append("diff_added_cjk>=500")
     elif ext in (".json", ".jsonl"):
-        has_head = long_str = parse_err = False
+        has_head = has_ch_ref = long_str = parse_err = False
+        tot_json_cjk = 0
         def chk(o):
-            nonlocal has_head, long_str
+            nonlocal has_head, has_ch_ref, long_str, tot_json_cjk
             for s in walk_json_strings(o):
+                c = len(CJK_RE.findall(s))
+                tot_json_cjk += c
+                if c >= 500:
+                    long_str = True
                 if HEADING_RE.search(s):
                     has_head = True
-                if len(re.findall(r"[\u4e00-\u9fff]", s)) >= 500:
-                    long_str = True
+                if CHAPTER_STR_RE.search(s):
+                    has_ch_ref = True
         if ext == ".json":
             try:
                 chk(json.loads(txt))
@@ -697,46 +719,56 @@ def inspect_universal(fp, rel, ext, raw):
                     parse_err = True
         if has_head:
             sigs.append("json_str_heading")
+        if has_ch_ref:
+            sigs.append("json_ch_ref")
         if long_str:
             sigs.append("json_str_cjk>=500")
+        if tot_json_cjk >= 1000:
+            sigs.append("json_cjk_tot>=1k")
         if parse_err:
             sigs.append("json_parse_err")
     elif ext == ".csv":
         max_cell_cjk = 0
+        tot_csv_cjk = 0
         has_head = False
         for row in csv.reader(io.StringIO(txt)):
             for cell in row:
                 if HEADING_RE.search(cell):
                     has_head = True
-                c = len(re.findall(r"[\u4e00-\u9fff]", cell))
+                c = len(CJK_RE.findall(cell))
+                tot_csv_cjk += c
                 if c > max_cell_cjk:
                     max_cell_cjk = c
         if has_head:
             sigs.append("csv_cell_heading")
         if max_cell_cjk >= 200:
             sigs.append("csv_cell_cjk>=200")
+        if tot_csv_cjk >= 1000:
+            sigs.append("csv_cjk_tot>=1k")
         if CHAPTER_STR_RE.search(txt):
-            sigs.append("csv_chapter_mention")
+            sigs.append("csv_ch_ref")
     elif ext in (".html", ".htm"):
         parser = HTMLTextExtractor()
         parser.feed(txt)
         vis = "\n".join(parser.chunks)
-        cjk_vis = len(re.findall(r"[\u4e00-\u9fff]", vis))
+        cjk_vis = len(CJK_RE.findall(vis))
         if HEADING_RE.search(vis) or HEADING_RE.search(txt):
             sigs.append("html_heading")
         if CHAPTER_STR_RE.search(vis) or CHAPTER_STR_RE.search(txt):
-            sigs.append("html_chapter_mention")
+            sigs.append("html_ch_ref")
         if cjk_vis >= 500:
             sigs.append("html_vis_cjk>=500")
     else:
         if HEADING_RE.search(txt):
             sigs.append("text_heading")
-        max_line_cjk = max((len(re.findall(r"[\u4e00-\u9fff]", l)) for l in txt.splitlines()), default=0)
-        total_cjk = len(re.findall(r"[\u4e00-\u9fff]", txt))
+        max_line_cjk = max((len(CJK_RE.findall(l)) for l in txt.splitlines()), default=0)
+        total_cjk = len(CJK_RE.findall(txt))
         if max_line_cjk >= 200:
-            sigs.append("text_long_cjk_line>=200")
-        if CHAPTER_STR_RE.search(txt) and total_cjk >= 1000:
-            sigs.append("text_ch_mention_cjk>=1000")
+            sigs.append("cjk_p>=200")
+        if CHAPTER_STR_RE.search(txt):
+            sigs.append("ch_ref")
+        if total_cjk >= 1000:
+            sigs.append("cjk_tot>=1k")
 
     return "TEXT", sorted(set(sigs))
 
@@ -835,9 +867,9 @@ def verify_scope(label, root_dir, tsv_path, skip_top_git, exclude_rels):
                 if g2b != "INELIGIBLE" or g6 != "INELIGIBLE":
                     errors.append(f"{label}_EXCLUDED_ELIG_CONFLICT {rel}: g2b={g2b} g6={g6}")
                 for col in ("source_work", "genre", "unblinded", "calibration_used", "blacklist_overlap", "exclusion_reason"):
-                    if not m.get(col) or m[col] == "UNRESOLVED":
+                    if not m.get(col) or m[col] in ("N/A", "UNRESOLVED"):
                         unresolved += 1
-                        errors.append(f"{label}_INCOMPLETE_EXCLUSION {rel}: missing {col}")
+                        errors.append(f"{label}_INCOMPLETE_EXCLUSION {rel}: invalid {col}={m.get(col)}")
 
     for ex in sorted(set(manifest.keys()) - seen):
         errors.append(f"{label}_STALE_MANIFEST_ENTRY {ex}")
@@ -883,89 +915,89 @@ PY
 ```text
 REPO_AUDIT live=295 manifest=293 verified=293 scopes={'BIN_MEDIA': 7, 'TEXT': 285, 'ZIP': 1}
   REPO_TEXT_EXTS(285): {'(noext)': 2, '.csv': 14, '.json': 7, '.md': 200, '.mjs': 49, '.py': 9, '.txt': 1, '.yml': 3}
-  REPO_STATUSES: {'EXCLUDED_CANDIDATE': 19, 'NON_SAMPLE_VERIFIED': 267, 'OUT_OF_SCOPE_BINARY_MEDIA': 7}
+  REPO_STATUSES: {'EXCLUDED_CANDIDATE': 148, 'NON_SAMPLE_VERIFIED': 138, 'OUT_OF_SCOPE_BINARY_MEDIA': 7}
   REPO_G2B_COMPUTED: eligible=0 ineligible=286 out_of_scope=7 unresolved=0
   REPO_G6_COMPUTED:  eligible=0 ineligible=286 out_of_scope=7 unresolved=0
-  REPO_SIGNALS: {'csv_chapter_mention': 4, 'path_clue': 14, 'text_heading': 2}
+  REPO_SIGNALS: {'ch_ref': 44, 'cjk_p>=200': 12, 'cjk_tot>=1k': 112, 'csv_ch_ref': 4, 'csv_cjk_tot>=1k': 10, 'path_clue': 14, 'text_heading': 2, 'zip_ch_ref': 1, 'zip_cjk_p>=200': 1, 'zip_cjk_tot>=1k': 1}
   REPO_ZIPS: [('docs/r3/review-v3/r3-review-v3-architecture-package.zip', 10)]
   REPO_CATEGORY_RECON:
     repo_binary_media: total=7 excluded=0 eligible=0 non_sample=0 out_of_scope=7 unresolved=0
-    repo_docs: total=19 excluded=0 eligible=0 non_sample=19 out_of_scope=0 unresolved=0
+    repo_docs: total=19 excluded=19 eligible=0 non_sample=0 out_of_scope=0 unresolved=0
     repo_eng_script: total=37 excluded=7 eligible=0 non_sample=30 out_of_scope=0 unresolved=0
-    repo_frozen_arch_zip: total=1 excluded=0 eligible=0 non_sample=1 out_of_scope=0 unresolved=0
-    repo_root_or_config: total=10 excluded=0 eligible=0 non_sample=10 out_of_scope=0 unresolved=0
-    repo_skill_reference: total=82 excluded=4 eligible=0 non_sample=78 out_of_scope=0 unresolved=0
-    repo_test_script: total=19 excluded=2 eligible=0 non_sample=17 out_of_scope=0 unresolved=0
-    repo_webnovel_csv_kb: total=10 excluded=4 eligible=0 non_sample=6 out_of_scope=0 unresolved=0
-    repo_webnovel_upstream_ref: total=108 excluded=2 eligible=0 non_sample=106 out_of_scope=0 unresolved=0
+    repo_frozen_arch_zip: total=1 excluded=1 eligible=0 non_sample=0 out_of_scope=0 unresolved=0
+    repo_root_or_config: total=10 excluded=2 eligible=0 non_sample=8 out_of_scope=0 unresolved=0
+    repo_skill_reference: total=82 excluded=38 eligible=0 non_sample=44 out_of_scope=0 unresolved=0
+    repo_test_script: total=19 excluded=11 eligible=0 non_sample=8 out_of_scope=0 unresolved=0
+    repo_webnovel_csv_kb: total=10 excluded=9 eligible=0 non_sample=1 out_of_scope=0 unresolved=0
+    repo_webnovel_upstream_ref: total=108 excluded=61 eligible=0 non_sample=47 out_of_scope=0 unresolved=0
 ART_ROOT_AUDIT live=2723 manifest=2723 verified=2723 scopes={'BIN_MEDIA': 64, 'TEXT': 2573, 'VCS_META': 85, 'ZIP': 1}
   ART_ROOT_TEXT_EXTS(2573): {'(noext)': 25, '.css': 14, '.csv': 10, '.diff': 4, '.html': 6, '.ini': 1, '.js': 34, '.json': 734, '.jsonl': 4, '.jsx': 13, '.license': 2, '.license-mpl': 1, '.log': 11, '.md': 749, '.mjs': 135, '.ps1': 1, '.py': 206, '.srt': 1, '.svg': 2, '.ts': 474, '.tsx': 31, '.txt': 86, '.yaml': 3, '.yml': 26}
-  ART_ROOT_STATUSES: {'EXCLUDED_CANDIDATE': 897, 'NON_SAMPLE_VERIFIED': 1677, 'OUT_OF_SCOPE_BINARY_MEDIA': 64, 'OUT_OF_SCOPE_VCS': 85}
+  ART_ROOT_STATUSES: {'EXCLUDED_CANDIDATE': 1409, 'NON_SAMPLE_VERIFIED': 1165, 'OUT_OF_SCOPE_BINARY_MEDIA': 64, 'OUT_OF_SCOPE_VCS': 85}
   ART_ROOT_G2B_COMPUTED: eligible=0 ineligible=2574 out_of_scope=149 unresolved=0
   ART_ROOT_G6_COMPUTED:  eligible=0 ineligible=2574 out_of_scope=149 unresolved=0
-  ART_ROOT_SIGNALS: {'csv_chapter_mention': 4, 'diff_added_cjk>=500': 4, 'diff_chapter_target': 4, 'html_vis_cjk>=500': 2, 'json_str_cjk>=500': 94, 'json_str_heading': 2, 'log_long_cjk': 8, 'path_clue': 731, 'text_ch_mention_cjk>=1000': 28, 'text_heading': 228, 'text_long_cjk_line>=200': 2}
+  ART_ROOT_SIGNALS: {'ch_ref': 413, 'cjk_p>=200': 264, 'cjk_tot>=1k': 687, 'csv_ch_ref': 4, 'csv_cjk_tot>=1k': 9, 'diff_added_cjk>=500': 4, 'diff_chapter_target': 4, 'html_vis_cjk>=500': 2, 'json_ch_ref': 253, 'json_cjk_tot>=1k': 278, 'json_str_cjk>=500': 94, 'json_str_heading': 2, 'log_cjk>=150': 7, 'path_clue': 731, 'text_heading': 228, 'zip_ch_ref': 1, 'zip_cjk_p>=200': 1, 'zip_cjk_tot>=1k': 1}
   ART_ROOT_ZIPS: [('r3-review-v3-architecture-package.zip', 10)]
   ART_ROOT_CATEGORY_RECON:
     agent_config: total=1 excluded=0 eligible=0 non_sample=1 out_of_scope=0 unresolved=0
-    calibration_protocol_md: total=3 excluded=0 eligible=0 non_sample=3 out_of_scope=0 unresolved=0
+    calibration_protocol_md: total=3 excluded=3 eligible=0 non_sample=0 out_of_scope=0 unresolved=0
     candidate_chapter_manuscript: total=172 excluded=172 eligible=0 non_sample=0 out_of_scope=0 unresolved=0
     chapter_brief_md: total=3 excluded=3 eligible=0 non_sample=0 out_of_scope=0 unresolved=0
-    chapter_or_core_diff_md: total=61 excluded=39 eligible=0 non_sample=22 out_of_scope=0 unresolved=0
+    chapter_or_core_diff_md: total=61 excluded=61 eligible=0 non_sample=0 out_of_scope=0 unresolved=0
     chapter_revision_diff: total=1 excluded=1 eligible=0 non_sample=0 out_of_scope=0 unresolved=0
     compiled_review_pack_md: total=14 excluded=14 eligible=0 non_sample=0 out_of_scope=0 unresolved=0
-    exp_manifest_or_eval_json: total=344 excluded=189 eligible=0 non_sample=155 out_of_scope=0 unresolved=0
+    exp_manifest_or_eval_json: total=344 excluded=225 eligible=0 non_sample=119 out_of_scope=0 unresolved=0
     external_ref_binary_media: total=64 excluded=0 eligible=0 non_sample=0 out_of_scope=64 unresolved=0
-    external_ref_code_or_doc: total=1373 excluded=119 eligible=0 non_sample=1254 out_of_scope=0 unresolved=0
-    external_ref_csv_kb: total=10 excluded=4 eligible=0 non_sample=6 out_of_scope=0 unresolved=0
-    external_ref_eval_fixture_meta: total=7 excluded=3 eligible=0 non_sample=4 out_of_scope=0 unresolved=0
+    external_ref_code_or_doc: total=1373 excluded=395 eligible=0 non_sample=978 out_of_scope=0 unresolved=0
+    external_ref_csv_kb: total=10 excluded=9 eligible=0 non_sample=1 out_of_scope=0 unresolved=0
+    external_ref_eval_fixture_meta: total=7 excluded=4 eligible=0 non_sample=3 out_of_scope=0 unresolved=0
     external_ref_eval_prose_fixture: total=1 excluded=1 eligible=0 non_sample=0 out_of_scope=0 unresolved=0
     external_ref_html_doc: total=6 excluded=2 eligible=0 non_sample=4 out_of_scope=0 unresolved=0
     external_ref_prose_example: total=1 excluded=1 eligible=0 non_sample=0 out_of_scope=0 unresolved=0
     external_ref_vcs_meta: total=85 excluded=0 eligible=0 non_sample=0 out_of_scope=85 unresolved=0
-    frozen_arch_package_copy: total=20 excluded=0 eligible=0 non_sample=20 out_of_scope=0 unresolved=0
-    historical_calibration_key_json: total=10 excluded=0 eligible=0 non_sample=10 out_of_scope=0 unresolved=0
-    historical_exp_ref_md: total=97 excluded=10 eligible=0 non_sample=87 out_of_scope=0 unresolved=0
+    frozen_arch_package_copy: total=20 excluded=11 eligible=0 non_sample=9 out_of_scope=0 unresolved=0
+    historical_calibration_key_json: total=10 excluded=6 eligible=0 non_sample=4 out_of_scope=0 unresolved=0
+    historical_exp_ref_md: total=97 excluded=97 eligible=0 non_sample=0 out_of_scope=0 unresolved=0
     pilot_review_report_md: total=8 excluded=8 eligible=0 non_sample=0 out_of_scope=0 unresolved=0
     planning_facts_cache_json: total=2 excluded=2 eligible=0 non_sample=0 out_of_scope=0 unresolved=0
     report_with_embedded_chapter: total=1 excluded=1 eligible=0 non_sample=0 out_of_scope=0 unresolved=0
-    review_or_state_json: total=304 excluded=256 eligible=0 non_sample=48 out_of_scope=0 unresolved=0
+    review_or_state_json: total=304 excluded=281 eligible=0 non_sample=23 out_of_scope=0 unresolved=0
     root_metadata_json: total=1 excluded=1 eligible=0 non_sample=0 out_of_scope=0 unresolved=0
-    root_report_or_metadata: total=31 excluded=0 eligible=0 non_sample=31 out_of_scope=0 unresolved=0
+    root_report_or_metadata: total=31 excluded=14 eligible=0 non_sample=17 out_of_scope=0 unresolved=0
     skill_code_diff: total=3 excluded=3 eligible=0 non_sample=0 out_of_scope=0 unresolved=0
-    story_bible_or_outline_md: total=85 excluded=60 eligible=0 non_sample=25 out_of_scope=0 unresolved=0
-    system_task_log: total=11 excluded=8 eligible=0 non_sample=3 out_of_scope=0 unresolved=0
+    story_bible_or_outline_md: total=85 excluded=85 eligible=0 non_sample=0 out_of_scope=0 unresolved=0
+    system_task_log: total=11 excluded=9 eligible=0 non_sample=2 out_of_scope=0 unresolved=0
     telemetry_jsonl: total=4 excluded=0 eligible=0 non_sample=4 out_of_scope=0 unresolved=0
 FINAL_COMPUTED_AUDIT total_unresolved=0 total_errors=0 computed_eligible_g2b=0 computed_eligible_g6=0
 C3_UNIVERSAL_AUDIT_PASSED
 ```
 
-#### 3. ZIP 归档内部成员逐项核验（共 2 份归档）
+#### 3. ZIP 归档内部成员逐项核验（共 2 份归档，同步执行全文内容扫描）
 
-| 归档位置与路径 | 成员数 | 完整内部成员清单 | 章节/小说样本命中数 | 判定 |
-|---|---:|---|---:|---|
-| 公开主仓：`docs/r3/review-v3/r3-review-v3-architecture-package.zip` | `10` | `r3-review-v3-architecture-package/{README.md, CHANGELOG.md, 01..08}`（10 份冻结架构文档） | `0` | `NON_SAMPLE_VERIFIED`（`g2b=INELIGIBLE`, `g6=INELIGIBLE`） |
-| `<ART_ROOT>`：`r3-review-v3-architecture-package.zip` | `10` | 同上 10 份冻结架构文档（同源副本） | `0` | `NON_SAMPLE_VERIFIED`（`g2b=INELIGIBLE`, `g6=INELIGIBLE`） |
+| 归档位置与路径 | 成员数 | 完整内部成员清单 | 触发信号 | 判定 |
+|---|---:|---|---|---|
+| 公开主仓：`docs/r3/review-v3/r3-review-v3-architecture-package.zip` | `10` | `r3-review-v3-architecture-package/{README.md, CHANGELOG.md, 01..08}`（10 份冻结架构文档） | `zip_ch_ref,zip_cjk_p>=200,zip_cjk_tot>=1k` | `EXCLUDED_CANDIDATE`（冻结架构规范 ZIP，非小说正文；`g2b=INELIGIBLE`, `g6=INELIGIBLE`） |
+| `<ART_ROOT>`：`r3-review-v3-architecture-package.zip` | `10` | 同上 10 份冻结架构文档（同源副本） | `zip_ch_ref,zip_cjk_p>=200,zip_cjk_tot>=1k` | `EXCLUDED_CANDIDATE`（同源冻结架构规范 ZIP，非小说正文；`g2b=INELIGIBLE`, `g6=INELIGIBLE`） |
 
-#### 4. 第四轮通用全文本扫描新增捕获项核查（全部逐文件记入两份 16 列 `.tsv` 清单）
+#### 4. 第五轮 MD/TXT 全文信号与 JSON 聚合扫描新增捕获项核查（全部逐文件记入两份 16 列 `.tsv` 清单）
 
-| 扫描新增覆盖类型 | 命中数量 | 代表性路径与触发信号 | 逐项核查与排除结论 |
+| 新增覆盖范围 | 新增捕获数（原 `none` → 命中） | 构成与代表性路径 | 人工逐类核查与排除结论 |
 |---|---:|---|---|
-| **主仓 `.csv`（14 份全扫）** | `4` | `references/webnovel/upstream/references/csv/{写作技法,命名规则,场景写法,爽点与节奏}.csv`（`csv_chapter_mention`） | 逐单元格扫描 `0` 章节标题；仅含网文技法/命名/节奏知识条目，`g2b=INELIGIBLE`, `g6=INELIGIBLE` |
-| **`<ART_ROOT>` 外部仓库 `.csv`（10 份全扫）** | `4` | `scratch/ref-webnovel-writer/webnovel-writer/references/csv/{写作技法,命名规则,场景写法,爽点与节奏}.csv`（`csv_chapter_mention`） | 同上上游知识库 CSV，`0` 章节正文，`g2b=INELIGIBLE`, `g6=INELIGIBLE` |
-| **`<ART_ROOT>` 外部仓库 `.html`（6 份全扫）** | `2` | `scratch/ref-webnovel-writer/docs/archive/architecture/{dashboard-prototype,system-architecture-diagram}.html`（`html_vis_cjk>=500`） | 可见文本与源码均 `0` 章节标题；仅架构原型与看板 HTML 页面，`g2b=INELIGIBLE`, `g6=INELIGIBLE` |
-| **`<ART_ROOT>` 外部仓库代码/单测（`.py` 206、`.mjs` 135、`.js` 34、`.ts` 474、`.tsx` 31、`.jsx` 13、`.yml/.yaml` 29、`.srt` 1 等全部全扫）** | `30`（含 1 份既有路径命中 `chapter-opening.spec.ts`） | `echarts-vendor-*.js`（`text_long_cjk_line>=200`）、`status_reporter.py`、`novel-tools.ts`、`workflow-artwork.ts`、`site/build.mjs` 及 25 份 `*.spec.ts` 自动化单测（`text_ch_mention_cjk>=1000`） | 全部为外部参考 Skill 仓库源码、前端打包库与 TypeScript 单元测试代码，`0` 独立小说正文章节，`g2b=INELIGIBLE`, `g6=INELIGIBLE` |
-| **二进制媒体（单独列示，不宣称全文扫描）** | 主仓 `7` + `<ART_ROOT>` `64` | 主仓 `assets/*.png`（7）；`<ART_ROOT>` 外部仓库 `52 .png + 1 .jpg + 1 .mp4 + 10 .webm`（64） | 显式划归 `OUT_OF_SCOPE_BINARY_MEDIA`（`g2b=OUT_OF_SCOPE`, `g6=OUT_OF_SCOPE`） |
-| **嵌套 `.git` 版本控制元数据（单独隔离）** | `<ART_ROOT>` `85` | `scratch/ref-{penglonghuang-cns,webnovel-writer,webnovel-writer-v8}/.git/**`（85） | 显式划归 `OUT_OF_SCOPE_VCS`（`g2b=OUT_OF_SCOPE`, `g6=OUT_OF_SCOPE`），不计入样本语料 |
+| **`<ART_ROOT>` Markdown 全文信号（原 417 份无信号 `.md` 全量重扫）** | **`317`**（另 `100` 份最大仅 `972` 汉字且均为外部短模板/规范，零信号） | `14` 份根目录研发/校准/基准报告、`10` 份 `r3-review-v3-architecture-package/*.md` 冻结架构文档、`87` 份 `phase1-throughput-exp` 上游设定/大纲/文风/core diff、`21` 份 `step3-r3-trial` 与 `20` 份 `live-eval` 上游设定/大纲/卷纲/core diff、`9` 份 `phase1-blind-audit`/`phase1-calibration*` 冻结参考与校准协议、`156` 份外部参考仓技能规范/题材模板/指南 | 全部为研发报告、架构文档、上游大纲/人物档案/文风基准、离线校准协议及外部参考仓模板，**`0` 份隐藏未揭盲小说正文章节**；全部进入 `EXCLUDED_CANDIDATE` 并补齐非 `N/A` 6 栏证据（`g2b=INELIGIBLE`, `g6=INELIGIBLE`） |
+| **`<ART_ROOT>` TXT 全文信号（原 77 份无信号 `.txt` 全量重扫）** | **`0`**（全量 77 份实测） | `74` 份 `ref-webnovel-writer-v8` + `3` 份 `ref-webnovel-writer`：`76` 份 **0 个汉字**（纯英文 LICENSE/构建/测试文本），仅 `1` 份 `requirements.txt` 含 `53` 汉字 Python 依赖注释 | 实测确认 **0 份隐藏中文小说正文**；`NON_SAMPLE_VERIFIED` 结论基于全文 CJK/段落/章号全量扫描零信号 |
+| **`<ART_ROOT>` JSON/JSONL 文件级聚合扫描（递归全部字符串叶节点累计）** | **`70`** | `27` 份 `live-eval` 共创草案/写作计划/core-plan 审校 JSON、`12` 份 `phase1-throughput-exp` 与 `5` 份 `step3-r3-trial` 共创/架构审校 JSON、`23` 份 `phase1-calibration*`/`blind`/`orig-reviews-digest`/`arbitration-cases` 离线校准批次/打分/私钥 JSON、`3` 份外部参考仓 `evals.json` | 全部为共创事件草案、上游架构/大纲审校报告、已揭盲历史校准/复审数据或外部评估配置，**`0` 份隐藏独立测试章节**；全部进入 `EXCLUDED_CANDIDATE`（`g2b=INELIGIBLE`, `g6=INELIGIBLE`） |
+| **`<ART_ROOT>` 其余文本与 ZIP 统一升级（`.log`/`.zip`/`.csv`/`.py`/`.mjs`/`.ts`/`.css`/`.srt`）** | **`125`**（`.ts` 68, `.py` 33, `.mjs` 15, `.csv` 5, `.zip` 1, `.log` 1, `.css` 1, `.srt` 1） | `r3-review-v3-architecture-package.zip`、`task-263.log`（52 汉字 CLI 日志）、`intro.srt`（产品宣传字幕）、5 份上游写作知识库 CSV 及外部参考仓 TS/PY/MJS/CSS 源码与测试 | 全部为架构规范 ZIP、CLI 日志、产品字幕、知识库条目或第三方工程代码，**`0` 份小说正文**；全部进入 `EXCLUDED_CANDIDATE`（`g2b=INELIGIBLE`, `g6=INELIGIBLE`） |
+| **公开主仓 `REPO` 全文与 ZIP 统一升级** | **`129`**（`.md` 113, `.mjs` 8, `.csv` 6, `.zip` 1, `.py` 1） | `92` 份 `references/` 规范与网文指南、`19` 份 `docs/` 治理/架构/P0 文档、`2` 份根目录 `README.md`/`SKILL.md`、`6` 份上游知识库 CSV、`1` 份冻结架构 ZIP、`9` 份 `scripts/tests/` 单元测试夹具 | 全部为公开主仓规范、文档、知识库与自动化单测代码，**`0` 份独立小说章节**；全部进入 `EXCLUDED_CANDIDATE`（`g2b=INELIGIBLE`, `g6=INELIGIBLE`） |
+| **二进制媒体与嵌套 `.git` 元数据（延续第四轮范围隔离）** | 主仓 `7` + `<ART_ROOT>` `149`（64 媒体 + 85 VCS） | 主仓 `assets/*.png`（7）；`<ART_ROOT>` `52 .png + 1 .jpg + 1 .mp4 + 10 .webm`（64）+ `scratch/ref-*/.git/**`（85） | 显式划归 `OUT_OF_SCOPE_BINARY_MEDIA` / `OUT_OF_SCOPE_VCS`（`g2b=OUT_OF_SCOPE`, `g6=OUT_OF_SCOPE`） |
 
-#### 5. 总数可对账结论（由 Manifest 复算得出，零硬编码）
+#### 5. 总数可对账结论（由两份 16 列 Manifest 复算得出，零硬编码）
 
 | 审计范围 | 文件总数 | 已扫描文本+ZIP | 范围外（二进制媒体 + VCS） | 候选排除（`EXCLUDED_CANDIDATE`） | 扫描非样本（`NON_SAMPLE_VERIFIED`） | 未决（`UNRESOLVED`） | **复算 `G2-B` 合格** | **复算 `G6` 合格** |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|
-| 公开主仓（[`P0-0-C3-Repo-Manifest.tsv`](./P0-0-C3-Repo-Manifest.tsv)，另含 2 份 TSV 共 295） | `293` | `286`（285 文本 + 1 ZIP） | `7`（7 PNG + 0 VCS） | `19` | `267` | **`0`** | **`0`** | **`0`** |
-| 本地 `<ART_ROOT>`（[`P0-0-C3-Full-File-Manifest.tsv`](./P0-0-C3-Full-File-Manifest.tsv)） | `2,723` | `2,574`（2,573 文本 + 1 ZIP） | `149`（64 媒体 + 85 VCS） | `897` | `1,677` | **`0`** | **`0`** | **`0`** |
-| **Manifest 复算合计** | **`3,016`** | **`2,860`** | **`156`** | **`916`** | **`1,944`** | **`0`** | **`0`** | **`0`** |
+| 公开主仓（[`P0-0-C3-Repo-Manifest.tsv`](./P0-0-C3-Repo-Manifest.tsv)，另含 2 份 TSV 共 295） | `293` | `286`（285 文本 + 1 ZIP） | `7`（7 PNG + 0 VCS） | `148` | `138` | **`0`** | **`0`** | **`0`** |
+| 本地 `<ART_ROOT>`（[`P0-0-C3-Full-File-Manifest.tsv`](./P0-0-C3-Full-File-Manifest.tsv)） | `2,723` | `2,574`（2,573 文本 + 1 ZIP） | `149`（64 媒体 + 85 VCS） | `1,409` | `1,165` | **`0`** | **`0`** | **`0`** |
+| **Manifest 复算合计** | **`3,016`** | **`2,860`** | **`156`** | **`1,557`** | **`1,303`** | **`0`** | **`0`** | **`0`** |
 
-- **对账恒等式**：`2,860 + 156 = 3,016`；`916 + 1,944 + 156 + 0 = 3,016`；`G2-B`：`0 ELIGIBLE + 2,860 INELIGIBLE + 156 OUT_OF_SCOPE + 0 UNRESOLVED = 3,016`；`G6`：`0 ELIGIBLE + 2,860 INELIGIBLE + 156 OUT_OF_SCOPE + 0 UNRESOLVED = 3,016`。
+- **对账恒等式**：`2,860 + 156 = 3,016`；`1,557 + 1,303 + 156 + 0 = 3,016`；`G2-B`：`0 ELIGIBLE + 2,860 INELIGIBLE + 156 OUT_OF_SCOPE + 0 UNRESOLVED = 3,016`；`G6`：`0 ELIGIBLE + 2,860 INELIGIBLE + 156 OUT_OF_SCOPE + 0 UNRESOLVED = 3,016`。
 - **外部补充来源**：Google Drive 历史快照 3 份 ZIP 仅含单题材仙侠《仙门大掌柜》Ch 1–12，未经双评委+第三仲裁定案，不满足跨题材未揭盲要求。
 - **最终可复核缺口**：`G2-B` = **`0` 章 / `0` 案例（`underpowered`，缺 `+20` 章 / `+60` 案例）**；`G6` = **`0` 章 / `0` 案例（`underpowered`，缺 `+12..16` 章 / `+30` 正例 / `+40` 负例）**。
 
