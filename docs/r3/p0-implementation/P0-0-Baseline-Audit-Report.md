@@ -1,10 +1,10 @@
 # P0-0 · 研发基线审计与实施准备报告
 
-> **任务编号**：`P0-0`（纯只读审计与实施准备，零生产代码改动） ｜ **提交状态**：`READY_FOR_REVIEW`（响应 Issue #4 `CHANGES_REQUESTED` 完成 `RW-P0-0-002` 四项整改重提，等待 GPT-6 独立验收；验收通过前严禁推进 `P0-1`）  
+> **任务编号**：`P0-0`（纯只读审计与实施准备，零生产代码改动） ｜ **提交状态**：`READY_FOR_REVIEW`（响应 Issue #4 第三轮复审 `CHANGES_REQUESTED` 完成 `RW-P0-0-003` 附录 C.3 深度闭环整改重提，等待 GPT-6 独立验收；验收通过前严禁推进 `P0-1`）  
 > **活跃分支**：`feat/r3-p0-controlled` ｜ **审计前前置基线 HEAD**：`2d6061d6cd0e8b4b2da77619cb58239c44dc332e`（`2026-11-26T00:52:10Z`，GPT-6 `ACCEPTED`）  
 > **原始 `P0-0` 正式交付 Commit**：`86cbc9f3ad37c635f134eeea2a89317d5eef0a3c`（GitHub 提交时间：`2026-11-26T02:58:13Z`；完整保留）  
-> **`RW-P0-0-001` 一轮整改补充 Commit**：`9747e146e016155055b928d7a664650cb76def5c`（GitHub 提交时间：`2026-11-26T03:11:59Z`；完整保留）  
-> **`RW-P0-0-001` 二轮补齐 Commit**：`8ac888fce42070855241d2f17d05691b3afce709`（GitHub 提交时间：`2026-11-26T03:41:39Z`；GPT-6 于 `2026-11-26T05:08:16Z` 在 Issue #4 给出正式 `CHANGES_REQUESTED`，本版据此完成 `RW-P0-0-002` 全部四项整改）  
+> **`RW-P0-0-001` 整改 Commit**：`9747e146e016155055b928d7a664650cb76def5c`（`2026-11-26T03:11:59Z`）、`8ac888fce42070855241d2f17d05691b3afce709`（`2026-11-26T03:41:39Z`；Issue #4 一审 `CHANGES_REQUESTED`）  
+> **`RW-P0-0-002` 整改 Commit**：`52dd599b1e30ee3a76c682bf9ec86056e16ded10`（GitHub 提交时间：`2026-11-26T05:26:25Z`；GPT-6 于 `2026-11-26T05:44:33Z` 在 Issue #4 第三轮复审确认 Git 边界、C.2、G4 与测试边界通过，仅要求完成 C.3 最后一轮深度全文件审计整改 → 本版 `RW-P0-0-003`）  
 > **架构冻结基线**：`feat/r3-migration` @ `b5572a943f9157cda07faa7910dcbfd20b1a3ba5`（PR #3，`docs/r3/review-v3/` `v1.2.3`）  
 > **授权依据**：作者已预先授权 `PROJECT-CONTEXT` 与 `AGENT-HANDOFF` 经 GPT-6 验收通过后直接启动纯只读 `P0-0`；GPT-6 已于 `2d6061d6` 给出 `ACCEPTED`。  
 > **验证分层纪律**：本报告中自动化单测 100% 通过仅代表**工程基线零回归**，绝不代表文学质量提升或生产召回率证明；所有未就绪离线样本一律诚实标注 `underpowered` 与精确缺口。
@@ -301,6 +301,7 @@
 > 1. 将附录 C.1 全部 **18 份核心文件**（17 份 `.json` + 1 份 `.md`）的预期字节数与完整 64 位 SHA-256 写入脚本 `C1_MANIFEST` 数据结构，逐文件强断言字节数、完整 64 位 SHA-256 及 JSON/UTF-8 解析；
 > 2. 将 5 组清单动态引用的全部 **62 份稿件文件**纳入 `REF_GROUPS` 数据结构，逐文件输出脱敏相对路径（相对 `<ART_ROOT>`）、字节数与完整 64 位 SHA-256，并强断言分组引用数（`18/21/7/10/6`）、总引用数（`62`）、文件集合一致、字节数与完整 SHA-256 精确匹配；
 > 3. **Fail-Closed 非零退出**：任意文件缺失、哈希不符、字节数不符、解析失败、引用数量或集合不符均记入 `errors` 并以 `sys.exit(1)` 非零退出。
+> 4. **独立复跑边界**：以下实跑输出由 Neon 在本地 `<ART_ROOT>` 环境执行并留痕；GPT-6 仅独立核验脚本代码结构与提交输出，未访问 Neon 本地 `<ART_ROOT>`，不表述为 GPT-6 独立复跑。
 
 #### 修订后的完整只读 Python 校验脚本（`-B` 禁止生成字节码）
 ```bash
@@ -576,529 +577,241 @@ REFS_SUMMARY total_files=62 total_bytes=1044654 errors=0
 ALL_INTEGRITY_ASSERTIONS_PASSED
 ```
 
-### C.3 全量递归样本审计（主仓 293 文件 + 本地 `<ART_ROOT>` 2,723 文件完整脱敏清单与 173 份候选章节逐项排除依据）
+### C.3 深度全量递归样本审计（2,723 个 Artifact + 293 个主仓逐文件 Manifest、全文/JSON/Diff/日志/ZIP 扫描与 `UNRESOLVED = 0` 闭环）
 
-> **整改说明（响应 Issue #4 `CHANGES_REQUESTED` 第 2 项）**：
-> - 不再局限于 3 个目录或文件名关键词扫描；对公开主仓（排除 `.git/` 后全部 **293 个文件**）与本地 Artifact 根目录 `<ART_ROOT>`（含根文件、`.agents/`、`.system_generated/`、`r3-review-v3-architecture-package/`、`scratch/` 顶层及全部 15 个子目录，合计 **2,723 个文件**）执行 **100% 递归内容扫描与全文件归类**（强断言 `unclassified = 0`，否则 `sys.exit(1)`）。
+> **整改说明（响应 Issue #4 第三轮复审 `CHANGES_REQUESTED` 全部 5 项要求，`RW-P0-0-003`）**：
+> 1. **逐文件脱敏 Manifest 全覆盖（零聚合替代）**：新增独立配套清单文件（均位于 `docs/r3/p0-implementation/`，零正文上传、零敏感凭据）：
+>    - [`P0-0-C3-Full-File-Manifest.tsv`](./P0-0-C3-Full-File-Manifest.tsv)：本地 `<ART_ROOT>` **全部 `2,723` 个文件逐行清单**（`978,430` Bytes，SHA-256 `ae9856562483444d72b29ee08efa0f130ee1c8a86b7c8a2197cc4ab4f6d79c41`），逐文件包含 `rel_path`、`ext`、`bytes`、完整 64 位 `sha256`、`category`、`deep_scan_signals`、`resolution_status` 及 6 项排除字段（`source_work`、`genre`、`unblinded`、`calibration_used`、`blacklist_overlap`、`exclusion_reason`）。
+>    - [`P0-0-C3-Repo-Manifest.tsv`](./P0-0-C3-Repo-Manifest.tsv)：公开主仓 **全部 `293` 个非清单文件逐行清单**（与最终提交树字节及 64 位 SHA-256 逐行一致；2 份新増 C.3 `.tsv` 清单本身不自哈希以避免循环依赖，主仓当前总文件数为 `293 + 2 = 295`）。
+> 2. **消除全部内容发现盲区**：
+>    - 对全部 `.md` / `.txt` / `.log` 执行**全文扫描**（不再限于前 2,000 字节或第一行），匹配全部 Markdown 级别章节标题（`^#{1,6}\s*第…章`）并检查 `.log` 长中文行；
+>    - 同时将全部路径/文件名含 `chapter`、`chNNN`、`第…章`、`manuscript`、`draft`、`holdout`、`story-`、`pilot`、`texts/`、`正文` 线索的文件强制纳入深度候选，不以首行否定；
+>    - 递归解析全部 `.json` / `.jsonl` 的嵌套字符串叶节点（检测章节标题与 `>=500` 中文字长文本）；
+>    - 扫描全部 `.diff` 文件的新增行（`+` 行）与目标文件名（`+++ b/...`）；
+>    - 解包列出全部 `.zip` 归档的内部成员清单并扫描成员文本内容。
+> 3. **Fail-Closed `UNRESOLVED = 0` 断言**：任意命中深度扫描信号但未获完整 6 栏逐文件排除记录的文件、或任意 `Manifest` 字节/SHA-256/信号不符，均强制标为 `UNRESOLVED` 并以 `sys.exit(1)` 非零退出。以下运行输出为 Neon 在本地 `<ART_ROOT>` 环境实跑结果（GPT-6 未访问本地 `<ART_ROOT>`，不表述为 GPT-6 独立复跑）。
 
-#### 1. 全量递归只读扫描脚本
+#### 1. 深度全量递归审计与 Manifest 强断言脚本（Fail-Closed）
 ```bash
 python3 -B - <<'PY'
-import collections, hashlib, os, re, sys
+import collections, csv, hashlib, json, os, re, sys, zipfile
 
 REPO = "/home/antigravity/chindden/chinese-novelist-skill"
 ART = "/home/antigravity/.gemini/jetski/brain/v1/default/jetski_remote_agents_3p_devbox/bb9496c7-61be-4b01-ad65-2da947e559e6"
-CHAPTER_RE = re.compile(r"^#\s*第[0-9零一二三四五六七八九十百千]+章", re.M)
+ART_TSV = os.path.join(REPO, "docs/r3/p0-implementation/P0-0-C3-Full-File-Manifest.tsv")
+REPO_TSV = os.path.join(REPO, "docs/r3/p0-implementation/P0-0-C3-Repo-Manifest.tsv")
+MANIFEST_SELF = {
+    "docs/r3/p0-implementation/P0-0-C3-Full-File-Manifest.tsv",
+    "docs/r3/p0-implementation/P0-0-C3-Repo-Manifest.tsv",
+}
 
-repo_total = 0
-repo_buckets = collections.Counter()
-repo_chapter_hits = []
-for root, dirs, files in os.walk(REPO):
-    if ".git" in dirs:
-        dirs.remove(".git")
-    dirs.sort()
-    for f in sorted(files):
-        fp = os.path.join(root, f)
-        rel = os.path.relpath(fp, REPO)
-        repo_total += 1
-        parts = rel.split(os.sep)
-        if parts[0] in ("references", "docs") and len(parts) > 2:
-            b = f"{parts[0]}/{parts[1]}"
-        elif len(parts) > 1:
-            b = parts[0]
+HEADING_RE = re.compile(r"(?:^|\n)\s*#{1,6}\s*第[0-9零一二三四五六七八九十百千]+章[^\n]*")
+PATH_CLUE_RE = re.compile(r"(chapter|ch\d+|第[0-9零一二三四五六七八九十百千]+章|manuscript|draft|holdout|story-|pilot|texts/|正文)", re.I)
+
+def walk_json_strings(obj):
+    if isinstance(obj, str):
+        yield obj
+    elif isinstance(obj, dict):
+        for v in obj.values():
+            yield from walk_json_strings(v)
+    elif isinstance(obj, list):
+        for v in obj:
+            yield from walk_json_strings(v)
+
+def scan_signals(fp, rel, ext):
+    sigs = []
+    if "/.git/" in f"/{rel}":
+        return sigs
+    if PATH_CLUE_RE.search(rel):
+        sigs.append("path_clue")
+    if ext == ".zip":
+        with zipfile.ZipFile(fp) as zf:
+            for m in zf.namelist():
+                if PATH_CLUE_RE.search(m):
+                    sigs.append("zip_member_path")
+                if m.endswith((".md", ".txt")):
+                    if HEADING_RE.search(zf.read(m).decode("utf-8", errors="replace")):
+                        sigs.append("zip_member_heading")
+    elif ext in (".md", ".txt", ".log"):
+        txt = open(fp, encoding="utf-8", errors="replace").read()
+        if HEADING_RE.search(txt):
+            sigs.append("text_heading")
+        if ext == ".log" and any(len(re.findall(r"[\u4e00-\u9fff]", l)) >= 150 for l in txt.splitlines()):
+            sigs.append("log_long_cjk")
+    elif ext == ".diff":
+        txt = open(fp, encoding="utf-8", errors="replace").read()
+        added = "\n".join(l[1:] for l in txt.splitlines() if l.startswith("+") and not l.startswith("+++"))
+        if HEADING_RE.search(added):
+            sigs.append("diff_added_heading")
+        if re.search(r"^\+\+\+\s+b/.*?(chapter|ch\d+|第.*?章)", txt, re.M | re.I):
+            sigs.append("diff_chapter_target")
+        if len(re.findall(r"[\u4e00-\u9fff]", added)) >= 500:
+            sigs.append("diff_added_cjk>=500")
+    elif ext in (".json", ".jsonl"):
+        has_head = long_str = parse_err = False
+        def chk(o):
+            nonlocal has_head, long_str
+            for s in walk_json_strings(o):
+                if HEADING_RE.search(s):
+                    has_head = True
+                if len(re.findall(r"[\u4e00-\u9fff]", s)) >= 500:
+                    long_str = True
+        if ext == ".json":
+            try:
+                chk(json.load(open(fp, encoding="utf-8", errors="replace")))
+            except Exception:
+                parse_err = True
         else:
-            b = "(root)"
-        repo_buckets[b] += 1
-        if f.endswith((".md", ".txt")):
-            head = open(fp, encoding="utf-8", errors="replace").read(2000)
-            if CHAPTER_RE.search(head):
-                repo_chapter_hits.append((rel, os.path.getsize(fp)))
+            for ln in open(fp, encoding="utf-8", errors="replace"):
+                if not ln.strip():
+                    continue
+                try:
+                    chk(json.loads(ln))
+                except Exception:
+                    parse_err = True
+        if has_head:
+            sigs.append("json_str_heading")
+        if long_str:
+            sigs.append("json_str_cjk>=500")
+        if parse_err:
+            sigs.append("json_parse_err")
+    return sorted(set(sigs))
 
-print(f"REPO_FULL_SCAN total_files={repo_total} chapter_hits={len(repo_chapter_hits)}")
-for k, v in sorted(repo_buckets.items()):
-    print(f"  REPO_BUCKET {k}: files={v}")
+def load_tsv(path):
+    with open(path, encoding="utf-8", newline="") as fh:
+        rows = list(csv.DictReader(fh, delimiter="\t"))
+    return {r["rel_path"]: r for r in rows}, len(rows)
 
-art_total = 0
-art_buckets = collections.Counter()
-art_cats = collections.Counter()
-candidates = []
-unclassified = []
+def verify_scope(label, root_dir, tsv_path, skip_top_git, exclude_rels):
+    manifest, row_cnt = load_tsv(tsv_path)
+    errors = []
+    seen = set()
+    res_counts = collections.Counter()
+    cat_counts = collections.Counter()
+    sig_counts = collections.Counter()
+    zip_reports = []
+    unresolved = 0
+    total_live = 0
 
-def classify_chapter(rel, first):
-    if rel.startswith("scratch/ref-"):
-        return ("外部参考仓示例《河埠旧事》", "外部示例(非R3)", "公开上游仓库", "否", "不适用(非Holdout)", "第三方仓库教学短例，无R3设定/仲裁键，不可作G2-B/G6")
-    if "断剑暗铆" in first or "旧物死契" in first or "剑脊暗锁" in first:
-        return ("《残器长生》", "仙侠", "已揭盲", "是(live-eval/step2/NH-1..2/V22-H1)", "是(live-eval/NH-1..2/V22-H1)", "历史live-eval及退役Holdout已揭盲章节，禁入G2-B/G6")
-    if "凌晨四点的铜箔" in first or "烧烤摊上的老同学" in first or "抽烟区的风声" in first:
-        return ("《降本增笑》", "现代职场", "已揭盲", "是(live-eval/OLD-HOLD-4/NH-4..5)", "是(live-eval/OLD-HOLD-4/NH-4..5)", "历史live-eval及退役Holdout已揭盲章节，禁入G2-B/G6")
-    if "废器房暗账" in first or "半公开目击" in first or "晦物铺落袋" in first or rel == "step3-qihenlu-manuscript-ch1-3.md":
-        return ("《器痕录》", "仙侠", "已揭盲", "是(Track2/G4/Track1/OLD-HOLD-1..3/NH-3/V22-H2/BlindAudit)", "是(全线《器痕录》黑名单)", "单题材《器痕录》历史校准/盲审/退役Holdout及同大纲稿件，禁入G2-B/G6")
-    if "涨潮前两小时" in first:
-        return ("《潮汐证词》", "海港悬疑", "已揭盲", "是(V22-H3退役Holdout)", "是(V22-H3)", "v2.2退役Holdout(V22-H3)已揭盲，禁入G2-B/G6")
-    if "霜夜核簿" in first:
-        return ("《盐引旧账》", "古代历史查账", "已揭盲", "是(V22-H4退役Holdout/G5参考)", "是(V22-H4)", "v2.2退役Holdout(V22-H4)已揭盲，仅作G5已知OR6死锁参考，禁入G2-B/G6")
-    return None
-
-for root, dirs, files in os.walk(ART):
-    dirs.sort()
-    for f in sorted(files):
-        fp = os.path.join(root, f)
-        rel = os.path.relpath(fp, ART)
-        art_total += 1
-        parts = rel.split(os.sep)
-        if parts[0] == "scratch" and len(parts) > 2:
-            b = f"scratch/{parts[1]}"
-        elif parts[0] == "scratch":
-            b = "scratch/(top-level)"
-        elif len(parts) > 1:
-            b = parts[0]
-        else:
-            b = "(root)"
-        art_buckets[b] += 1
-
-        if rel.startswith("scratch/ref-"):
-            if f.endswith((".md", ".txt")) and "/.git/" not in f"/{rel}":
-                raw = open(fp, "rb").read()
-                head = raw.decode("utf-8", errors="replace")[:2000]
-                if CHAPTER_RE.search(head):
-                    candidates.append((rel, len(raw), hashlib.sha256(raw).hexdigest(), classify_chapter(rel, head.splitlines()[0])))
-            art_cats["external_ref_repos(scratch/ref-*)"] += 1
-            continue
-        if rel.startswith(".system_generated/"):
-            art_cats["system_task_logs(.system_generated)"] += 1
-            continue
-        if rel.startswith(".agents/"):
-            art_cats["agent_config(.agents)"] += 1
-            continue
-        if rel.startswith("r3-review-v3-architecture-package/"):
-            art_cats["frozen_arch_package_copy"] += 1
-            continue
-        if "/" not in rel:
-            if rel == "step3-qihenlu-manuscript-ch1-3.md":
-                raw = open(fp, "rb").read()
-                candidates.append((rel, len(raw), hashlib.sha256(raw).hexdigest(), classify_chapter(rel, raw.decode("utf-8", errors="replace").splitlines()[0])))
-                art_cats["candidate_chapter_manuscripts"] += 1
-            else:
-                art_cats["root_reports_metadata_zip_url"] += 1
-            continue
-        if rel.startswith("scratch/") and rel.count("/") == 1:
-            art_cats["scratch_top_level_diffs_and_keys"] += 1
-            continue
-        if f.endswith((".json", ".jsonl", ".diff")):
-            art_cats["scratch_exp_json_jsonl_diff"] += 1
-            continue
-        if f.endswith(".md"):
+    for r, dirs, files in os.walk(root_dir):
+        if skip_top_git and r == root_dir and ".git" in dirs:
+            dirs.remove(".git")
+        dirs.sort()
+        for f in sorted(files):
+            fp = os.path.join(r, f)
+            rel = os.path.relpath(fp, root_dir)
+            total_live += 1
+            if rel in exclude_rels:
+                continue
+            seen.add(rel)
+            ext = os.path.splitext(f)[1].lower() or "(noext)"
             raw = open(fp, "rb").read()
-            first = raw.decode("utf-8", errors="replace").splitlines()[0].strip() if raw else ""
-            if CHAPTER_RE.search(first):
-                info = classify_chapter(rel, first)
-                if info is None:
-                    unclassified.append(rel)
-                else:
-                    candidates.append((rel, len(raw), hashlib.sha256(raw).hexdigest(), info))
-                    art_cats["candidate_chapter_manuscripts"] += 1
-            else:
-                art_cats["scratch_exp_non_chapter_md"] += 1
-            continue
-        unclassified.append(rel)
+            got_bytes = len(raw)
+            got_sha = hashlib.sha256(raw).hexdigest()
+            sigs = scan_signals(fp, rel, ext)
+            sig_str = ",".join(sigs) or "none"
+            for s in sigs:
+                sig_counts[s] += 1
+            if ext == ".zip":
+                with zipfile.ZipFile(fp) as zf:
+                    zip_reports.append((rel, len(zf.namelist())))
+            if rel not in manifest:
+                errors.append(f"{label}_MISSING_IN_MANIFEST {rel}")
+                unresolved += 1
+                continue
+            m = manifest[rel]
+            if int(m["bytes"]) != got_bytes:
+                errors.append(f"{label}_SIZE_MISMATCH {rel}: got={got_bytes} exp={m['bytes']}")
+            if m["sha256"] != got_sha:
+                errors.append(f"{label}_SHA256_MISMATCH {rel}")
+            if m["deep_scan_signals"] != sig_str:
+                errors.append(f"{label}_SIGNAL_MISMATCH {rel}: got={sig_str} exp={m['deep_scan_signals']}")
+            st = m["resolution_status"]
+            res_counts[st] += 1
+            cat_counts[m["category"]] += 1
+            if st == "UNRESOLVED":
+                unresolved += 1
+                errors.append(f"{label}_UNRESOLVED {rel}")
+            if sigs and st != "EXCLUDED_CANDIDATE":
+                unresolved += 1
+                errors.append(f"{label}_HIT_NOT_CLASSIFIED {rel}: sigs={sig_str} status={st}")
+            if st == "EXCLUDED_CANDIDATE":
+                for col in ("source_work", "genre", "unblinded", "calibration_used", "blacklist_overlap", "exclusion_reason"):
+                    if not m.get(col) or m[col] == "UNRESOLVED":
+                        unresolved += 1
+                        errors.append(f"{label}_INCOMPLETE_EXCLUSION {rel}: missing {col}")
 
-print(f"\nART_ROOT_FULL_SCAN total_files={art_total} candidates={len(candidates)} unclassified={len(unclassified)}")
-for k, v in sorted(art_buckets.items()):
-    print(f"  ART_BUCKET {k}: files={v}")
-print("ART_CATEGORY_SUMMARY:")
-for k, v in sorted(art_cats.items()):
-    print(f"  CAT {k}: files={v}")
-by_work = collections.Counter(c[3][0] for c in candidates)
-print("CANDIDATE_EXCLUSION_BY_WORK:")
-for w, cnt in sorted(by_work.items()):
-    print(f"  EXCLUDED {w}: files={cnt} eligible_g2b=0 eligible_g6=0")
-print(f"FINAL_AUDIT repo_candidates={len(repo_chapter_hits)} art_candidates={len(candidates)} excluded={len(candidates)} unclassified={len(unclassified)} eligible_g2b=0 eligible_g6=0")
-if repo_chapter_hits or unclassified:
-    print("FAIL: unexpected or unclassified candidates found", file=sys.stderr)
+    extra_in_manifest = sorted(set(manifest.keys()) - seen)
+    for ex in extra_in_manifest:
+        errors.append(f"{label}_STALE_MANIFEST_ENTRY {ex}")
+
+    print(f"{label}_DEEP_AUDIT live_files={total_live} manifest_rows={row_cnt} verified={len(seen)} excluded_candidates={res_counts['EXCLUDED_CANDIDATE']} non_sample_verified={res_counts['NON_SAMPLE_VERIFIED']} unresolved={unresolved} errors={len(errors)}")
+    print(f"  {label}_SIGNALS: {dict(sorted(sig_counts.items()))}")
+    print(f"  {label}_ZIPS: {zip_reports}")
+    print(f"  {label}_CATEGORIES: {dict(sorted(cat_counts.items()))}")
+    return errors, unresolved
+
+errs_repo, unres_repo = verify_scope("REPO", REPO, REPO_TSV, True, MANIFEST_SELF)
+errs_art, unres_art = verify_scope("ART_ROOT", ART, ART_TSV, False, set())
+all_errors = errs_repo + errs_art
+total_unresolved = unres_repo + unres_art
+print(f"FINAL_HERMETIC_AUDIT total_unresolved={total_unresolved} total_errors={len(all_errors)} eligible_g2b=0 eligible_g6=0")
+if all_errors or total_unresolved > 0:
+    for e in all_errors[:25]:
+        print(f"FAIL: {e}", file=sys.stderr)
     sys.exit(1)
-print("C3_FULL_RECURSIVE_AUDIT_PASSED")
+print("C3_HERMETIC_DEEP_AUDIT_PASSED")
 PY
 ```
 
-#### 2. 真实运行原始输出（exit code = `0`）
+#### 2. 真实运行原始输出（exit code = `0`，`UNRESOLVED = 0`）
 ```text
-REPO_FULL_SCAN total_files=293 chapter_hits=0
-  REPO_BUCKET (root): files=6
-  REPO_BUCKET .github: files=3
-  REPO_BUCKET LICENSES: files=1
-  REPO_BUCKET assets: files=7
-  REPO_BUCKET docs: files=5
-  REPO_BUCKET docs/r3: files=15
-  REPO_BUCKET references/flows: files=8
-  REPO_BUCKET references/guides: files=10
-  REPO_BUCKET references/legacy: files=1
-  REPO_BUCKET references/v3: files=16
-  REPO_BUCKET references/webnovel: files=165
-  REPO_BUCKET scripts: files=55
-  REPO_BUCKET tests: files=1
-
-ART_ROOT_FULL_SCAN total_files=2723 candidates=173 unclassified=0
-  ART_BUCKET (root): files=35
-  ART_BUCKET .agents: files=1
-  ART_BUCKET .system_generated: files=11
-  ART_BUCKET r3-review-v3-architecture-package: files=19
-  ART_BUCKET scratch/(top-level): files=13
-  ART_BUCKET scratch/live-eval: files=180
-  ART_BUCKET scratch/phase1-blind-audit: files=35
-  ART_BUCKET scratch/phase1-calibration-offline: files=32
-  ART_BUCKET scratch/phase1-calibration-v2: files=45
-  ART_BUCKET scratch/phase1-calibration-v2-out: files=8
-  ART_BUCKET scratch/phase1-calibration-v2.1: files=24
-  ART_BUCKET scratch/phase1-calibration-v2.1-out: files=9
-  ART_BUCKET scratch/phase1-calibration-v2.2: files=28
-  ART_BUCKET scratch/phase1-calibration-v2.2-out: files=9
-  ART_BUCKET scratch/phase1-throughput-exp: files=470
-  ART_BUCKET scratch/ref-penglonghuang-cns: files=106
-  ART_BUCKET scratch/ref-webnovel-writer: files=509
-  ART_BUCKET scratch/ref-webnovel-writer-v8: files=932
-  ART_BUCKET scratch/step2-m1-replay: files=113
-  ART_BUCKET scratch/step3-r3-trial: files=144
-ART_CATEGORY_SUMMARY:
-  CAT agent_config(.agents): files=1
-  CAT candidate_chapter_manuscripts: files=172
-  CAT external_ref_repos(scratch/ref-*): files=1547
-  CAT frozen_arch_package_copy: files=19
-  CAT root_reports_metadata_zip_url: files=34
-  CAT scratch_exp_json_jsonl_diff: files=655
-  CAT scratch_exp_non_chapter_md: files=271
-  CAT scratch_top_level_diffs_and_keys: files=13
-  CAT system_task_logs(.system_generated): files=11
-CANDIDATE_EXCLUSION_BY_WORK:
-  EXCLUDED 《器痕录》: files=128 eligible_g2b=0 eligible_g6=0
-  EXCLUDED 《残器长生》: files=31 eligible_g2b=0 eligible_g6=0
-  EXCLUDED 《潮汐证词》: files=2 eligible_g2b=0 eligible_g6=0
-  EXCLUDED 《盐引旧账》: files=2 eligible_g2b=0 eligible_g6=0
-  EXCLUDED 《降本增笑》: files=9 eligible_g2b=0 eligible_g6=0
-  EXCLUDED 外部参考仓示例《河埠旧事》: files=1 eligible_g2b=0 eligible_g6=0
-FINAL_AUDIT repo_candidates=0 art_candidates=173 excluded=173 unclassified=0 eligible_g2b=0 eligible_g6=0
-C3_FULL_RECURSIVE_AUDIT_PASSED
+REPO_DEEP_AUDIT live_files=295 manifest_rows=293 verified=293 excluded_candidates=15 non_sample_verified=278 unresolved=0 errors=0
+  REPO_SIGNALS: {'path_clue': 14, 'text_heading': 2}
+  REPO_ZIPS: [('docs/r3/review-v3/r3-review-v3-architecture-package.zip', 10)]
+  REPO_CATEGORIES: {'repo_docs': 19, 'repo_eng_script': 37, 'repo_frozen_arch_zip': 1, 'repo_image_asset': 7, 'repo_root_or_config': 10, 'repo_skill_reference': 82, 'repo_test_script': 19, 'repo_webnovel_upstream_ref': 118}
+ART_ROOT_DEEP_AUDIT live_files=2723 manifest_rows=2723 verified=2723 excluded_candidates=862 non_sample_verified=1861 unresolved=0 errors=0
+  ART_ROOT_SIGNALS: {'diff_added_cjk>=500': 4, 'diff_chapter_target': 4, 'json_str_cjk>=500': 94, 'json_str_heading': 2, 'log_long_cjk': 8, 'path_clue': 731, 'text_heading': 228}
+  ART_ROOT_ZIPS: [('r3-review-v3-architecture-package.zip', 10)]
+  ART_ROOT_CATEGORIES: {'agent_config': 1, 'calibration_protocol_md': 3, 'candidate_chapter_manuscript': 172, 'chapter_brief_md': 3, 'chapter_or_core_diff_md': 61, 'chapter_revision_diff': 1, 'compiled_review_pack_md': 14, 'exp_manifest_or_eval_json': 344, 'external_ref_code_or_doc': 1453, 'external_ref_eval_fixture_meta': 7, 'external_ref_eval_prose_fixture': 1, 'external_ref_git_internal': 85, 'external_ref_prose_example': 1, 'frozen_arch_package_copy': 20, 'historical_calibration_key_json': 10, 'historical_exp_ref_md': 97, 'pilot_review_report_md': 8, 'planning_facts_cache_json': 2, 'report_with_embedded_chapter': 1, 'review_or_state_json': 304, 'root_metadata_json': 1, 'root_report_or_metadata': 31, 'skill_code_diff': 3, 'story_bible_or_outline_md': 85, 'system_task_log': 11, 'telemetry_jsonl': 4}
+FINAL_HERMETIC_AUDIT total_unresolved=0 total_errors=0 eligible_g2b=0 eligible_g6=0
+C3_HERMETIC_DEEP_AUDIT_PASSED
 ```
 
-#### 3. 公开主仓完整递归盘点（全部 293 个文件，排除 `.git/`）
+#### 3. ZIP 归档内部成员逐项核验（主仓 1 份 + `<ART_ROOT>` 1 份，共 2 份归档）
 
-| 仓库目录分组 | 文件数 | 内容性质 | 正文章节命中数 | 排除依据（G2-B / G6） |
+| 归档位置与路径 | 成员数 | 完整内部成员清单 | 章节/小说样本命中数 | 判定 |
 |---|---:|---|---:|---|
-| 根目录 (`LICENSE`, `NOTICE.md`, `README.md`, `README_V3.md`, `ROADMAP.md`, `SKILL.md`) | `6` | 协议、说明与 Skill 入口 | `0` | 非小说章节样本 |
-| `.github/` (`FUNDING.yml`, 2 个 CI workflow) | `3` | CI 与仓库配置 | `0` | 非小说章节样本 |
-| `LICENSES/` | `1` | 第三方许可证文本 | `0` | 非小说章节样本 |
-| `assets/` | `7` | README 演示截图与二维码 `.png` | `0` | 图片资源，非文本样本 |
-| `docs/`（顶层 5 份：`AGENT-HANDOFF.md`, `PROJECT-ASSET-INDEX.md`, `PROJECT-CONTEXT.md`, `R3-PRD.md`, `RESEARCH-ASSET-POLICY.md`） | `5` | 仓库级治理与需求文档 | `0` | 治理文档，无独立小说 Holdout |
-| `docs/r3/`（`review-v3/` 11 份冻结架构文档+ZIP、`p0-implementation/` 4 份管理文档） | `15` | 冻结架构包与 P0 实施管理文档 | `0` | 架构/管理文档，无独立小说 Holdout |
-| `references/flows/` | `8` | 创作流程指导文档 | `0` | Skill 流程提示词，非小说样本 |
-| `references/guides/` | `10` | 写作技法与模板指导 | `0` | Skill 写作指南，非小说样本 |
-| `references/legacy/` | `1` | 上游旧版 `upstream-SKILL.md` | `0` | 旧版 Skill 规范，非小说样本 |
-| `references/v3/`（见附录 A.5 完整 16 文件清单） | `16` | V3/R2/R3 协议与审稿模板 | `0` | Skill 协议模板，非小说样本 |
-| `references/webnovel/`（11 份索引/总纲 + `supplement/` 31 份题材流派补充 + `upstream/` 123 份上游参考库，全量清单见 `UPSTREAM-MANIFEST.json`） | `165` | 网文题材/桥段/技法知识库与 JSON 路由索引 | `0` | 题材知识库与技法模板，全量内容扫描 0 章节正文 |
-| `scripts/`（37 个工程脚本 + `scripts/tests/` 18 个测试脚本，见附录 A.2/A.4） | `55` | 工程 CLI 脚本与自动化单测夹具 | `0` | 工程代码与合成单测夹具，无独立小说 Holdout |
-| `tests/`（`tests/r3-routing.test.mjs`） | `1` | Skill 路由单测 | `0` | 路由单测，非小说样本 |
-| **主仓全量合计（100% 覆盖）** | **`293`** | **全部为 Skill 源码、文档、知识库与工程单测** | **`0`** | **主仓合格 G2-B / G6 候选样本 = `0`** |
+| 公开主仓：`docs/r3/review-v3/r3-review-v3-architecture-package.zip` | `10` | `r3-review-v3-architecture-package/{README.md, CHANGELOG.md, 01-R3当前审核能力真实实现审计.md, 02-三方差异矩阵.md, 03-R3审核体系v3总体架构设计.md, 04-四层审核生命周期与状态流转图.md, 05-全书机械诊断引擎PRD.md, 06-审核修复复审及版本失效协议.md, 07-P0-P1-P2开发任务与依赖关系.md, 08-工程效率与文学质量双重验收方案.md}` | `0` | `NON_SAMPLE_VERIFIED`（纯冻结架构文档包） |
+| `<ART_ROOT>`：`r3-review-v3-architecture-package.zip` | `10` | 同上 10 份冻结架构文档（与主仓包同源副本） | `0` | `NON_SAMPLE_VERIFIED`（纯冻结架构文档包） |
 
-#### 4. 本地 `<ART_ROOT>` 完整脱敏文件清单（覆盖全部 2,723 个文件，零遗漏）
+#### 4. 第三轮深度扫描新增发现与全类型候选逐类闭合汇总（所有 `15 + 862 = 877` 项深度命中均在两份 `.tsv` 清单中逐文件 6 栏留痕）
 
-##### 4.1 非 `scratch/` 全部文件逐项清单（66 个：根目录 35 + `.agents` 1 + `.system_generated` 11 + `r3-review-v3-architecture-package` 19）
+##### 4.1 深度扫描新捕获的高关注项（此前第二轮窄规则未覆盖，现已全部逐文件识别并排除）
 
-| # | 脱敏路径（相对 `<ART_ROOT>`） | 文件大小（Bytes） |
-|---:|---|---:|
-| 1 | `PR #3 R3 Review Architecture v3.url.json` | `353` |
-| 2 | `PR #3 R3 Review Architecture v3.url.json.metadata.json` | `225` |
-| 3 | `r3-phase1-blind-audit-and-qa-report.md` | `52,194` |
-| 4 | `r3-phase1-blind-audit-and-qa-report.md.metadata.json` | `656` |
-| 5 | `r3-phase1-feasibility-correction-and-plan.md` | `35,758` |
-| 6 | `r3-phase1-feasibility-correction-and-plan.md.metadata.json` | `698` |
-| 7 | `r3-phase1-midterm-report.md` | `24,683` |
-| 8 | `r3-phase1-midterm-report.md.metadata.json` | `520` |
-| 9 | `r3-review-calibration-design.md` | `44,252` |
-| 10 | `r3-review-calibration-design.md.metadata.json` | `772` |
-| 11 | `r3-review-calibration-offline-validation-report.md` | `41,750` |
-| 12 | `r3-review-calibration-offline-validation-report.md.metadata.json` | `683` |
-| 13 | `r3-review-calibration-v2-offline-validation-report.md` | `40,853` |
-| 14 | `r3-review-calibration-v2-offline-validation-report.md.metadata.json` | `745` |
-| 15 | `r3-review-calibration-v2.1-offline-validation-report.md` | `30,860` |
-| 16 | `r3-review-calibration-v2.1-offline-validation-report.md.metadata.json` | `760` |
-| 17 | `r3-review-calibration-v2.2-final-offline-validation-report.md` | `24,004` |
-| 18 | `r3-review-calibration-v2.2-final-offline-validation-report.md.metadata.json` | `773` |
-| 19 | `r3-review-v3-architecture-package.zip` | `94,084` |
-| 20 | `r3-throughput-optimization-blueprint.md` | `36,952` |
-| 21 | `r3-throughput-optimization-blueprint.md.metadata.json` | `719` |
-| 22 | `skill-live-eval-report.md` | `23,090` |
-| 23 | `skill-live-eval-report.md.metadata.json` | `492` |
-| 24 | `step1-m1-m4-delivery.md` | `76,846` |
-| 25 | `step1-m1-m4-delivery.md.metadata.json` | `473` |
-| 26 | `step2-m1-replay-report.md` | `50,020` |
-| 27 | `step2-m1-replay-report.md.metadata.json` | `557` |
-| 28 | `step3-qihenlu-manuscript-ch1-3.md` | `46,846` |
-| 29 | `step3-qihenlu-manuscript-ch1-3.md.metadata.json` | `352` |
-| 30 | `step3-r3-trial-report.md` | `42,036` |
-| 31 | `step3-r3-trial-report.md.metadata.json` | `614` |
-| 32 | `webnovel-writer-review-workflow-benchmark.md` | `33,617` |
-| 33 | `webnovel-writer-review-workflow-benchmark.md.metadata.json` | `436` |
-| 34 | `webnovel-writer-v8-review-workflow-benchmark.md` | `20,470` |
-| 35 | `webnovel-writer-v8-review-workflow-benchmark.md.metadata.json` | `565` |
-| 36 | `.agents/agents/novelist_eval_agent/agent.md` | `1,390` |
-| 37 | `.system_generated/tasks/task-1547.log` | `22,515` |
-| 38 | `.system_generated/tasks/task-2093.log` | `32,278` |
-| 39 | `.system_generated/tasks/task-2112.log` | `40,632` |
-| 40 | `.system_generated/tasks/task-257.log` | `34,283` |
-| 41 | `.system_generated/tasks/task-263.log` | `1,642` |
-| 42 | `.system_generated/tasks/task-271.log` | `29,717` |
-| 43 | `.system_generated/tasks/task-294.log` | `33,715` |
-| 44 | `.system_generated/tasks/task-333.log` | `13,482` |
-| 45 | `.system_generated/tasks/task-530.log` | `2,413` |
-| 46 | `.system_generated/tasks/task-571.log` | `2,988` |
-| 47 | `.system_generated/tasks/task-7.log` | `31,628` |
-| 48 | `r3-review-v3-architecture-package/01-R3当前审核能力真实实现审计.md` | `17,244` |
-| 49 | `r3-review-v3-architecture-package/01-R3当前审核能力真实实现审计.md.metadata.json` | `282` |
-| 50 | `r3-review-v3-architecture-package/02-三方差异矩阵.md` | `17,637` |
-| 51 | `r3-review-v3-architecture-package/02-三方差异矩阵.md.metadata.json` | `341` |
-| 52 | `r3-review-v3-architecture-package/03-R3审核体系v3总体架构设计.md` | `38,279` |
-| 53 | `r3-review-v3-architecture-package/03-R3审核体系v3总体架构设计.md.metadata.json` | `372` |
-| 54 | `r3-review-v3-architecture-package/04-四层审核生命周期与状态流转图.md` | `19,303` |
-| 55 | `r3-review-v3-architecture-package/04-四层审核生命周期与状态流转图.md.metadata.json` | `348` |
-| 56 | `r3-review-v3-architecture-package/05-全书机械诊断引擎PRD.md` | `19,866` |
-| 57 | `r3-review-v3-architecture-package/05-全书机械诊断引擎PRD.md.metadata.json` | `361` |
-| 58 | `r3-review-v3-architecture-package/06-审核修复复审及版本失效协议.md` | `15,191` |
-| 59 | `r3-review-v3-architecture-package/06-审核修复复审及版本失效协议.md.metadata.json` | `333` |
-| 60 | `r3-review-v3-architecture-package/07-P0-P1-P2开发任务与依赖关系.md` | `17,932` |
-| 61 | `r3-review-v3-architecture-package/07-P0-P1-P2开发任务与依赖关系.md.metadata.json` | `320` |
-| 62 | `r3-review-v3-architecture-package/08-工程效率与文学质量双重验收方案.md` | `24,023` |
-| 63 | `r3-review-v3-architecture-package/08-工程效率与文学质量双重验收方案.md.metadata.json` | `344` |
-| 64 | `r3-review-v3-architecture-package/CHANGELOG.md` | `13,299` |
-| 65 | `r3-review-v3-architecture-package/README.md` | `11,370` |
-| 66 | `r3-review-v3-architecture-package/README.md.metadata.json` | `354` |
+| 发现类别 | 脱敏路径 | Bytes | 触发信号 | 来源与题材 | 揭盲/校准/黑名单状态 | 排除理由（为何不可作 G2-B / G6） |
+|---|---|---:|---|---|---|---|
+| **根目录报告内嵌章节** | `step2-m1-replay-report.md` | `50,020` | `text_heading`（内嵌 `# 第三章 剑脊暗锁`） | 《残器长生》· 仙侠 | 已揭盲；`step2` 复盘 / 命中 `live-eval` & `V22-H1` 黑名单 | 报告正文内嵌已揭盲历史复盘修订稿，非独立未见章 |
+| **章节修订 Unified Diff** | `scratch/step2-m1-replay/v2-to-new-v4.diff` | `17,274` | `diff_chapter_target`, `diff_added_cjk>=500` | 《残器长生》· 仙侠 | 已揭盲；`step2` 复盘 / 命中 `live-eval` & `V22-H1` 黑名单 | `chapter-0003-v2-original.md` → `v4-m1-replay.md` 的修订 Diff，已揭盲且命中黑名单 |
+| **外部仓库无首行标题夹具** | `scratch/ref-webnovel-writer/webnovel-writer/agents/evals/files/test-project/正文/第0004章-迦南学院的考验.md` | `2,447` | `path_clue`（路径含 `正文/第0004章`，首行无 `#` 标题） | 外部仓库同人 eval 夹具（萧炎）· 外部夹具 | 公开上游仓库；未参与 R3 校准；非 R3 Holdout | 第三方仓库 ~800 字同人测试短片段，无 R3 大纲/人物设定/双评委仲裁键，不可作 G2-B/G6 |
+| **外部仓库示例短文** | `scratch/ref-webnovel-writer-v8/docs/maintenance/examples/河埠旧事.md` | `4,215` | `text_heading`（`# 第一章 退潮以前`） | 外部仓库维护示例 · 外部示例 | 公开上游仓库；未参与 R3 校准；非 R3 Holdout | 第三方仓库维护教学短例，无 R3 设定与仲裁键，不可作 G2-B/G6 |
+| **系统任务 CLI 日志（8 命中 / 共 11 份）** | `.system_generated/tasks/task-{7,257,271,294,333,571,2093,2112}.log` | `2,988`–`40,632` | `log_long_cjk`（`headings = 0`） | VM 测试/审计 CLI stdout | 非小说（工程日志） | 全文检查 `0` 章节标题；长中文行经核验均为 `node --test` TAP 日志、`git commit` 与 `rg` 检索冻结文档 `08` 输出，不含生成小说正文 |
+| **M1–M4 Skill 代码 Diff（3 份）** | `scratch/m1-m4-{full,complete,complete-rev2}.diff` | `37,275`–`46,930` | `diff_chapter_target`, `diff_added_cjk>=500` | M1–M4 Skill 工程 Diff | 非小说（代码 Diff） | 仅涉及 `scripts/chapter_wordcount*` 与 `references/v3/*.md` 共 11–12 个工程/模板文件，`0` 小说章节正文 |
+| **JSON 嵌套字符串长文本（94 份）** | `scratch/phase1-throughput-exp/arm{2,3}.../planning-facts-cache.json`（2 份 `json_str_heading`）+ `arm0..3` / `step2` / `step3` 审稿与规划 JSON（92 份 `json_str_cjk>=500`） | `2,100`–`89,308` | `json_str_heading` / `json_str_cjk>=500` | 《器痕录》/《残器长生》 | 全部已揭盲；历史实验报告与大纲缓存；命中黑名单 | 均为已揭盲历史实验的规划事实缓存或审稿意见 JSON，无独立未见章节 |
+| **公开主仓深度命中（15 份 / 共 293 份）** | `scripts/*`（9 份 `.mjs`）+ `references/{v3,flows,guides}/*`（4 份 `.md`）+ `references/webnovel/upstream/.../{chapter-planning,outline-structure}.md`（2 份 `text_heading`） | `754`–`33,027` | `path_clue` / `text_heading` | 主仓 Skill 源码与写作模板 | 公开主仓；非小说样本 | 9 份工程/单测脚本 + 4 份流程指南 + 2 份上游大纲编写示例模板（虚构章号如 `## 第50章：一剑斩金丹`），`0` 小说章节样本 |
 
-> 注：以上 66 个文件中，仅第 28 项 `step3-qihenlu-manuscript-ch1-3.md` 为小说正文合并稿（已纳入下方第 4.4 节 173 份候选章节逐项排除表）；其余 65 份全部为历史评估报告、metadata、架构包副本、URL 书签、Agent 提示词或系统任务日志。
+##### 4.2 全量 `2,723` 个 `<ART_ROOT>` 文件与 `293` 个主仓文件最终闭合统计
 
-##### 4.2 `scratch/` 顶层文件逐项清单（13 个）
+| 审计维度 | 全量文件数 | 深度扫描命中（`EXCLUDED_CANDIDATE`，逐文件 6 栏排除） | 非样本核验通过（`NON_SAMPLE_VERIFIED`） | 未决项（`UNRESOLVED`） | 合格 `G2-B` 候选 | 合格 `G6` 候选 |
+|---|---:|---:|---:|---:|---:|---:|
+| **公开主仓**（[`P0-0-C3-Repo-Manifest.tsv`](./P0-0-C3-Repo-Manifest.tsv) + 2 份 TSV 清单本身） | `293`（含 TSV 共 `295`） | `15`（9 工程脚本 + 6 模板/大纲示例） | `278`（含 1 份 10 成员 ZIP） | **`0`** | **`0`** | **`0`** |
+| **本地 `<ART_ROOT>`**（[`P0-0-C3-Full-File-Manifest.tsv`](./P0-0-C3-Full-File-Manifest.tsv)） | **`2,723`** | **`862`**（172 正文章节 + 1 报告内嵌章 + 1 章节 Diff + 14 审稿包 + 3 简报 + 39 修订 Diff + 60 大纲/设定 + 8 Pilot 报告 + 10 参考切片 + 256 审稿/状态 JSON + 2 事实缓存 JSON + 189 清单/评测 JSON + 8 任务日志 + 3 代码 Diff + 1 根目录元数据 + 90 外部仓源码/文档 + 3 外部 eval 元数据 + 1 外部 eval 同人夹具 + 1 外部示例短文，合计 `= 862`，逐行见 TSV） | **`1,861`**（含 1 份 10 成员 ZIP、85 `.git` 对象及零信号源码/报告/JSON） | **`0`** | **`0`** | **`0`** |
+| **Google Drive 历史快照（前序 Tier 3 只读核验）** | `3` 份 ZIP | 单题材仙侠《仙门大掌柜》Ch 1–12（未经双评委+第三仲裁定案，非跨题材未揭盲） | — | **`0`** | **`0`** | **`0`** |
+| **全范围闭合总计** | **`3,018` 文件 + `3` Drive ZIP** | **全部逐文件闭合排除** | **全量全文深度复核** | **`0`** | **`0`** | **`0`** |
 
-| # | 脱敏路径（相对 `<ART_ROOT>`） | 文件大小（Bytes） |
-|---:|---|---:|
-| 1 | `scratch/m1-m4-complete-rev2.diff` | `46,930` |
-| 2 | `scratch/m1-m4-complete.diff` | `46,092` |
-| 3 | `scratch/m1-m4-full.diff` | `37,275` |
-| 4 | `scratch/phase1-blind-audit-private-key.json` | `2,753` |
-| 5 | `scratch/phase1-blind-c-orig-majors-hostonly.json` | `89,308` |
-| 6 | `scratch/phase1-cal-r1-hostonly.json` | `7,711` |
-| 7 | `scratch/phase1-cal-r2-hostonly.json` | `16,117` |
-| 8 | `scratch/phase1-calibration-offline-private-key.json` | `17,856` |
-| 9 | `scratch/phase1-calibration-v2-private-key.json` | `3,389` |
-| 10 | `scratch/phase1-calibration-v2.1-private-key.json` | `760` |
-| 11 | `scratch/phase1-calibration-v2.2-private-key.json` | `589` |
-| 12 | `scratch/phase1-orig-reviews-digest.json` | `74,718` |
-| 13 | `scratch/phase1-r3-arbitration-cases-hostonly.json` | `49,220` |
-
-> 注：以上 13 个文件全部为 M1–M4 Git Diff 或历史盲审/校准标定私钥与汇总 JSON，不含未揭盲小说章节。
-
-##### 4.3 `scratch/` 全部 15 个子目录完整文件构成汇总（合计 2,644 个；`66 + 13 + 2,644 = 2,723`）
-
-| 子目录（相对 `<ART_ROOT>`） | 总文件数 | 其中候选章节正文 `.md` | 其他非章节文件构成与用途 | 合格 G2-B / G6 候选数 |
-|---|---:|---:|---|---:|
-| `scratch/live-eval` | `180` | `15`（《残器长生》12 + 《降本增笑》3） | 132 JSON 账本/审稿报告 + 33 设定/大纲/diff/Pilot 报告 | `0`（全部 15 份见 4.4 排除表） |
-| `scratch/step2-m1-replay` | `113` | `13`（《残器长生》13） | 74 JSON + 1 `.diff` + 25 设定/大纲/core/volume/diff | `0`（全部 13 份见 4.4 排除表） |
-| `scratch/step3-r3-trial` | `144` | `14`（《器痕录》14） | 95 JSON + 35 设定/大纲/core/volume/diff | `0`（全部 14 份见 4.4 排除表） |
-| `scratch/phase1-throughput-exp` | `470` | `38`（《器痕录》Arm 0/1/2/3 共 38） | 295 JSON + 4 `.jsonl` 遥测 + 133 briefs/packs/core/diffs | `0`（全部 38 份见 4.4 排除表） |
-| `scratch/phase1-blind-audit` | `35` | `27`（《器痕录》Blind A/B/C 镜像 27） | 5 JSON + 3 冻结设定参考 | `0`（全部 27 份见 4.4 排除表） |
-| `scratch/phase1-calibration-offline` | `32` | `18`（《器痕录》Track 2 切片 18） | 11 JSON（batch-1..3 + track1 索引 + 设定）+ 3 冻结设定参考 | `0`（全部 18 份见 4.4 排除表） |
-| `scratch/phase1-calibration-v2` | `45` | `28`（`fc-texts/` 21 + `OLD-HOLD` 7） | 7 JSON（`four-class-24` + manifest + 设定）+ 10 协议/参考设定 | `0`（全部 28 份见 4.4 排除表） |
-| `scratch/phase1-calibration-v2-out` | `8` | `0` | 8 份历史 v2 离线评测输出 JSON | `0` |
-| `scratch/phase1-calibration-v2.1` | `24` | `10`（`NH-1..5` 及 prior 共 10） | 4 JSON + 10 协议与参考设定 | `0`（全部 10 份见 4.4 排除表） |
-| `scratch/phase1-calibration-v2.1-out` | `9` | `0` | 9 份历史 v2.1 离线评测输出 JSON | `0` |
-| `scratch/phase1-calibration-v2.2` | `28` | `8`（`v22-holdout` 6 + `raw-gen` 2） | 1 manifest JSON + 19 协议与故事设定 | `0`（全部 8 份见 4.4 排除表） |
-| `scratch/phase1-calibration-v2.2-out` | `9` | `0` | 9 份历史 v2.2 离线评测输出 JSON | `0` |
-| `scratch/ref-penglonghuang-cns` | `106` | `0` | 外部参考 Skill 仓库克隆（29 `.git` + 77 工作树源码/文档） | `0` |
-| `scratch/ref-webnovel-writer` | `509` | `0` | 外部参考 Skill 仓库克隆（29 `.git` + 480 工作树源码/文档） | `0` |
-| `scratch/ref-webnovel-writer-v8` | `932` | `1`（外部示例 `河埠旧事.md`） | 外部参考 Skill 仓库克隆（27 `.git` + 904 源码/文档 + 1 维护示例短文） | `0`（该 1 份见 4.4 排除表） |
-| **15 子目录合计** | **`2,644`** | **`172`（加根目录 `step3-qihenlu-manuscript-ch1-3.md` = `173`）** | **其余 2,472 份均为非正文章节文件** | **`0`** |
-
-##### 4.4 全部 173 份候选章节/样本文件逐项分类与排除清单（100% 逐文件可复核）
-
-| # | 脱敏路径（相对 `<ART_ROOT>`） | Bytes | SHA-256（前 16 位） | 来源作品 | 题材 | 是否已揭盲 | 是否参与历史校准/回归 | 与禁入黑名单重叠 | G2-B / G6 排除理由 |
-|---:|---|---:|---|---|---|---|---|---|---|
-| 1 | `step3-qihenlu-manuscript-ch1-3.md` | `46,846` | `09d045ae51388c6b` | 《器痕录》 | 仙侠 | 已揭盲 | 是(`Track2`/`G4`/`Track1`/`OLD-HOLD-1..3`/`NH-3`/`V22-H2`/`BlindAudit`) | 是(全线《器痕录》黑名单) | 单题材《器痕录》历史校准/盲审/退役 Holdout 及同大纲衍生稿 |
-| 2 | `scratch/live-eval/case-a-xianxia-r3/chapters/ch001.md` | `14,500` | `0510609f44316690` | 《残器长生》 | 仙侠 | 已揭盲 | 是(`live-eval`/`step2`/`NH-1..2`/`V22-H1`) | 是(`live-eval`/`NH-1..2`/`V22-H1`) | 历史实测及退役 Holdout 已揭盲章节 |
-| 3 | `scratch/live-eval/case-a-xianxia-r3/chapters/ch002.md` | `14,334` | `cb16b2fe7d37ea87` | 《残器长生》 | 仙侠 | 已揭盲 | 是(`live-eval`/`step2`/`NH-1..2`/`V22-H1`) | 是(`live-eval`/`NH-1..2`/`V22-H1`) | 历史实测及退役 Holdout 已揭盲章节 |
-| 4 | `scratch/live-eval/case-a-xianxia-r3/chapters/ch003.md` | `13,967` | `6ece650333f60428` | 《残器长生》 | 仙侠 | 已揭盲 | 是(`live-eval`/`step2`/`NH-1..2`/`V22-H1`) | 是(`live-eval`/`NH-1..2`/`V22-H1`) | 历史实测及退役 Holdout 已揭盲章节 |
-| 5 | `scratch/live-eval/case-a-xianxia-r3/reviews/r3/manuscripts/chapter-1/v1/chapter-0001.md` | `13,505` | `83ac2640781690c8` | 《残器长生》 | 仙侠 | 已揭盲 | 是(`live-eval`/`step2`/`NH-1..2`/`V22-H1`) | 是(`live-eval`/`NH-1..2`/`V22-H1`) | 历史实测及退役 Holdout 已揭盲章节 |
-| 6 | `scratch/live-eval/case-a-xianxia-r3/reviews/r3/manuscripts/chapter-1/v2/chapter-0001.md` | `13,574` | `947a4d48ee7eaed2` | 《残器长生》 | 仙侠 | 已揭盲 | 是(`live-eval`/`step2`/`NH-1..2`/`V22-H1`) | 是(`live-eval`/`NH-1..2`/`V22-H1`) | 历史实测及退役 Holdout 已揭盲章节 |
-| 7 | `scratch/live-eval/case-a-xianxia-r3/reviews/r3/manuscripts/chapter-1/v3/chapter-0001.md` | `14,500` | `0510609f44316690` | 《残器长生》 | 仙侠 | 已揭盲 | 是(`live-eval`/`step2`/`NH-1..2`/`V22-H1`) | 是(`live-eval`/`NH-1..2`/`V22-H1`) | 历史实测及退役 Holdout 已揭盲章节 |
-| 8 | `scratch/live-eval/case-a-xianxia-r3/reviews/r3/manuscripts/chapter-2/v1/chapter-0002.md` | `13,183` | `d7fbbb4e1ed9d7f8` | 《残器长生》 | 仙侠 | 已揭盲 | 是(`live-eval`/`step2`/`NH-1..2`/`V22-H1`) | 是(`live-eval`/`NH-1..2`/`V22-H1`) | 历史实测及退役 Holdout 已揭盲章节 |
-| 9 | `scratch/live-eval/case-a-xianxia-r3/reviews/r3/manuscripts/chapter-2/v2/chapter-0002.md` | `13,171` | `2ef0c7932c3b7a12` | 《残器长生》 | 仙侠 | 已揭盲 | 是(`live-eval`/`step2`/`NH-1..2`/`V22-H1`) | 是(`live-eval`/`NH-1..2`/`V22-H1`) | 历史实测及退役 Holdout 已揭盲章节 |
-| 10 | `scratch/live-eval/case-a-xianxia-r3/reviews/r3/manuscripts/chapter-2/v3/chapter-0002.md` | `14,334` | `cb16b2fe7d37ea87` | 《残器长生》 | 仙侠 | 已揭盲 | 是(`live-eval`/`step2`/`NH-1..2`/`V22-H1`) | 是(`live-eval`/`NH-1..2`/`V22-H1`) | 历史实测及退役 Holdout 已揭盲章节 |
-| 11 | `scratch/live-eval/case-a-xianxia-r3/reviews/r3/manuscripts/chapter-3/v1/chapter-0003.md` | `13,364` | `38ea085aded6eb13` | 《残器长生》 | 仙侠 | 已揭盲 | 是(`live-eval`/`step2`/`NH-1..2`/`V22-H1`) | 是(`live-eval`/`NH-1..2`/`V22-H1`) | 历史实测及退役 Holdout 已揭盲章节 |
-| 12 | `scratch/live-eval/case-a-xianxia-r3/reviews/r3/manuscripts/chapter-3/v2/chapter-0003.md` | `13,499` | `b1d14b8d67bb9904` | 《残器长生》 | 仙侠 | 已揭盲 | 是(`live-eval`/`step2`/`NH-1..2`/`V22-H1`) | 是(`live-eval`/`NH-1..2`/`V22-H1`) | 历史实测及退役 Holdout 已揭盲章节 |
-| 13 | `scratch/live-eval/case-a-xianxia-r3/reviews/r3/manuscripts/chapter-3/v3/chapter-0003.md` | `13,967` | `6ece650333f60428` | 《残器长生》 | 仙侠 | 已揭盲 | 是(`live-eval`/`step2`/`NH-1..2`/`V22-H1`) | 是(`live-eval`/`NH-1..2`/`V22-H1`) | 历史实测及退役 Holdout 已揭盲章节 |
-| 14 | `scratch/live-eval/case-b-workplace-default/第01章.md` | `22,815` | `649d2cdd090fbe6a` | 《降本增笑》 | 现代职场 | 已揭盲 | 是(`live-eval`/`OLD-HOLD-4`/`NH-4..5`) | 是(`live-eval`/`OLD-HOLD-4`/`NH-4..5`) | 历史实测及退役 Holdout 已揭盲章节 |
-| 15 | `scratch/live-eval/case-b-workplace-default/第02章.md` | `19,473` | `d3133b2720bc531f` | 《降本增笑》 | 现代职场 | 已揭盲 | 是(`live-eval`/`OLD-HOLD-4`/`NH-4..5`) | 是(`live-eval`/`OLD-HOLD-4`/`NH-4..5`) | 历史实测及退役 Holdout 已揭盲章节 |
-| 16 | `scratch/live-eval/case-b-workplace-default/第03章.md` | `26,034` | `11cb9cf5540ed54e` | 《降本增笑》 | 现代职场 | 已揭盲 | 是(`live-eval`/`OLD-HOLD-4`/`NH-4..5`) | 是(`live-eval`/`OLD-HOLD-4`/`NH-4..5`) | 历史实测及退役 Holdout 已揭盲章节 |
-| 17 | `scratch/phase1-blind-audit/blind-audit-a/bundle-X/chapters/ch01.md` | `21,197` | `6fe632266afc0325` | 《器痕录》 | 仙侠 | 已揭盲 | 是(`Track2`/`G4`/`Track1`/`OLD-HOLD-1..3`/`NH-3`/`V22-H2`/`BlindAudit`) | 是(全线《器痕录》黑名单) | 单题材《器痕录》历史校准/盲审/退役 Holdout 及同大纲衍生稿 |
-| 18 | `scratch/phase1-blind-audit/blind-audit-a/bundle-X/chapters/ch02.md` | `17,988` | `df6378bd7966e70a` | 《器痕录》 | 仙侠 | 已揭盲 | 是(`Track2`/`G4`/`Track1`/`OLD-HOLD-1..3`/`NH-3`/`V22-H2`/`BlindAudit`) | 是(全线《器痕录》黑名单) | 单题材《器痕录》历史校准/盲审/退役 Holdout 及同大纲衍生稿 |
-| 19 | `scratch/phase1-blind-audit/blind-audit-a/bundle-X/chapters/ch03.md` | `17,086` | `4e6c938fad0d4df5` | 《器痕录》 | 仙侠 | 已揭盲 | 是(`Track2`/`G4`/`Track1`/`OLD-HOLD-1..3`/`NH-3`/`V22-H2`/`BlindAudit`) | 是(全线《器痕录》黑名单) | 单题材《器痕录》历史校准/盲审/退役 Holdout 及同大纲衍生稿 |
-| 20 | `scratch/phase1-blind-audit/blind-audit-a/bundle-Y/chapters/ch01.md` | `20,650` | `57151e9a3d7b72bc` | 《器痕录》 | 仙侠 | 已揭盲 | 是(`Track2`/`G4`/`Track1`/`OLD-HOLD-1..3`/`NH-3`/`V22-H2`/`BlindAudit`) | 是(全线《器痕录》黑名单) | 单题材《器痕录》历史校准/盲审/退役 Holdout 及同大纲衍生稿 |
-| 21 | `scratch/phase1-blind-audit/blind-audit-a/bundle-Y/chapters/ch02.md` | `14,779` | `57be40817944b906` | 《器痕录》 | 仙侠 | 已揭盲 | 是(`Track2`/`G4`/`Track1`/`OLD-HOLD-1..3`/`NH-3`/`V22-H2`/`BlindAudit`) | 是(全线《器痕录》黑名单) | 单题材《器痕录》历史校准/盲审/退役 Holdout 及同大纲衍生稿 |
-| 22 | `scratch/phase1-blind-audit/blind-audit-a/bundle-Y/chapters/ch03.md` | `16,333` | `ed41ac12074a76e2` | 《器痕录》 | 仙侠 | 已揭盲 | 是(`Track2`/`G4`/`Track1`/`OLD-HOLD-1..3`/`NH-3`/`V22-H2`/`BlindAudit`) | 是(全线《器痕录》黑名单) | 单题材《器痕录》历史校准/盲审/退役 Holdout 及同大纲衍生稿 |
-| 23 | `scratch/phase1-blind-audit/blind-audit-a/bundle-Z/chapters/ch01.md` | `15,429` | `8b1628822d2e70a9` | 《器痕录》 | 仙侠 | 已揭盲 | 是(`Track2`/`G4`/`Track1`/`OLD-HOLD-1..3`/`NH-3`/`V22-H2`/`BlindAudit`) | 是(全线《器痕录》黑名单) | 单题材《器痕录》历史校准/盲审/退役 Holdout 及同大纲衍生稿 |
-| 24 | `scratch/phase1-blind-audit/blind-audit-a/bundle-Z/chapters/ch02.md` | `17,099` | `b7e94353fa5bf6f9` | 《器痕录》 | 仙侠 | 已揭盲 | 是(`Track2`/`G4`/`Track1`/`OLD-HOLD-1..3`/`NH-3`/`V22-H2`/`BlindAudit`) | 是(全线《器痕录》黑名单) | 单题材《器痕录》历史校准/盲审/退役 Holdout 及同大纲衍生稿 |
-| 25 | `scratch/phase1-blind-audit/blind-audit-a/bundle-Z/chapters/ch03.md` | `19,649` | `25ec46e0fe3a2d58` | 《器痕录》 | 仙侠 | 已揭盲 | 是(`Track2`/`G4`/`Track1`/`OLD-HOLD-1..3`/`NH-3`/`V22-H2`/`BlindAudit`) | 是(全线《器痕录》黑名单) | 单题材《器痕录》历史校准/盲审/退役 Holdout 及同大纲衍生稿 |
-| 26 | `scratch/phase1-blind-audit/blind-audit-b/ch01/ch01-version-A.md` | `20,650` | `57151e9a3d7b72bc` | 《器痕录》 | 仙侠 | 已揭盲 | 是(`Track2`/`G4`/`Track1`/`OLD-HOLD-1..3`/`NH-3`/`V22-H2`/`BlindAudit`) | 是(全线《器痕录》黑名单) | 单题材《器痕录》历史校准/盲审/退役 Holdout 及同大纲衍生稿 |
-| 27 | `scratch/phase1-blind-audit/blind-audit-b/ch01/ch01-version-B.md` | `21,197` | `6fe632266afc0325` | 《器痕录》 | 仙侠 | 已揭盲 | 是(`Track2`/`G4`/`Track1`/`OLD-HOLD-1..3`/`NH-3`/`V22-H2`/`BlindAudit`) | 是(全线《器痕录》黑名单) | 单题材《器痕录》历史校准/盲审/退役 Holdout 及同大纲衍生稿 |
-| 28 | `scratch/phase1-blind-audit/blind-audit-b/ch01/ch01-version-C.md` | `15,429` | `8b1628822d2e70a9` | 《器痕录》 | 仙侠 | 已揭盲 | 是(`Track2`/`G4`/`Track1`/`OLD-HOLD-1..3`/`NH-3`/`V22-H2`/`BlindAudit`) | 是(全线《器痕录》黑名单) | 单题材《器痕录》历史校准/盲审/退役 Holdout 及同大纲衍生稿 |
-| 29 | `scratch/phase1-blind-audit/blind-audit-b/ch02/ch02-version-A.md` | `14,779` | `57be40817944b906` | 《器痕录》 | 仙侠 | 已揭盲 | 是(`Track2`/`G4`/`Track1`/`OLD-HOLD-1..3`/`NH-3`/`V22-H2`/`BlindAudit`) | 是(全线《器痕录》黑名单) | 单题材《器痕录》历史校准/盲审/退役 Holdout 及同大纲衍生稿 |
-| 30 | `scratch/phase1-blind-audit/blind-audit-b/ch02/ch02-version-B.md` | `17,099` | `b7e94353fa5bf6f9` | 《器痕录》 | 仙侠 | 已揭盲 | 是(`Track2`/`G4`/`Track1`/`OLD-HOLD-1..3`/`NH-3`/`V22-H2`/`BlindAudit`) | 是(全线《器痕录》黑名单) | 单题材《器痕录》历史校准/盲审/退役 Holdout 及同大纲衍生稿 |
-| 31 | `scratch/phase1-blind-audit/blind-audit-b/ch02/ch02-version-C.md` | `17,988` | `df6378bd7966e70a` | 《器痕录》 | 仙侠 | 已揭盲 | 是(`Track2`/`G4`/`Track1`/`OLD-HOLD-1..3`/`NH-3`/`V22-H2`/`BlindAudit`) | 是(全线《器痕录》黑名单) | 单题材《器痕录》历史校准/盲审/退役 Holdout 及同大纲衍生稿 |
-| 32 | `scratch/phase1-blind-audit/blind-audit-b/ch03/ch03-version-A.md` | `17,086` | `4e6c938fad0d4df5` | 《器痕录》 | 仙侠 | 已揭盲 | 是(`Track2`/`G4`/`Track1`/`OLD-HOLD-1..3`/`NH-3`/`V22-H2`/`BlindAudit`) | 是(全线《器痕录》黑名单) | 单题材《器痕录》历史校准/盲审/退役 Holdout 及同大纲衍生稿 |
-| 33 | `scratch/phase1-blind-audit/blind-audit-b/ch03/ch03-version-B.md` | `19,649` | `25ec46e0fe3a2d58` | 《器痕录》 | 仙侠 | 已揭盲 | 是(`Track2`/`G4`/`Track1`/`OLD-HOLD-1..3`/`NH-3`/`V22-H2`/`BlindAudit`) | 是(全线《器痕录》黑名单) | 单题材《器痕录》历史校准/盲审/退役 Holdout 及同大纲衍生稿 |
-| 34 | `scratch/phase1-blind-audit/blind-audit-b/ch03/ch03-version-C.md` | `16,333` | `ed41ac12074a76e2` | 《器痕录》 | 仙侠 | 已揭盲 | 是(`Track2`/`G4`/`Track1`/`OLD-HOLD-1..3`/`NH-3`/`V22-H2`/`BlindAudit`) | 是(全线《器痕录》黑名单) | 单题材《器痕录》历史校准/盲审/退役 Holdout 及同大纲衍生稿 |
-| 35 | `scratch/phase1-blind-audit/blind-audit-c/draft-P/chapters_v1/ch01-v1.md` | `18,719` | `301b43119d87b312` | 《器痕录》 | 仙侠 | 已揭盲 | 是(`Track2`/`G4`/`Track1`/`OLD-HOLD-1..3`/`NH-3`/`V22-H2`/`BlindAudit`) | 是(全线《器痕录》黑名单) | 单题材《器痕录》历史校准/盲审/退役 Holdout 及同大纲衍生稿 |
-| 36 | `scratch/phase1-blind-audit/blind-audit-c/draft-P/chapters_v1/ch02-v1.md` | `14,023` | `5f83025a755fbf82` | 《器痕录》 | 仙侠 | 已揭盲 | 是(`Track2`/`G4`/`Track1`/`OLD-HOLD-1..3`/`NH-3`/`V22-H2`/`BlindAudit`) | 是(全线《器痕录》黑名单) | 单题材《器痕录》历史校准/盲审/退役 Holdout 及同大纲衍生稿 |
-| 37 | `scratch/phase1-blind-audit/blind-audit-c/draft-P/chapters_v1/ch03-v1.md` | `15,166` | `79db1af17a335498` | 《器痕录》 | 仙侠 | 已揭盲 | 是(`Track2`/`G4`/`Track1`/`OLD-HOLD-1..3`/`NH-3`/`V22-H2`/`BlindAudit`) | 是(全线《器痕录》黑名单) | 单题材《器痕录》历史校准/盲审/退役 Holdout 及同大纲衍生稿 |
-| 38 | `scratch/phase1-blind-audit/blind-audit-c/draft-Q/chapters_v1/ch01-v1.md` | `20,436` | `a577ae9a818f6f21` | 《器痕录》 | 仙侠 | 已揭盲 | 是(`Track2`/`G4`/`Track1`/`OLD-HOLD-1..3`/`NH-3`/`V22-H2`/`BlindAudit`) | 是(全线《器痕录》黑名单) | 单题材《器痕录》历史校准/盲审/退役 Holdout 及同大纲衍生稿 |
-| 39 | `scratch/phase1-blind-audit/blind-audit-c/draft-Q/chapters_v1/ch02-v1.md` | `16,540` | `218882169b071d10` | 《器痕录》 | 仙侠 | 已揭盲 | 是(`Track2`/`G4`/`Track1`/`OLD-HOLD-1..3`/`NH-3`/`V22-H2`/`BlindAudit`) | 是(全线《器痕录》黑名单) | 单题材《器痕录》历史校准/盲审/退役 Holdout 及同大纲衍生稿 |
-| 40 | `scratch/phase1-blind-audit/blind-audit-c/draft-Q/chapters_v1/ch03-v1.md` | `15,405` | `2273124ea5b21c68` | 《器痕录》 | 仙侠 | 已揭盲 | 是(`Track2`/`G4`/`Track1`/`OLD-HOLD-1..3`/`NH-3`/`V22-H2`/`BlindAudit`) | 是(全线《器痕录》黑名单) | 单题材《器痕录》历史校准/盲审/退役 Holdout 及同大纲衍生稿 |
-| 41 | `scratch/phase1-blind-audit/blind-audit-c/draft-R/chapters_v1/ch01-v1.md` | `13,545` | `c22983e345baff88` | 《器痕录》 | 仙侠 | 已揭盲 | 是(`Track2`/`G4`/`Track1`/`OLD-HOLD-1..3`/`NH-3`/`V22-H2`/`BlindAudit`) | 是(全线《器痕录》黑名单) | 单题材《器痕录》历史校准/盲审/退役 Holdout 及同大纲衍生稿 |
-| 42 | `scratch/phase1-blind-audit/blind-audit-c/draft-R/chapters_v1/ch02-v1.md` | `15,955` | `7bd0b32a20bfae85` | 《器痕录》 | 仙侠 | 已揭盲 | 是(`Track2`/`G4`/`Track1`/`OLD-HOLD-1..3`/`NH-3`/`V22-H2`/`BlindAudit`) | 是(全线《器痕录》黑名单) | 单题材《器痕录》历史校准/盲审/退役 Holdout 及同大纲衍生稿 |
-| 43 | `scratch/phase1-blind-audit/blind-audit-c/draft-R/chapters_v1/ch03-v1.md` | `19,046` | `723cff2937265171` | 《器痕录》 | 仙侠 | 已揭盲 | 是(`Track2`/`G4`/`Track1`/`OLD-HOLD-1..3`/`NH-3`/`V22-H2`/`BlindAudit`) | 是(全线《器痕录》黑名单) | 单题材《器痕录》历史校准/盲审/退役 Holdout 及同大纲衍生稿 |
-| 44 | `scratch/phase1-calibration-offline/texts/G1-ch01-stageA.md` | `13,545` | `c22983e345baff88` | 《器痕录》 | 仙侠 | 已揭盲 | 是(`Track2`/`G4`/`Track1`/`OLD-HOLD-1..3`/`NH-3`/`V22-H2`/`BlindAudit`) | 是(全线《器痕录》黑名单) | 单题材《器痕录》历史校准/盲审/退役 Holdout 及同大纲衍生稿 |
-| 45 | `scratch/phase1-calibration-offline/texts/G1-ch01-stageB.md` | `15,429` | `8b1628822d2e70a9` | 《器痕录》 | 仙侠 | 已揭盲 | 是(`Track2`/`G4`/`Track1`/`OLD-HOLD-1..3`/`NH-3`/`V22-H2`/`BlindAudit`) | 是(全线《器痕录》黑名单) | 单题材《器痕录》历史校准/盲审/退役 Holdout 及同大纲衍生稿 |
-| 46 | `scratch/phase1-calibration-offline/texts/G1-ch02-stageA.md` | `15,955` | `7bd0b32a20bfae85` | 《器痕录》 | 仙侠 | 已揭盲 | 是(`Track2`/`G4`/`Track1`/`OLD-HOLD-1..3`/`NH-3`/`V22-H2`/`BlindAudit`) | 是(全线《器痕录》黑名单) | 单题材《器痕录》历史校准/盲审/退役 Holdout 及同大纲衍生稿 |
-| 47 | `scratch/phase1-calibration-offline/texts/G1-ch02-stageB.md` | `17,099` | `b7e94353fa5bf6f9` | 《器痕录》 | 仙侠 | 已揭盲 | 是(`Track2`/`G4`/`Track1`/`OLD-HOLD-1..3`/`NH-3`/`V22-H2`/`BlindAudit`) | 是(全线《器痕录》黑名单) | 单题材《器痕录》历史校准/盲审/退役 Holdout 及同大纲衍生稿 |
-| 48 | `scratch/phase1-calibration-offline/texts/G1-ch03-stageA.md` | `19,046` | `723cff2937265171` | 《器痕录》 | 仙侠 | 已揭盲 | 是(`Track2`/`G4`/`Track1`/`OLD-HOLD-1..3`/`NH-3`/`V22-H2`/`BlindAudit`) | 是(全线《器痕录》黑名单) | 单题材《器痕录》历史校准/盲审/退役 Holdout 及同大纲衍生稿 |
-| 49 | `scratch/phase1-calibration-offline/texts/G1-ch03-stageB.md` | `19,649` | `25ec46e0fe3a2d58` | 《器痕录》 | 仙侠 | 已揭盲 | 是(`Track2`/`G4`/`Track1`/`OLD-HOLD-1..3`/`NH-3`/`V22-H2`/`BlindAudit`) | 是(全线《器痕录》黑名单) | 单题材《器痕录》历史校准/盲审/退役 Holdout 及同大纲衍生稿 |
-| 50 | `scratch/phase1-calibration-offline/texts/G2-ch01-stageA.md` | `20,436` | `a577ae9a818f6f21` | 《器痕录》 | 仙侠 | 已揭盲 | 是(`Track2`/`G4`/`Track1`/`OLD-HOLD-1..3`/`NH-3`/`V22-H2`/`BlindAudit`) | 是(全线《器痕录》黑名单) | 单题材《器痕录》历史校准/盲审/退役 Holdout 及同大纲衍生稿 |
-| 51 | `scratch/phase1-calibration-offline/texts/G2-ch01-stageB.md` | `21,197` | `6fe632266afc0325` | 《器痕录》 | 仙侠 | 已揭盲 | 是(`Track2`/`G4`/`Track1`/`OLD-HOLD-1..3`/`NH-3`/`V22-H2`/`BlindAudit`) | 是(全线《器痕录》黑名单) | 单题材《器痕录》历史校准/盲审/退役 Holdout 及同大纲衍生稿 |
-| 52 | `scratch/phase1-calibration-offline/texts/G2-ch02-stageA.md` | `16,540` | `218882169b071d10` | 《器痕录》 | 仙侠 | 已揭盲 | 是(`Track2`/`G4`/`Track1`/`OLD-HOLD-1..3`/`NH-3`/`V22-H2`/`BlindAudit`) | 是(全线《器痕录》黑名单) | 单题材《器痕录》历史校准/盲审/退役 Holdout 及同大纲衍生稿 |
-| 53 | `scratch/phase1-calibration-offline/texts/G2-ch02-stageB.md` | `17,988` | `df6378bd7966e70a` | 《器痕录》 | 仙侠 | 已揭盲 | 是(`Track2`/`G4`/`Track1`/`OLD-HOLD-1..3`/`NH-3`/`V22-H2`/`BlindAudit`) | 是(全线《器痕录》黑名单) | 单题材《器痕录》历史校准/盲审/退役 Holdout 及同大纲衍生稿 |
-| 54 | `scratch/phase1-calibration-offline/texts/G2-ch03-stageA.md` | `15,405` | `2273124ea5b21c68` | 《器痕录》 | 仙侠 | 已揭盲 | 是(`Track2`/`G4`/`Track1`/`OLD-HOLD-1..3`/`NH-3`/`V22-H2`/`BlindAudit`) | 是(全线《器痕录》黑名单) | 单题材《器痕录》历史校准/盲审/退役 Holdout 及同大纲衍生稿 |
-| 55 | `scratch/phase1-calibration-offline/texts/G2-ch03-stageB.md` | `17,086` | `4e6c938fad0d4df5` | 《器痕录》 | 仙侠 | 已揭盲 | 是(`Track2`/`G4`/`Track1`/`OLD-HOLD-1..3`/`NH-3`/`V22-H2`/`BlindAudit`) | 是(全线《器痕录》黑名单) | 单题材《器痕录》历史校准/盲审/退役 Holdout 及同大纲衍生稿 |
-| 56 | `scratch/phase1-calibration-offline/texts/G3-ch01-stageA.md` | `18,719` | `301b43119d87b312` | 《器痕录》 | 仙侠 | 已揭盲 | 是(`Track2`/`G4`/`Track1`/`OLD-HOLD-1..3`/`NH-3`/`V22-H2`/`BlindAudit`) | 是(全线《器痕录》黑名单) | 单题材《器痕录》历史校准/盲审/退役 Holdout 及同大纲衍生稿 |
-| 57 | `scratch/phase1-calibration-offline/texts/G3-ch01-stageB.md` | `20,650` | `57151e9a3d7b72bc` | 《器痕录》 | 仙侠 | 已揭盲 | 是(`Track2`/`G4`/`Track1`/`OLD-HOLD-1..3`/`NH-3`/`V22-H2`/`BlindAudit`) | 是(全线《器痕录》黑名单) | 单题材《器痕录》历史校准/盲审/退役 Holdout 及同大纲衍生稿 |
-| 58 | `scratch/phase1-calibration-offline/texts/G3-ch02-stageA.md` | `14,023` | `5f83025a755fbf82` | 《器痕录》 | 仙侠 | 已揭盲 | 是(`Track2`/`G4`/`Track1`/`OLD-HOLD-1..3`/`NH-3`/`V22-H2`/`BlindAudit`) | 是(全线《器痕录》黑名单) | 单题材《器痕录》历史校准/盲审/退役 Holdout 及同大纲衍生稿 |
-| 59 | `scratch/phase1-calibration-offline/texts/G3-ch02-stageB.md` | `14,779` | `57be40817944b906` | 《器痕录》 | 仙侠 | 已揭盲 | 是(`Track2`/`G4`/`Track1`/`OLD-HOLD-1..3`/`NH-3`/`V22-H2`/`BlindAudit`) | 是(全线《器痕录》黑名单) | 单题材《器痕录》历史校准/盲审/退役 Holdout 及同大纲衍生稿 |
-| 60 | `scratch/phase1-calibration-offline/texts/G3-ch03-stageA.md` | `15,166` | `79db1af17a335498` | 《器痕录》 | 仙侠 | 已揭盲 | 是(`Track2`/`G4`/`Track1`/`OLD-HOLD-1..3`/`NH-3`/`V22-H2`/`BlindAudit`) | 是(全线《器痕录》黑名单) | 单题材《器痕录》历史校准/盲审/退役 Holdout 及同大纲衍生稿 |
-| 61 | `scratch/phase1-calibration-offline/texts/G3-ch03-stageB.md` | `16,333` | `ed41ac12074a76e2` | 《器痕录》 | 仙侠 | 已揭盲 | 是(`Track2`/`G4`/`Track1`/`OLD-HOLD-1..3`/`NH-3`/`V22-H2`/`BlindAudit`) | 是(全线《器痕录》黑名单) | 单题材《器痕录》历史校准/盲审/退役 Holdout 及同大纲衍生稿 |
-| 62 | `scratch/phase1-calibration-v2/fc-texts/M-01.md` | `19,649` | `25ec46e0fe3a2d58` | 《器痕录》 | 仙侠 | 已揭盲 | 是(`Track2`/`G4`/`Track1`/`OLD-HOLD-1..3`/`NH-3`/`V22-H2`/`BlindAudit`) | 是(全线《器痕录》黑名单) | 单题材《器痕录》历史校准/盲审/退役 Holdout 及同大纲衍生稿 |
-| 63 | `scratch/phase1-calibration-v2/fc-texts/M-02.md` | `15,429` | `8b1628822d2e70a9` | 《器痕录》 | 仙侠 | 已揭盲 | 是(`Track2`/`G4`/`Track1`/`OLD-HOLD-1..3`/`NH-3`/`V22-H2`/`BlindAudit`) | 是(全线《器痕录》黑名单) | 单题材《器痕录》历史校准/盲审/退役 Holdout 及同大纲衍生稿 |
-| 64 | `scratch/phase1-calibration-v2/fc-texts/M-03.md` | `16,594` | `086595bf3bfc7148` | 《器痕录》 | 仙侠 | 已揭盲 | 是(`Track2`/`G4`/`Track1`/`OLD-HOLD-1..3`/`NH-3`/`V22-H2`/`BlindAudit`) | 是(全线《器痕录》黑名单) | 单题材《器痕录》历史校准/盲审/退役 Holdout 及同大纲衍生稿 |
-| 65 | `scratch/phase1-calibration-v2/fc-texts/M-04.md` | `17,988` | `df6378bd7966e70a` | 《器痕录》 | 仙侠 | 已揭盲 | 是(`Track2`/`G4`/`Track1`/`OLD-HOLD-1..3`/`NH-3`/`V22-H2`/`BlindAudit`) | 是(全线《器痕录》黑名单) | 单题材《器痕录》历史校准/盲审/退役 Holdout 及同大纲衍生稿 |
-| 66 | `scratch/phase1-calibration-v2/fc-texts/M-05.md` | `14,779` | `57be40817944b906` | 《器痕录》 | 仙侠 | 已揭盲 | 是(`Track2`/`G4`/`Track1`/`OLD-HOLD-1..3`/`NH-3`/`V22-H2`/`BlindAudit`) | 是(全线《器痕录》黑名单) | 单题材《器痕录》历史校准/盲审/退役 Holdout 及同大纲衍生稿 |
-| 67 | `scratch/phase1-calibration-v2/fc-texts/M-06.md` | `16,333` | `ed41ac12074a76e2` | 《器痕录》 | 仙侠 | 已揭盲 | 是(`Track2`/`G4`/`Track1`/`OLD-HOLD-1..3`/`NH-3`/`V22-H2`/`BlindAudit`) | 是(全线《器痕录》黑名单) | 单题材《器痕录》历史校准/盲审/退役 Holdout 及同大纲衍生稿 |
-| 68 | `scratch/phase1-calibration-v2/fc-texts/M-07.md` | `15,405` | `2273124ea5b21c68` | 《器痕录》 | 仙侠 | 已揭盲 | 是(`Track2`/`G4`/`Track1`/`OLD-HOLD-1..3`/`NH-3`/`V22-H2`/`BlindAudit`) | 是(全线《器痕录》黑名单) | 单题材《器痕录》历史校准/盲审/退役 Holdout 及同大纲衍生稿 |
-| 69 | `scratch/phase1-calibration-v2/fc-texts/M-08.md` | `16,540` | `218882169b071d10` | 《器痕录》 | 仙侠 | 已揭盲 | 是(`Track2`/`G4`/`Track1`/`OLD-HOLD-1..3`/`NH-3`/`V22-H2`/`BlindAudit`) | 是(全线《器痕录》黑名单) | 单题材《器痕录》历史校准/盲审/退役 Holdout 及同大纲衍生稿 |
-| 70 | `scratch/phase1-calibration-v2/fc-texts/M-09.md` | `13,545` | `c22983e345baff88` | 《器痕录》 | 仙侠 | 已揭盲 | 是(`Track2`/`G4`/`Track1`/`OLD-HOLD-1..3`/`NH-3`/`V22-H2`/`BlindAudit`) | 是(全线《器痕录》黑名单) | 单题材《器痕录》历史校准/盲审/退役 Holdout 及同大纲衍生稿 |
-| 71 | `scratch/phase1-calibration-v2/fc-texts/M-10.md` | `18,719` | `301b43119d87b312` | 《器痕录》 | 仙侠 | 已揭盲 | 是(`Track2`/`G4`/`Track1`/`OLD-HOLD-1..3`/`NH-3`/`V22-H2`/`BlindAudit`) | 是(全线《器痕录》黑名单) | 单题材《器痕录》历史校准/盲审/退役 Holdout 及同大纲衍生稿 |
-| 72 | `scratch/phase1-calibration-v2/fc-texts/M-11.md` | `20,650` | `57151e9a3d7b72bc` | 《器痕录》 | 仙侠 | 已揭盲 | 是(`Track2`/`G4`/`Track1`/`OLD-HOLD-1..3`/`NH-3`/`V22-H2`/`BlindAudit`) | 是(全线《器痕录》黑名单) | 单题材《器痕录》历史校准/盲审/退役 Holdout 及同大纲衍生稿 |
-| 73 | `scratch/phase1-calibration-v2/fc-texts/M-12.md` | `15,166` | `79db1af17a335498` | 《器痕录》 | 仙侠 | 已揭盲 | 是(`Track2`/`G4`/`Track1`/`OLD-HOLD-1..3`/`NH-3`/`V22-H2`/`BlindAudit`) | 是(全线《器痕录》黑名单) | 单题材《器痕录》历史校准/盲审/退役 Holdout 及同大纲衍生稿 |
-| 74 | `scratch/phase1-calibration-v2/fc-texts/M-13.md` | `18,285` | `2d219ef4fa23442b` | 《器痕录》 | 仙侠 | 已揭盲 | 是(`Track2`/`G4`/`Track1`/`OLD-HOLD-1..3`/`NH-3`/`V22-H2`/`BlindAudit`) | 是(全线《器痕录》黑名单) | 单题材《器痕录》历史校准/盲审/退役 Holdout 及同大纲衍生稿 |
-| 75 | `scratch/phase1-calibration-v2/fc-texts/M-14.md` | `15,955` | `7bd0b32a20bfae85` | 《器痕录》 | 仙侠 | 已揭盲 | 是(`Track2`/`G4`/`Track1`/`OLD-HOLD-1..3`/`NH-3`/`V22-H2`/`BlindAudit`) | 是(全线《器痕录》黑名单) | 单题材《器痕录》历史校准/盲审/退役 Holdout 及同大纲衍生稿 |
-| 76 | `scratch/phase1-calibration-v2/fc-texts/M-15.md` | `19,046` | `723cff2937265171` | 《器痕录》 | 仙侠 | 已揭盲 | 是(`Track2`/`G4`/`Track1`/`OLD-HOLD-1..3`/`NH-3`/`V22-H2`/`BlindAudit`) | 是(全线《器痕录》黑名单) | 单题材《器痕录》历史校准/盲审/退役 Holdout 及同大纲衍生稿 |
-| 77 | `scratch/phase1-calibration-v2/fc-texts/M-16.md` | `15,792` | `4ed3f76b7cd74673` | 《器痕录》 | 仙侠 | 已揭盲 | 是(`Track2`/`G4`/`Track1`/`OLD-HOLD-1..3`/`NH-3`/`V22-H2`/`BlindAudit`) | 是(全线《器痕录》黑名单) | 单题材《器痕录》历史校准/盲审/退役 Holdout 及同大纲衍生稿 |
-| 78 | `scratch/phase1-calibration-v2/fc-texts/M-17.md` | `17,099` | `b7e94353fa5bf6f9` | 《器痕录》 | 仙侠 | 已揭盲 | 是(`Track2`/`G4`/`Track1`/`OLD-HOLD-1..3`/`NH-3`/`V22-H2`/`BlindAudit`) | 是(全线《器痕录》黑名单) | 单题材《器痕录》历史校准/盲审/退役 Holdout 及同大纲衍生稿 |
-| 79 | `scratch/phase1-calibration-v2/fc-texts/M-18.md` | `14,023` | `5f83025a755fbf82` | 《器痕录》 | 仙侠 | 已揭盲 | 是(`Track2`/`G4`/`Track1`/`OLD-HOLD-1..3`/`NH-3`/`V22-H2`/`BlindAudit`) | 是(全线《器痕录》黑名单) | 单题材《器痕录》历史校准/盲审/退役 Holdout 及同大纲衍生稿 |
-| 80 | `scratch/phase1-calibration-v2/fc-texts/M-19.md` | `17,086` | `4e6c938fad0d4df5` | 《器痕录》 | 仙侠 | 已揭盲 | 是(`Track2`/`G4`/`Track1`/`OLD-HOLD-1..3`/`NH-3`/`V22-H2`/`BlindAudit`) | 是(全线《器痕录》黑名单) | 单题材《器痕录》历史校准/盲审/退役 Holdout 及同大纲衍生稿 |
-| 81 | `scratch/phase1-calibration-v2/fc-texts/M-20.md` | `21,197` | `6fe632266afc0325` | 《器痕录》 | 仙侠 | 已揭盲 | 是(`Track2`/`G4`/`Track1`/`OLD-HOLD-1..3`/`NH-3`/`V22-H2`/`BlindAudit`) | 是(全线《器痕录》黑名单) | 单题材《器痕录》历史校准/盲审/退役 Holdout 及同大纲衍生稿 |
-| 82 | `scratch/phase1-calibration-v2/fc-texts/M-21.md` | `15,716` | `2b5342321459dc4a` | 《器痕录》 | 仙侠 | 已揭盲 | 是(`Track2`/`G4`/`Track1`/`OLD-HOLD-1..3`/`NH-3`/`V22-H2`/`BlindAudit`) | 是(全线《器痕录》黑名单) | 单题材《器痕录》历史校准/盲审/退役 Holdout 及同大纲衍生稿 |
-| 83 | `scratch/phase1-calibration-v2/holdout/texts/H1-ch01.md` | `15,671` | `bd0a99544111017e` | 《器痕录》 | 仙侠 | 已揭盲 | 是(`Track2`/`G4`/`Track1`/`OLD-HOLD-1..3`/`NH-3`/`V22-H2`/`BlindAudit`) | 是(全线《器痕录》黑名单) | 单题材《器痕录》历史校准/盲审/退役 Holdout 及同大纲衍生稿 |
-| 84 | `scratch/phase1-calibration-v2/holdout/texts/H2-ch02.md` | `17,041` | `3ba78a72d1f9220b` | 《器痕录》 | 仙侠 | 已揭盲 | 是(`Track2`/`G4`/`Track1`/`OLD-HOLD-1..3`/`NH-3`/`V22-H2`/`BlindAudit`) | 是(全线《器痕录》黑名单) | 单题材《器痕录》历史校准/盲审/退役 Holdout 及同大纲衍生稿 |
-| 85 | `scratch/phase1-calibration-v2/holdout/texts/H2-prior-ch01.md` | `17,024` | `df08da6309bfda3a` | 《器痕录》 | 仙侠 | 已揭盲 | 是(`Track2`/`G4`/`Track1`/`OLD-HOLD-1..3`/`NH-3`/`V22-H2`/`BlindAudit`) | 是(全线《器痕录》黑名单) | 单题材《器痕录》历史校准/盲审/退役 Holdout 及同大纲衍生稿 |
-| 86 | `scratch/phase1-calibration-v2/holdout/texts/H3-ch03.md` | `16,197` | `0c97e23674e66914` | 《器痕录》 | 仙侠 | 已揭盲 | 是(`Track2`/`G4`/`Track1`/`OLD-HOLD-1..3`/`NH-3`/`V22-H2`/`BlindAudit`) | 是(全线《器痕录》黑名单) | 单题材《器痕录》历史校准/盲审/退役 Holdout 及同大纲衍生稿 |
-| 87 | `scratch/phase1-calibration-v2/holdout/texts/H3-prior-ch01.md` | `14,140` | `d3a594217ddcfcb7` | 《器痕录》 | 仙侠 | 已揭盲 | 是(`Track2`/`G4`/`Track1`/`OLD-HOLD-1..3`/`NH-3`/`V22-H2`/`BlindAudit`) | 是(全线《器痕录》黑名单) | 单题材《器痕录》历史校准/盲审/退役 Holdout 及同大纲衍生稿 |
-| 88 | `scratch/phase1-calibration-v2/holdout/texts/H3-prior-ch02.md` | `15,035` | `e27659f913323281` | 《器痕录》 | 仙侠 | 已揭盲 | 是(`Track2`/`G4`/`Track1`/`OLD-HOLD-1..3`/`NH-3`/`V22-H2`/`BlindAudit`) | 是(全线《器痕录》黑名单) | 单题材《器痕录》历史校准/盲审/退役 Holdout 及同大纲衍生稿 |
-| 89 | `scratch/phase1-calibration-v2/holdout/texts/H4-ch01.md` | `22,815` | `649d2cdd090fbe6a` | 《降本增笑》 | 现代职场 | 已揭盲 | 是(`live-eval`/`OLD-HOLD-4`/`NH-4..5`) | 是(`live-eval`/`OLD-HOLD-4`/`NH-4..5`) | 历史实测及退役 Holdout 已揭盲章节 |
-| 90 | `scratch/phase1-calibration-v2.1/new-holdout/texts/NH1-ch01.md` | `13,505` | `83ac2640781690c8` | 《残器长生》 | 仙侠 | 已揭盲 | 是(`live-eval`/`step2`/`NH-1..2`/`V22-H1`) | 是(`live-eval`/`NH-1..2`/`V22-H1`) | 历史实测及退役 Holdout 已揭盲章节 |
-| 91 | `scratch/phase1-calibration-v2.1/new-holdout/texts/NH2-ch02.md` | `13,183` | `d7fbbb4e1ed9d7f8` | 《残器长生》 | 仙侠 | 已揭盲 | 是(`live-eval`/`step2`/`NH-1..2`/`V22-H1`) | 是(`live-eval`/`NH-1..2`/`V22-H1`) | 历史实测及退役 Holdout 已揭盲章节 |
-| 92 | `scratch/phase1-calibration-v2.1/new-holdout/texts/NH2-prior-ch01.md` | `14,500` | `0510609f44316690` | 《残器长生》 | 仙侠 | 已揭盲 | 是(`live-eval`/`step2`/`NH-1..2`/`V22-H1`) | 是(`live-eval`/`NH-1..2`/`V22-H1`) | 历史实测及退役 Holdout 已揭盲章节 |
-| 93 | `scratch/phase1-calibration-v2.1/new-holdout/texts/NH3-ch02.md` | `13,684` | `76bbffb4bb303230` | 《器痕录》 | 仙侠 | 已揭盲 | 是(`Track2`/`G4`/`Track1`/`OLD-HOLD-1..3`/`NH-3`/`V22-H2`/`BlindAudit`) | 是(全线《器痕录》黑名单) | 单题材《器痕录》历史校准/盲审/退役 Holdout 及同大纲衍生稿 |
-| 94 | `scratch/phase1-calibration-v2.1/new-holdout/texts/NH3-prior-ch01.md` | `14,140` | `d3a594217ddcfcb7` | 《器痕录》 | 仙侠 | 已揭盲 | 是(`Track2`/`G4`/`Track1`/`OLD-HOLD-1..3`/`NH-3`/`V22-H2`/`BlindAudit`) | 是(全线《器痕录》黑名单) | 单题材《器痕录》历史校准/盲审/退役 Holdout 及同大纲衍生稿 |
-| 95 | `scratch/phase1-calibration-v2.1/new-holdout/texts/NH4-ch02.md` | `19,473` | `d3133b2720bc531f` | 《降本增笑》 | 现代职场 | 已揭盲 | 是(`live-eval`/`OLD-HOLD-4`/`NH-4..5`) | 是(`live-eval`/`OLD-HOLD-4`/`NH-4..5`) | 历史实测及退役 Holdout 已揭盲章节 |
-| 96 | `scratch/phase1-calibration-v2.1/new-holdout/texts/NH4-prior-ch01.md` | `22,815` | `649d2cdd090fbe6a` | 《降本增笑》 | 现代职场 | 已揭盲 | 是(`live-eval`/`OLD-HOLD-4`/`NH-4..5`) | 是(`live-eval`/`OLD-HOLD-4`/`NH-4..5`) | 历史实测及退役 Holdout 已揭盲章节 |
-| 97 | `scratch/phase1-calibration-v2.1/new-holdout/texts/NH5-ch03.md` | `26,034` | `11cb9cf5540ed54e` | 《降本增笑》 | 现代职场 | 已揭盲 | 是(`live-eval`/`OLD-HOLD-4`/`NH-4..5`) | 是(`live-eval`/`OLD-HOLD-4`/`NH-4..5`) | 历史实测及退役 Holdout 已揭盲章节 |
-| 98 | `scratch/phase1-calibration-v2.1/new-holdout/texts/NH5-prior-ch01.md` | `22,815` | `649d2cdd090fbe6a` | 《降本增笑》 | 现代职场 | 已揭盲 | 是(`live-eval`/`OLD-HOLD-4`/`NH-4..5`) | 是(`live-eval`/`OLD-HOLD-4`/`NH-4..5`) | 历史实测及退役 Holdout 已揭盲章节 |
-| 99 | `scratch/phase1-calibration-v2.1/new-holdout/texts/NH5-prior-ch02.md` | `19,473` | `d3133b2720bc531f` | 《降本增笑》 | 现代职场 | 已揭盲 | 是(`live-eval`/`OLD-HOLD-4`/`NH-4..5`) | 是(`live-eval`/`OLD-HOLD-4`/`NH-4..5`) | 历史实测及退役 Holdout 已揭盲章节 |
-| 100 | `scratch/phase1-calibration-v2.2/raw-gen/story-history/ch01.md` | `13,362` | `ff15bffd673febff` | 《盐引旧账》 | 古代历史查账 | 已揭盲 | 是(`V22-H4`退役Holdout/G5参考) | 是(`V22-H4`) | v2.2 退役 Holdout (`V22-H4`) 已揭盲（仅作 G5 已知 `OR6` 死锁参考） |
-| 101 | `scratch/phase1-calibration-v2.2/raw-gen/story-mystery/ch01.md` | `13,949` | `eb536aef1c3fd4c6` | 《潮汐证词》 | 海港悬疑 | 已揭盲 | 是(`V22-H3`退役Holdout) | 是(`V22-H3`) | v2.2 退役 Holdout (`V22-H3`) 已揭盲 |
-| 102 | `scratch/phase1-calibration-v2.2/v22-holdout/texts/H1-ch03.md` | `13,364` | `38ea085aded6eb13` | 《残器长生》 | 仙侠 | 已揭盲 | 是(`live-eval`/`step2`/`NH-1..2`/`V22-H1`) | 是(`live-eval`/`NH-1..2`/`V22-H1`) | 历史实测及退役 Holdout 已揭盲章节 |
-| 103 | `scratch/phase1-calibration-v2.2/v22-holdout/texts/H1-prior-ch01.md` | `14,500` | `0510609f44316690` | 《残器长生》 | 仙侠 | 已揭盲 | 是(`live-eval`/`step2`/`NH-1..2`/`V22-H1`) | 是(`live-eval`/`NH-1..2`/`V22-H1`) | 历史实测及退役 Holdout 已揭盲章节 |
-| 104 | `scratch/phase1-calibration-v2.2/v22-holdout/texts/H1-prior-ch02.md` | `14,334` | `cb16b2fe7d37ea87` | 《残器长生》 | 仙侠 | 已揭盲 | 是(`live-eval`/`step2`/`NH-1..2`/`V22-H1`) | 是(`live-eval`/`NH-1..2`/`V22-H1`) | 历史实测及退役 Holdout 已揭盲章节 |
-| 105 | `scratch/phase1-calibration-v2.2/v22-holdout/texts/H2-ch01.md` | `13,559` | `ddaf335ff4c6749e` | 《器痕录》 | 仙侠 | 已揭盲 | 是(`Track2`/`G4`/`Track1`/`OLD-HOLD-1..3`/`NH-3`/`V22-H2`/`BlindAudit`) | 是(全线《器痕录》黑名单) | 单题材《器痕录》历史校准/盲审/退役 Holdout 及同大纲衍生稿 |
-| 106 | `scratch/phase1-calibration-v2.2/v22-holdout/texts/H3-ch01.md` | `13,949` | `eb536aef1c3fd4c6` | 《潮汐证词》 | 海港悬疑 | 已揭盲 | 是(`V22-H3`退役Holdout) | 是(`V22-H3`) | v2.2 退役 Holdout (`V22-H3`) 已揭盲 |
-| 107 | `scratch/phase1-calibration-v2.2/v22-holdout/texts/H4-ch01.md` | `13,362` | `ff15bffd673febff` | 《盐引旧账》 | 古代历史查账 | 已揭盲 | 是(`V22-H4`退役Holdout/G5参考) | 是(`V22-H4`) | v2.2 退役 Holdout (`V22-H4`) 已揭盲（仅作 G5 已知 `OR6` 死锁参考） |
-| 108 | `scratch/phase1-throughput-exp/arm0-telemetry-baseline/chapters/ch01.md` | `15,429` | `8b1628822d2e70a9` | 《器痕录》 | 仙侠 | 已揭盲 | 是(`Track2`/`G4`/`Track1`/`OLD-HOLD-1..3`/`NH-3`/`V22-H2`/`BlindAudit`) | 是(全线《器痕录》黑名单) | 单题材《器痕录》历史校准/盲审/退役 Holdout 及同大纲衍生稿 |
-| 109 | `scratch/phase1-throughput-exp/arm0-telemetry-baseline/chapters/ch02.md` | `17,099` | `b7e94353fa5bf6f9` | 《器痕录》 | 仙侠 | 已揭盲 | 是(`Track2`/`G4`/`Track1`/`OLD-HOLD-1..3`/`NH-3`/`V22-H2`/`BlindAudit`) | 是(全线《器痕录》黑名单) | 单题材《器痕录》历史校准/盲审/退役 Holdout 及同大纲衍生稿 |
-| 110 | `scratch/phase1-throughput-exp/arm0-telemetry-baseline/chapters/ch03.md` | `19,649` | `25ec46e0fe3a2d58` | 《器痕录》 | 仙侠 | 已揭盲 | 是(`Track2`/`G4`/`Track1`/`OLD-HOLD-1..3`/`NH-3`/`V22-H2`/`BlindAudit`) | 是(全线《器痕录》黑名单) | 单题材《器痕录》历史校准/盲审/退役 Holdout 及同大纲衍生稿 |
-| 111 | `scratch/phase1-throughput-exp/arm0-telemetry-baseline/reviews/r3/manuscripts/chapter-1/v1/chapter-0001.md` | `13,545` | `c22983e345baff88` | 《器痕录》 | 仙侠 | 已揭盲 | 是(`Track2`/`G4`/`Track1`/`OLD-HOLD-1..3`/`NH-3`/`V22-H2`/`BlindAudit`) | 是(全线《器痕录》黑名单) | 单题材《器痕录》历史校准/盲审/退役 Holdout 及同大纲衍生稿 |
-| 112 | `scratch/phase1-throughput-exp/arm0-telemetry-baseline/reviews/r3/manuscripts/chapter-1/v2/chapter-0001.md` | `15,429` | `8b1628822d2e70a9` | 《器痕录》 | 仙侠 | 已揭盲 | 是(`Track2`/`G4`/`Track1`/`OLD-HOLD-1..3`/`NH-3`/`V22-H2`/`BlindAudit`) | 是(全线《器痕录》黑名单) | 单题材《器痕录》历史校准/盲审/退役 Holdout 及同大纲衍生稿 |
-| 113 | `scratch/phase1-throughput-exp/arm0-telemetry-baseline/reviews/r3/manuscripts/chapter-2/v1/chapter-0002.md` | `15,955` | `7bd0b32a20bfae85` | 《器痕录》 | 仙侠 | 已揭盲 | 是(`Track2`/`G4`/`Track1`/`OLD-HOLD-1..3`/`NH-3`/`V22-H2`/`BlindAudit`) | 是(全线《器痕录》黑名单) | 单题材《器痕录》历史校准/盲审/退役 Holdout 及同大纲衍生稿 |
-| 114 | `scratch/phase1-throughput-exp/arm0-telemetry-baseline/reviews/r3/manuscripts/chapter-2/v2/chapter-0002.md` | `16,991` | `aa634031d6ca9e4a` | 《器痕录》 | 仙侠 | 已揭盲 | 是(`Track2`/`G4`/`Track1`/`OLD-HOLD-1..3`/`NH-3`/`V22-H2`/`BlindAudit`) | 是(全线《器痕录》黑名单) | 单题材《器痕录》历史校准/盲审/退役 Holdout 及同大纲衍生稿 |
-| 115 | `scratch/phase1-throughput-exp/arm0-telemetry-baseline/reviews/r3/manuscripts/chapter-2/v3/chapter-0002.md` | `17,099` | `b7e94353fa5bf6f9` | 《器痕录》 | 仙侠 | 已揭盲 | 是(`Track2`/`G4`/`Track1`/`OLD-HOLD-1..3`/`NH-3`/`V22-H2`/`BlindAudit`) | 是(全线《器痕录》黑名单) | 单题材《器痕录》历史校准/盲审/退役 Holdout 及同大纲衍生稿 |
-| 116 | `scratch/phase1-throughput-exp/arm0-telemetry-baseline/reviews/r3/manuscripts/chapter-3/v1/chapter-0003.md` | `19,046` | `723cff2937265171` | 《器痕录》 | 仙侠 | 已揭盲 | 是(`Track2`/`G4`/`Track1`/`OLD-HOLD-1..3`/`NH-3`/`V22-H2`/`BlindAudit`) | 是(全线《器痕录》黑名单) | 单题材《器痕录》历史校准/盲审/退役 Holdout 及同大纲衍生稿 |
-| 117 | `scratch/phase1-throughput-exp/arm0-telemetry-baseline/reviews/r3/manuscripts/chapter-3/v2/chapter-0003.md` | `19,649` | `25ec46e0fe3a2d58` | 《器痕录》 | 仙侠 | 已揭盲 | 是(`Track2`/`G4`/`Track1`/`OLD-HOLD-1..3`/`NH-3`/`V22-H2`/`BlindAudit`) | 是(全线《器痕录》黑名单) | 单题材《器痕录》历史校准/盲审/退役 Holdout 及同大纲衍生稿 |
-| 118 | `scratch/phase1-throughput-exp/arm1-o3-atomic/chapters/ch01.md` | `21,197` | `6fe632266afc0325` | 《器痕录》 | 仙侠 | 已揭盲 | 是(`Track2`/`G4`/`Track1`/`OLD-HOLD-1..3`/`NH-3`/`V22-H2`/`BlindAudit`) | 是(全线《器痕录》黑名单) | 单题材《器痕录》历史校准/盲审/退役 Holdout 及同大纲衍生稿 |
-| 119 | `scratch/phase1-throughput-exp/arm1-o3-atomic/chapters/ch02.md` | `17,988` | `df6378bd7966e70a` | 《器痕录》 | 仙侠 | 已揭盲 | 是(`Track2`/`G4`/`Track1`/`OLD-HOLD-1..3`/`NH-3`/`V22-H2`/`BlindAudit`) | 是(全线《器痕录》黑名单) | 单题材《器痕录》历史校准/盲审/退役 Holdout 及同大纲衍生稿 |
-| 120 | `scratch/phase1-throughput-exp/arm1-o3-atomic/chapters/ch03.md` | `17,086` | `4e6c938fad0d4df5` | 《器痕录》 | 仙侠 | 已揭盲 | 是(`Track2`/`G4`/`Track1`/`OLD-HOLD-1..3`/`NH-3`/`V22-H2`/`BlindAudit`) | 是(全线《器痕录》黑名单) | 单题材《器痕录》历史校准/盲审/退役 Holdout 及同大纲衍生稿 |
-| 121 | `scratch/phase1-throughput-exp/arm1-o3-atomic/reviews/r3/manuscripts/chapter-1/v1/chapter-0001.md` | `20,436` | `a577ae9a818f6f21` | 《器痕录》 | 仙侠 | 已揭盲 | 是(`Track2`/`G4`/`Track1`/`OLD-HOLD-1..3`/`NH-3`/`V22-H2`/`BlindAudit`) | 是(全线《器痕录》黑名单) | 单题材《器痕录》历史校准/盲审/退役 Holdout 及同大纲衍生稿 |
-| 122 | `scratch/phase1-throughput-exp/arm1-o3-atomic/reviews/r3/manuscripts/chapter-1/v2/chapter-0001.md` | `21,197` | `6fe632266afc0325` | 《器痕录》 | 仙侠 | 已揭盲 | 是(`Track2`/`G4`/`Track1`/`OLD-HOLD-1..3`/`NH-3`/`V22-H2`/`BlindAudit`) | 是(全线《器痕录》黑名单) | 单题材《器痕录》历史校准/盲审/退役 Holdout 及同大纲衍生稿 |
-| 123 | `scratch/phase1-throughput-exp/arm1-o3-atomic/reviews/r3/manuscripts/chapter-2/v1/chapter-0002.md` | `16,540` | `218882169b071d10` | 《器痕录》 | 仙侠 | 已揭盲 | 是(`Track2`/`G4`/`Track1`/`OLD-HOLD-1..3`/`NH-3`/`V22-H2`/`BlindAudit`) | 是(全线《器痕录》黑名单) | 单题材《器痕录》历史校准/盲审/退役 Holdout 及同大纲衍生稿 |
-| 124 | `scratch/phase1-throughput-exp/arm1-o3-atomic/reviews/r3/manuscripts/chapter-2/v2/chapter-0002.md` | `17,988` | `df6378bd7966e70a` | 《器痕录》 | 仙侠 | 已揭盲 | 是(`Track2`/`G4`/`Track1`/`OLD-HOLD-1..3`/`NH-3`/`V22-H2`/`BlindAudit`) | 是(全线《器痕录》黑名单) | 单题材《器痕录》历史校准/盲审/退役 Holdout 及同大纲衍生稿 |
-| 125 | `scratch/phase1-throughput-exp/arm1-o3-atomic/reviews/r3/manuscripts/chapter-3/v1/chapter-0003.md` | `15,405` | `2273124ea5b21c68` | 《器痕录》 | 仙侠 | 已揭盲 | 是(`Track2`/`G4`/`Track1`/`OLD-HOLD-1..3`/`NH-3`/`V22-H2`/`BlindAudit`) | 是(全线《器痕录》黑名单) | 单题材《器痕录》历史校准/盲审/退役 Holdout 及同大纲衍生稿 |
-| 126 | `scratch/phase1-throughput-exp/arm1-o3-atomic/reviews/r3/manuscripts/chapter-3/v2/chapter-0003.md` | `17,086` | `4e6c938fad0d4df5` | 《器痕录》 | 仙侠 | 已揭盲 | 是(`Track2`/`G4`/`Track1`/`OLD-HOLD-1..3`/`NH-3`/`V22-H2`/`BlindAudit`) | 是(全线《器痕录》黑名单) | 单题材《器痕录》历史校准/盲审/退役 Holdout 及同大纲衍生稿 |
-| 127 | `scratch/phase1-throughput-exp/arm2-o3-o1-warm/chapters/ch01.md` | `20,650` | `57151e9a3d7b72bc` | 《器痕录》 | 仙侠 | 已揭盲 | 是(`Track2`/`G4`/`Track1`/`OLD-HOLD-1..3`/`NH-3`/`V22-H2`/`BlindAudit`) | 是(全线《器痕录》黑名单) | 单题材《器痕录》历史校准/盲审/退役 Holdout 及同大纲衍生稿 |
-| 128 | `scratch/phase1-throughput-exp/arm2-o3-o1-warm/chapters/ch02.md` | `14,779` | `57be40817944b906` | 《器痕录》 | 仙侠 | 已揭盲 | 是(`Track2`/`G4`/`Track1`/`OLD-HOLD-1..3`/`NH-3`/`V22-H2`/`BlindAudit`) | 是(全线《器痕录》黑名单) | 单题材《器痕录》历史校准/盲审/退役 Holdout 及同大纲衍生稿 |
-| 129 | `scratch/phase1-throughput-exp/arm2-o3-o1-warm/chapters/ch03.md` | `16,333` | `ed41ac12074a76e2` | 《器痕录》 | 仙侠 | 已揭盲 | 是(`Track2`/`G4`/`Track1`/`OLD-HOLD-1..3`/`NH-3`/`V22-H2`/`BlindAudit`) | 是(全线《器痕录》黑名单) | 单题材《器痕录》历史校准/盲审/退役 Holdout 及同大纲衍生稿 |
-| 130 | `scratch/phase1-throughput-exp/arm2-o3-o1-warm/reviews/r3/manuscripts/chapter-1/v1/chapter-0001.md` | `18,719` | `301b43119d87b312` | 《器痕录》 | 仙侠 | 已揭盲 | 是(`Track2`/`G4`/`Track1`/`OLD-HOLD-1..3`/`NH-3`/`V22-H2`/`BlindAudit`) | 是(全线《器痕录》黑名单) | 单题材《器痕录》历史校准/盲审/退役 Holdout 及同大纲衍生稿 |
-| 131 | `scratch/phase1-throughput-exp/arm2-o3-o1-warm/reviews/r3/manuscripts/chapter-1/v2/chapter-0001.md` | `20,431` | `86be056433748f0c` | 《器痕录》 | 仙侠 | 已揭盲 | 是(`Track2`/`G4`/`Track1`/`OLD-HOLD-1..3`/`NH-3`/`V22-H2`/`BlindAudit`) | 是(全线《器痕录》黑名单) | 单题材《器痕录》历史校准/盲审/退役 Holdout 及同大纲衍生稿 |
-| 132 | `scratch/phase1-throughput-exp/arm2-o3-o1-warm/reviews/r3/manuscripts/chapter-1/v3/chapter-0001.md` | `20,650` | `57151e9a3d7b72bc` | 《器痕录》 | 仙侠 | 已揭盲 | 是(`Track2`/`G4`/`Track1`/`OLD-HOLD-1..3`/`NH-3`/`V22-H2`/`BlindAudit`) | 是(全线《器痕录》黑名单) | 单题材《器痕录》历史校准/盲审/退役 Holdout 及同大纲衍生稿 |
-| 133 | `scratch/phase1-throughput-exp/arm2-o3-o1-warm/reviews/r3/manuscripts/chapter-2/v1/chapter-0002.md` | `14,023` | `5f83025a755fbf82` | 《器痕录》 | 仙侠 | 已揭盲 | 是(`Track2`/`G4`/`Track1`/`OLD-HOLD-1..3`/`NH-3`/`V22-H2`/`BlindAudit`) | 是(全线《器痕录》黑名单) | 单题材《器痕录》历史校准/盲审/退役 Holdout 及同大纲衍生稿 |
-| 134 | `scratch/phase1-throughput-exp/arm2-o3-o1-warm/reviews/r3/manuscripts/chapter-2/v2/chapter-0002.md` | `14,779` | `57be40817944b906` | 《器痕录》 | 仙侠 | 已揭盲 | 是(`Track2`/`G4`/`Track1`/`OLD-HOLD-1..3`/`NH-3`/`V22-H2`/`BlindAudit`) | 是(全线《器痕录》黑名单) | 单题材《器痕录》历史校准/盲审/退役 Holdout 及同大纲衍生稿 |
-| 135 | `scratch/phase1-throughput-exp/arm2-o3-o1-warm/reviews/r3/manuscripts/chapter-3/v1/chapter-0003.md` | `15,166` | `79db1af17a335498` | 《器痕录》 | 仙侠 | 已揭盲 | 是(`Track2`/`G4`/`Track1`/`OLD-HOLD-1..3`/`NH-3`/`V22-H2`/`BlindAudit`) | 是(全线《器痕录》黑名单) | 单题材《器痕录》历史校准/盲审/退役 Holdout 及同大纲衍生稿 |
-| 136 | `scratch/phase1-throughput-exp/arm2-o3-o1-warm/reviews/r3/manuscripts/chapter-3/v2/chapter-0003.md` | `15,967` | `325815e3b22c84fb` | 《器痕录》 | 仙侠 | 已揭盲 | 是(`Track2`/`G4`/`Track1`/`OLD-HOLD-1..3`/`NH-3`/`V22-H2`/`BlindAudit`) | 是(全线《器痕录》黑名单) | 单题材《器痕录》历史校准/盲审/退役 Holdout 及同大纲衍生稿 |
-| 137 | `scratch/phase1-throughput-exp/arm2-o3-o1-warm/reviews/r3/manuscripts/chapter-3/v3/chapter-0003.md` | `16,333` | `ed41ac12074a76e2` | 《器痕录》 | 仙侠 | 已揭盲 | 是(`Track2`/`G4`/`Track1`/`OLD-HOLD-1..3`/`NH-3`/`V22-H2`/`BlindAudit`) | 是(全线《器痕录》黑名单) | 单题材《器痕录》历史校准/盲审/退役 Holdout 及同大纲衍生稿 |
-| 138 | `scratch/phase1-throughput-exp/arm3-o3-o1-o2-full/chapters/ch01.md` | `17,024` | `df08da6309bfda3a` | 《器痕录》 | 仙侠 | 已揭盲 | 是(`Track2`/`G4`/`Track1`/`OLD-HOLD-1..3`/`NH-3`/`V22-H2`/`BlindAudit`) | 是(全线《器痕录》黑名单) | 单题材《器痕录》历史校准/盲审/退役 Holdout 及同大纲衍生稿 |
-| 139 | `scratch/phase1-throughput-exp/arm3-o3-o1-o2-full/chapters/ch02.md` | `19,165` | `860c4d51de72f994` | 《器痕录》 | 仙侠 | 已揭盲 | 是(`Track2`/`G4`/`Track1`/`OLD-HOLD-1..3`/`NH-3`/`V22-H2`/`BlindAudit`) | 是(全线《器痕录》黑名单) | 单题材《器痕录》历史校准/盲审/退役 Holdout 及同大纲衍生稿 |
-| 140 | `scratch/phase1-throughput-exp/arm3-o3-o1-o2-full/reviews/r3/manuscripts/chapter-1/v1/chapter-0001.md` | `25,552` | `f380a6050a647a6c` | 《器痕录》 | 仙侠 | 已揭盲 | 是(`Track2`/`G4`/`Track1`/`OLD-HOLD-1..3`/`NH-3`/`V22-H2`/`BlindAudit`) | 是(全线《器痕录》黑名单) | 单题材《器痕录》历史校准/盲审/退役 Holdout 及同大纲衍生稿 |
-| 141 | `scratch/phase1-throughput-exp/arm3-o3-o1-o2-full/reviews/r3/manuscripts/chapter-1/v2/chapter-0001.md` | `15,671` | `bd0a99544111017e` | 《器痕录》 | 仙侠 | 已揭盲 | 是(`Track2`/`G4`/`Track1`/`OLD-HOLD-1..3`/`NH-3`/`V22-H2`/`BlindAudit`) | 是(全线《器痕录》黑名单) | 单题材《器痕录》历史校准/盲审/退役 Holdout 及同大纲衍生稿 |
-| 142 | `scratch/phase1-throughput-exp/arm3-o3-o1-o2-full/reviews/r3/manuscripts/chapter-1/v3/chapter-0001.md` | `17,024` | `df08da6309bfda3a` | 《器痕录》 | 仙侠 | 已揭盲 | 是(`Track2`/`G4`/`Track1`/`OLD-HOLD-1..3`/`NH-3`/`V22-H2`/`BlindAudit`) | 是(全线《器痕录》黑名单) | 单题材《器痕录》历史校准/盲审/退役 Holdout 及同大纲衍生稿 |
-| 143 | `scratch/phase1-throughput-exp/arm3-o3-o1-o2-full/reviews/r3/manuscripts/chapter-2/v1/chapter-0002.md` | `17,041` | `3ba78a72d1f9220b` | 《器痕录》 | 仙侠 | 已揭盲 | 是(`Track2`/`G4`/`Track1`/`OLD-HOLD-1..3`/`NH-3`/`V22-H2`/`BlindAudit`) | 是(全线《器痕录》黑名单) | 单题材《器痕录》历史校准/盲审/退役 Holdout 及同大纲衍生稿 |
-| 144 | `scratch/phase1-throughput-exp/arm3-o3-o1-o2-full/reviews/r3/manuscripts/chapter-2/v2/chapter-0002.md` | `18,907` | `3adebc6471a40502` | 《器痕录》 | 仙侠 | 已揭盲 | 是(`Track2`/`G4`/`Track1`/`OLD-HOLD-1..3`/`NH-3`/`V22-H2`/`BlindAudit`) | 是(全线《器痕录》黑名单) | 单题材《器痕录》历史校准/盲审/退役 Holdout 及同大纲衍生稿 |
-| 145 | `scratch/phase1-throughput-exp/arm3-o3-o1-o2-full/reviews/r3/manuscripts/chapter-2/v3/chapter-0002.md` | `19,165` | `860c4d51de72f994` | 《器痕录》 | 仙侠 | 已揭盲 | 是(`Track2`/`G4`/`Track1`/`OLD-HOLD-1..3`/`NH-3`/`V22-H2`/`BlindAudit`) | 是(全线《器痕录》黑名单) | 单题材《器痕录》历史校准/盲审/退役 Holdout 及同大纲衍生稿 |
-| 146 | `scratch/ref-webnovel-writer-v8/docs/maintenance/examples/河埠旧事.md` | `4,215` | `aad5d72353c6cfcb` | 外部参考仓示例《河埠旧事》 | 外部示例(非R3) | 公开上游 | 否 | 否(非R3样本) | 第三方仓库 `docs/maintenance/examples/` 教学短例，无R3大纲/人物设定/仲裁键 |
-| 147 | `scratch/step2-m1-replay/case-a-ch3-v2-replay/chapters/ch001.md` | `14,500` | `0510609f44316690` | 《残器长生》 | 仙侠 | 已揭盲 | 是(`live-eval`/`step2`/`NH-1..2`/`V22-H1`) | 是(`live-eval`/`NH-1..2`/`V22-H1`) | 历史实测及退役 Holdout 已揭盲章节 |
-| 148 | `scratch/step2-m1-replay/case-a-ch3-v2-replay/chapters/ch002.md` | `14,334` | `cb16b2fe7d37ea87` | 《残器长生》 | 仙侠 | 已揭盲 | 是(`live-eval`/`step2`/`NH-1..2`/`V22-H1`) | 是(`live-eval`/`NH-1..2`/`V22-H1`) | 历史实测及退役 Holdout 已揭盲章节 |
-| 149 | `scratch/step2-m1-replay/case-a-ch3-v2-replay/chapters/ch003.md` | `15,492` | `da330ae35d1d5bdc` | 《残器长生》 | 仙侠 | 已揭盲 | 是(`live-eval`/`step2`/`NH-1..2`/`V22-H1`) | 是(`live-eval`/`NH-1..2`/`V22-H1`) | 历史实测及退役 Holdout 已揭盲章节 |
-| 150 | `scratch/step2-m1-replay/case-a-ch3-v2-replay/reviews/r3/manuscripts/chapter-1/v1/chapter-0001.md` | `13,505` | `83ac2640781690c8` | 《残器长生》 | 仙侠 | 已揭盲 | 是(`live-eval`/`step2`/`NH-1..2`/`V22-H1`) | 是(`live-eval`/`NH-1..2`/`V22-H1`) | 历史实测及退役 Holdout 已揭盲章节 |
-| 151 | `scratch/step2-m1-replay/case-a-ch3-v2-replay/reviews/r3/manuscripts/chapter-1/v2/chapter-0001.md` | `13,574` | `947a4d48ee7eaed2` | 《残器长生》 | 仙侠 | 已揭盲 | 是(`live-eval`/`step2`/`NH-1..2`/`V22-H1`) | 是(`live-eval`/`NH-1..2`/`V22-H1`) | 历史实测及退役 Holdout 已揭盲章节 |
-| 152 | `scratch/step2-m1-replay/case-a-ch3-v2-replay/reviews/r3/manuscripts/chapter-1/v3/chapter-0001.md` | `14,500` | `0510609f44316690` | 《残器长生》 | 仙侠 | 已揭盲 | 是(`live-eval`/`step2`/`NH-1..2`/`V22-H1`) | 是(`live-eval`/`NH-1..2`/`V22-H1`) | 历史实测及退役 Holdout 已揭盲章节 |
-| 153 | `scratch/step2-m1-replay/case-a-ch3-v2-replay/reviews/r3/manuscripts/chapter-2/v1/chapter-0002.md` | `13,183` | `d7fbbb4e1ed9d7f8` | 《残器长生》 | 仙侠 | 已揭盲 | 是(`live-eval`/`step2`/`NH-1..2`/`V22-H1`) | 是(`live-eval`/`NH-1..2`/`V22-H1`) | 历史实测及退役 Holdout 已揭盲章节 |
-| 154 | `scratch/step2-m1-replay/case-a-ch3-v2-replay/reviews/r3/manuscripts/chapter-2/v2/chapter-0002.md` | `13,171` | `2ef0c7932c3b7a12` | 《残器长生》 | 仙侠 | 已揭盲 | 是(`live-eval`/`step2`/`NH-1..2`/`V22-H1`) | 是(`live-eval`/`NH-1..2`/`V22-H1`) | 历史实测及退役 Holdout 已揭盲章节 |
-| 155 | `scratch/step2-m1-replay/case-a-ch3-v2-replay/reviews/r3/manuscripts/chapter-2/v3/chapter-0002.md` | `14,334` | `cb16b2fe7d37ea87` | 《残器长生》 | 仙侠 | 已揭盲 | 是(`live-eval`/`step2`/`NH-1..2`/`V22-H1`) | 是(`live-eval`/`NH-1..2`/`V22-H1`) | 历史实测及退役 Holdout 已揭盲章节 |
-| 156 | `scratch/step2-m1-replay/case-a-ch3-v2-replay/reviews/r3/manuscripts/chapter-3/v1/chapter-0003.md` | `13,364` | `38ea085aded6eb13` | 《残器长生》 | 仙侠 | 已揭盲 | 是(`live-eval`/`step2`/`NH-1..2`/`V22-H1`) | 是(`live-eval`/`NH-1..2`/`V22-H1`) | 历史实测及退役 Holdout 已揭盲章节 |
-| 157 | `scratch/step2-m1-replay/case-a-ch3-v2-replay/reviews/r3/manuscripts/chapter-3/v2/chapter-0003.md` | `13,499` | `b1d14b8d67bb9904` | 《残器长生》 | 仙侠 | 已揭盲 | 是(`live-eval`/`step2`/`NH-1..2`/`V22-H1`) | 是(`live-eval`/`NH-1..2`/`V22-H1`) | 历史实测及退役 Holdout 已揭盲章节 |
-| 158 | `scratch/step2-m1-replay/case-a-ch3-v2-replay/reviews/r3/manuscripts/chapter-3/v3/chapter-0003.md` | `15,786` | `73cd4d7a78ddf82a` | 《残器长生》 | 仙侠 | 已揭盲 | 是(`live-eval`/`step2`/`NH-1..2`/`V22-H1`) | 是(`live-eval`/`NH-1..2`/`V22-H1`) | 历史实测及退役 Holdout 已揭盲章节 |
-| 159 | `scratch/step2-m1-replay/case-a-ch3-v2-replay/reviews/r3/manuscripts/chapter-3/v4/chapter-0003.md` | `15,492` | `da330ae35d1d5bdc` | 《残器长生》 | 仙侠 | 已揭盲 | 是(`live-eval`/`step2`/`NH-1..2`/`V22-H1`) | 是(`live-eval`/`NH-1..2`/`V22-H1`) | 历史实测及退役 Holdout 已揭盲章节 |
-| 160 | `scratch/step3-r3-trial/case-a-xianxia-r3-v2/chapters/ch01.md` | `14,140` | `d3a594217ddcfcb7` | 《器痕录》 | 仙侠 | 已揭盲 | 是(`Track2`/`G4`/`Track1`/`OLD-HOLD-1..3`/`NH-3`/`V22-H2`/`BlindAudit`) | 是(全线《器痕录》黑名单) | 单题材《器痕录》历史校准/盲审/退役 Holdout 及同大纲衍生稿 |
-| 161 | `scratch/step3-r3-trial/case-a-xianxia-r3-v2/chapters/ch02.md` | `15,035` | `e27659f913323281` | 《器痕录》 | 仙侠 | 已揭盲 | 是(`Track2`/`G4`/`Track1`/`OLD-HOLD-1..3`/`NH-3`/`V22-H2`/`BlindAudit`) | 是(全线《器痕录》黑名单) | 单题材《器痕录》历史校准/盲审/退役 Holdout 及同大纲衍生稿 |
-| 162 | `scratch/step3-r3-trial/case-a-xianxia-r3-v2/chapters/ch03.md` | `16,197` | `0c97e23674e66914` | 《器痕录》 | 仙侠 | 已揭盲 | 是(`Track2`/`G4`/`Track1`/`OLD-HOLD-1..3`/`NH-3`/`V22-H2`/`BlindAudit`) | 是(全线《器痕录》黑名单) | 单题材《器痕录》历史校准/盲审/退役 Holdout 及同大纲衍生稿 |
-| 163 | `scratch/step3-r3-trial/case-a-xianxia-r3-v2/reviews/r3/manuscripts/chapter-1/v1/chapter-0001.md` | `13,559` | `ddaf335ff4c6749e` | 《器痕录》 | 仙侠 | 已揭盲 | 是(`Track2`/`G4`/`Track1`/`OLD-HOLD-1..3`/`NH-3`/`V22-H2`/`BlindAudit`) | 是(全线《器痕录》黑名单) | 单题材《器痕录》历史校准/盲审/退役 Holdout 及同大纲衍生稿 |
-| 164 | `scratch/step3-r3-trial/case-a-xianxia-r3-v2/reviews/r3/manuscripts/chapter-1/v2/chapter-0001.md` | `13,939` | `ae7beefb863a92d7` | 《器痕录》 | 仙侠 | 已揭盲 | 是(`Track2`/`G4`/`Track1`/`OLD-HOLD-1..3`/`NH-3`/`V22-H2`/`BlindAudit`) | 是(全线《器痕录》黑名单) | 单题材《器痕录》历史校准/盲审/退役 Holdout 及同大纲衍生稿 |
-| 165 | `scratch/step3-r3-trial/case-a-xianxia-r3-v2/reviews/r3/manuscripts/chapter-1/v3/chapter-0001.md` | `14,032` | `0c9d0da8ff7462a7` | 《器痕录》 | 仙侠 | 已揭盲 | 是(`Track2`/`G4`/`Track1`/`OLD-HOLD-1..3`/`NH-3`/`V22-H2`/`BlindAudit`) | 是(全线《器痕录》黑名单) | 单题材《器痕录》历史校准/盲审/退役 Holdout 及同大纲衍生稿 |
-| 166 | `scratch/step3-r3-trial/case-a-xianxia-r3-v2/reviews/r3/manuscripts/chapter-1/v4/chapter-0001.md` | `13,999` | `e94a0dfc404a01dd` | 《器痕录》 | 仙侠 | 已揭盲 | 是(`Track2`/`G4`/`Track1`/`OLD-HOLD-1..3`/`NH-3`/`V22-H2`/`BlindAudit`) | 是(全线《器痕录》黑名单) | 单题材《器痕录》历史校准/盲审/退役 Holdout 及同大纲衍生稿 |
-| 167 | `scratch/step3-r3-trial/case-a-xianxia-r3-v2/reviews/r3/manuscripts/chapter-1/v5/chapter-0001.md` | `14,140` | `d3a594217ddcfcb7` | 《器痕录》 | 仙侠 | 已揭盲 | 是(`Track2`/`G4`/`Track1`/`OLD-HOLD-1..3`/`NH-3`/`V22-H2`/`BlindAudit`) | 是(全线《器痕录》黑名单) | 单题材《器痕录》历史校准/盲审/退役 Holdout 及同大纲衍生稿 |
-| 168 | `scratch/step3-r3-trial/case-a-xianxia-r3-v2/reviews/r3/manuscripts/chapter-2/v1/chapter-0002.md` | `13,684` | `76bbffb4bb303230` | 《器痕录》 | 仙侠 | 已揭盲 | 是(`Track2`/`G4`/`Track1`/`OLD-HOLD-1..3`/`NH-3`/`V22-H2`/`BlindAudit`) | 是(全线《器痕录》黑名单) | 单题材《器痕录》历史校准/盲审/退役 Holdout 及同大纲衍生稿 |
-| 169 | `scratch/step3-r3-trial/case-a-xianxia-r3-v2/reviews/r3/manuscripts/chapter-2/v2/chapter-0002.md` | `15,005` | `cd21a3ff3b9d5304` | 《器痕录》 | 仙侠 | 已揭盲 | 是(`Track2`/`G4`/`Track1`/`OLD-HOLD-1..3`/`NH-3`/`V22-H2`/`BlindAudit`) | 是(全线《器痕录》黑名单) | 单题材《器痕录》历史校准/盲审/退役 Holdout 及同大纲衍生稿 |
-| 170 | `scratch/step3-r3-trial/case-a-xianxia-r3-v2/reviews/r3/manuscripts/chapter-2/v3/chapter-0002.md` | `15,035` | `e27659f913323281` | 《器痕录》 | 仙侠 | 已揭盲 | 是(`Track2`/`G4`/`Track1`/`OLD-HOLD-1..3`/`NH-3`/`V22-H2`/`BlindAudit`) | 是(全线《器痕录》黑名单) | 单题材《器痕录》历史校准/盲审/退役 Holdout 及同大纲衍生稿 |
-| 171 | `scratch/step3-r3-trial/case-a-xianxia-r3-v2/reviews/r3/manuscripts/chapter-3/v1/chapter-0003.md` | `15,023` | `bb3675f1e6a7bf27` | 《器痕录》 | 仙侠 | 已揭盲 | 是(`Track2`/`G4`/`Track1`/`OLD-HOLD-1..3`/`NH-3`/`V22-H2`/`BlindAudit`) | 是(全线《器痕录》黑名单) | 单题材《器痕录》历史校准/盲审/退役 Holdout 及同大纲衍生稿 |
-| 172 | `scratch/step3-r3-trial/case-a-xianxia-r3-v2/reviews/r3/manuscripts/chapter-3/v2/chapter-0003.md` | `15,661` | `0b1b68a7d2b542f7` | 《器痕录》 | 仙侠 | 已揭盲 | 是(`Track2`/`G4`/`Track1`/`OLD-HOLD-1..3`/`NH-3`/`V22-H2`/`BlindAudit`) | 是(全线《器痕录》黑名单) | 单题材《器痕录》历史校准/盲审/退役 Holdout 及同大纲衍生稿 |
-| 173 | `scratch/step3-r3-trial/case-a-xianxia-r3-v2/reviews/r3/manuscripts/chapter-3/v3/chapter-0003.md` | `16,197` | `0c97e23674e66914` | 《器痕录》 | 仙侠 | 已揭盲 | 是(`Track2`/`G4`/`Track1`/`OLD-HOLD-1..3`/`NH-3`/`V22-H2`/`BlindAudit`) | 是(全线《器痕录》黑名单) | 单题材《器痕录》历史校准/盲审/退役 Holdout 及同大纲衍生稿 |
-
-#### 5. 外部补充来源核查与最终可复核结论
-- **Google Drive 历史实验快照（前序只读核验，`PROJECT-ASSET-INDEX.md` Tier 3）**：3 份 ZIP 仅含单题材仙侠《仙门大掌柜》Ch 1–12，未经双评委+第三仲裁定案，亦不满足跨 `>=3` / `4–6` 题材未揭盲独立要求。
-- **最终可复核合格候选统计与精确缺口**：
-  - **公开主仓（293 文件）合格候选**：`0` 章 / `0` 案例；
-  - **本地 `<ART_ROOT>`（2,723 文件，含全部 173 份候选章节逐项排除）合格候选**：`0` 章 / `0` 案例（`unclassified = 0`）；
-  - **`G2-B Independent Holdout`**：已就绪 **`0` 章 / `0` 案例** → **`underpowered`**，精确缺口 **`+20` 个全新未揭盲独立来源章节、`+60` 条独立非阻断案例**（覆 `>=3` 题材、单章 `<=3` 条、`0` 重叠）；
-  - **`G6` 跨题材 Holdout**：已就绪 **`0` 章 / `0` 案例** → **`underpowered`**，精确缺口 **`+12..16` 个未揭盲跨题材完整章、`+30` 条客观正例、`+40` 条独立非阻断案例**（覆 4–6 题材）。
+- **最终可复核结论（`UNRESOLVED = 0` 闭合后重申）**：
+  - **`G2-B Independent Holdout`**：合格候选 **`0` 章 / `0` 案例** → 维持 **`underpowered`**，精确缺口 **`+20` 个全新未揭盲独立来源章节、`+60` 条独立非阻断案例**（覆 `>=3` 题材、单章 `<=3` 条、`0` 重叠）；
+  - **`G6` 跨题材 Holdout**：合格候选 **`0` 章 / `0` 案例** → 维持 **`underpowered`**，精确缺口 **`+12..16` 个未揭盲跨题材完整章、`+30` 条客观正例、`+40` 条独立非阻断案例**（覆 4–6 题材）。
 
 ---
 

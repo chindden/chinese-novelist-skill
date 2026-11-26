@@ -58,7 +58,7 @@
 
 | 任务 ID | 任务名称 | 前置依赖 | 当前状态 | 独立 Commit SHA | GPT-6 验收状态 | 关键风险 / 当前备注 |
 |---|---|---|---|---|---|---|
-| **P0-0** | 研发基线审计与实施准备 | PRD `ACCEPTED` + 文档 `2d6061d6` `ACCEPTED` + 作者预授权（均已满足） | **`READY_FOR_REVIEW`** | 原始：`86cbc9f3ad37c635f134eeea2a89317d5eef0a3c`（`2026-11-26T02:58:13Z`）；<br>`RW-P0-0-001`：`9747e146e016155055b928d7a664650cb76def5c`（`03:11:59Z`）、`8ac888fce42070855241d2f17d05691b3afce709`（`03:41:39Z`） | `PENDING`（`RW-P0-0-002` 重提） | 已按 Issue #4 `CHANGES_REQUESTED` 完成 4 项整改：C.2 Fail-Closed 18+62 全量 64 位 SHA-256/字节断言、C.3 主仓 293 + `<ART_ROOT>` 2,723 全量递归盘点与 173 候选章节逐项排除、C.4 G4 24 案例来源章节去重计数，并明示 Node `71/71` + 10 脚本 + Python `12/12` 为 Neon 本地实测证据（GPT-6 未独立复跑）；0 代码改动，等待 GPT-6 再次独立验收 |
+| **P0-0** | 研发基线审计与实施准备 | PRD `ACCEPTED` + 文档 `2d6061d6` `ACCEPTED` + 作者预授权（均已满足） | **`READY_FOR_REVIEW`** | 原始：`86cbc9f3ad37c635f134eeea2a89317d5eef0a3c`（`02:58:13Z`）；<br>`RW-P0-0-001`：`9747e146e016155055b928d7a664650cb76def5c`、`8ac888fce42070855241d2f17d05691b3afce709`；<br>`RW-P0-0-002`：`52dd599b1e30ee3a76c682bf9ec86056e16ded10`（`05:26:25Z`） | `PENDING`（`RW-P0-0-003` 重提） | 第三轮复审已通过 Git 边界、C.2、G4 与测试边界；现已完成 C.3 最终深度审计整改：新增 `P0-0-C3-Full-File-Manifest.tsv`（2,723 行）与 `P0-0-C3-Repo-Manifest.tsv`（293 行），完成全文/JSON/JSONL/Diff/日志/ZIP 扫描与 `UNRESOLVED = 0` 强断言（明示 Neon 本地实跑，GPT-6 未独立复跑）；0 代码改动，等待 GPT-6 独立验收 |
 | **P0-1** | S1 四级枚举及下游兼容（含 `ENG-FIX-P1`） | `P0-0 (ACCEPTED)` | `NOT_STARTED` | `—` | `NOT_SUBMITTED` | 严守 R2 零破坏与 `SUGGESTION` 0% 阻断（`08` E1 & G5）；须待 `P0-0` 获 `ACCEPTED` 后方可启动 |
 | **P0-2** | 写手语域防火墙 | `P0-0 (ACCEPTED)` | `NOT_STARTED` | `—` | `NOT_SUBMITTED` | 写手上下文治理词/限时压迫词 `= 0`；末尾严格按“倒数第二部分：本书文风锚点示范 → 最后一部分（最末位）：上一章结尾原文（500–900 字）”排列（`03` 2.1 节 & `08` E5） |
 | **P0-3** | `precheck v2` | `P0-0 (ACCEPTED)` | `NOT_STARTED` | `—` | `NOT_SUBMITTED` | 仅文件破损与作者显式硬约束阻断；字数/重复段/跨段引语不阻断 |
@@ -75,4 +75,6 @@
 | [`README.md`](./README.md)（本文件） | 项目目标与范围、基线元信息、当前阶段、总体进度与 `P0-0` ~ `P0-6` 状态总览面板 |
 | [`P0-Implementation-PRD.md`](./P0-Implementation-PRD.md) | `P0-0` ~ `P0-6` 逐项完整实施规范（含全部 11 个标准字段）、权限与提交规范、回滚预案及 GPT-6 验收记录表 |
 | [`P0-Progress-Log.md`](./P0-Progress-Log.md) | 按时间线记录每次实施活动、Commit SHA、变更文件、测试输出、GPT-6 审核结论及返工/复审闭环台账 |
-| [`P0-0-Baseline-Audit-Report.md`](./P0-0-Baseline-Audit-Report.md) | `P0-0` 纯只读基线审计报告（代码基线、与 `c0966b12` 差异、Node/Python 固化测试基线、全仓 S1 消费者与 `ENG-FIX-P1` 拆解、G1–G6 样本就绪度与 `G2-B underpowered` 缺口清册） |
+| [`P0-0-Baseline-Audit-Report.md`](./P0-0-Baseline-Audit-Report.md) | `P0-0` 纯只读基线审计报告（代码基线、与 `c0966b12` 差异、Node/Python 固化测试基线、全仓 S1 消费者与 `ENG-FIX-P1` 拆解、G1–G6 样本就绪度与附录 A/B/C） |
+| [`P0-0-C3-Full-File-Manifest.tsv`](./P0-0-C3-Full-File-Manifest.tsv) | `P0-0` 附录 C.3 配套审计证据：本地 `<ART_ROOT>` 全部 2,723 个文件逐文件脱敏 Manifest（含字节数、完整 64 位 SHA-256、深度信号与 6 栏排除记录） |
+| [`P0-0-C3-Repo-Manifest.tsv`](./P0-0-C3-Repo-Manifest.tsv) | `P0-0` 附录 C.3 配套审计证据：公开主仓全部 293 个非清单文件逐文件脱敏 Manifest（含字节数、完整 64 位 SHA-256、深度信号与排除记录） |
