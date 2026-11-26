@@ -33,11 +33,11 @@ export const GOVERNANCE_PATTERNS = Object.freeze([
 ]);
 
 export const TIME_PRESSURE_PATTERNS = Object.freeze([
-  {code: 'TIME_FIVE_MINUTES', re: /(?:5\s*分钟|五分钟|5\s*min(?:utes?)?\b)/gi},
-  {code: 'TIME_LIMIT', re: /(?:限时|限期完成|别超时|不要超时|不能超时|严禁超时|超时扣分)/g},
-  {code: 'TIME_RUSH_WORK', re: /(?:赶工|赶写|抓紧赶|冲刺交稿|提速赶)/g},
-  {code: 'TIME_COUNTDOWN', re: /(?:倒计时|计时器|掐表)/g},
-  {code: 'TIME_HURRY_FINISH', re: /(?:尽快写完|抓紧写完|赶紧写完|立刻写完|马上写完|快速交稿|立刻交稿|\d+\s*分钟内(?:写完|完成|交稿))/g},
+  {code: 'TIME_FIVE_MINUTES', re: /(?:5\s*分钟|五分钟|5\s*min(?:utes?)?\b|\b5m\b)/gi},
+  {code: 'TIME_LIMIT', re: /(?:限时|限期(?:完成|交稿|写完)?|别超时|不要超时|不能超时|严禁超时|切勿超时|勿超时|超时扣分|时间上限|时间限制|\bdeadline\b|\btime\s*limit\b|\btimebox(?:ed|ing)?\b|\bstrict\s*timer\b)/gi},
+  {code: 'TIME_RUSH_WORK', re: /(?:赶工|赶写|赶稿|抓紧赶|冲刺交稿|提速赶|压缩(?:写稿|创作|生成)时间|\brush\s*(?:draft|writing|to\s*finish|this\s*chapter)\b|\bhurry\s*(?:up|to\s*finish)\b)/gi},
+  {code: 'TIME_COUNTDOWN', re: /(?:倒计时|计时器|掐表|\bcountdown\b|\bclock\s*is\s*ticking\b)/gi},
+  {code: 'TIME_HURRY_FINISH', re: /(?:(?:尽快|抓紧|赶紧|立刻|立即|马上|火速|抓紧时间|从速)(?:写完|完成|交稿|出稿|收尾|结束(?:本章|写作)?)|快速(?:写完|完成|交稿|出稿)|(?:\d+|[一二三四五六七八九十两半]+)\s*分钟内(?:写完|完成|交稿|出稿)|\b(?:finish|complete|deliver|write)\s+(?:asap|immediately|right\s+away|quickly|within\s+\d+\s*min(?:utes?)?|in\s+\d+\s*(?:min(?:utes?)?|sec(?:onds?)?))\b|\b(?:within|in)\s+\d+\s*min(?:utes?)?\b|\basap\b)/gi},
 ]);
 
 export function nonempty(x) {
@@ -128,6 +128,16 @@ export function assertNoTimePressure(text, sourceLabel = 'input') {
   }
 }
 
+const META_KEY_GROUP = '(?:schemaVersion|reverseDefense|issueIdentityKey|reviewFingerprint|reviewHistory|manuscriptHashes|p1Protocol|literaryStatus|evidenceLevel|evidenceBasis|impactScope|mustCloseInReReview|dimensionAuditSlots)';
+const META_STRUCTURED_KV_RE = new RegExp(
+  `["']?${META_KEY_GROUP}["']?\\s*[:=：]\\s*(?:\\{[^}\\n]*\\}|\\[[^\\]\\n]*\\]|"[^"\\n]*"|'[^'\\n]*')\\s*[,;]?`,
+  'gi',
+);
+const META_SCALAR_KV_RE = new RegExp(
+  `["']?${META_KEY_GROUP}["']?\\s*[:=：]\\s*[A-Za-z0-9_./-]+\\s*[,;]?`,
+  'gi',
+);
+
 /**
  * Deterministically strip governance metadata and engineering ID tags from
  * source text while preserving natural Chinese hard facts, names, dates, and numbers.
@@ -139,8 +149,10 @@ export function sanitizeNarrativeText(text, {sourceLabel = 'text'} = {}) {
 
   let out = text;
 
-  // 1. Remove full inline JSON-style governance key-value fragments like `"schemaVersion": 1,` or `reverseDefense: ...`
-  out = out.replace(/["']?(?:schemaVersion|reverseDefense|issueIdentityKey|reviewFingerprint|reviewHistory|manuscriptHashes|p1Protocol|literaryStatus|evidenceLevel|evidenceBasis|impactScope|mustCloseInReReview|dimensionAuditSlots)["']?\s*[:=]\s*(?:\{[^}\n]*\}|\[[^\]\n]*\]|"[^"\n]*"|'[^'\n]*'|[^,;\n。；]+)/gi, '');
+  // 1. Remove ONLY identifiable metadata key-value pairs (JSON object/array/quoted string or ASCII scalar),
+  //    strictly stopping before Chinese commas/colons/prose so hard story facts are never swallowed.
+  out = out.replace(META_STRUCTURED_KV_RE, '');
+  out = out.replace(META_SCALAR_KV_RE, '');
 
   // 2. Remove bracketed engineering ID tags like [F-012 | ch2 | established], [P-003 | ch1 | open], [established]
   out = out.replace(/\[\s*[A-Za-z][A-Za-z0-9_-]*\s*\|\s*ch\d+[^\]]*\]/gi, '');
@@ -173,11 +185,14 @@ export function sanitizeNarrativeText(text, {sourceLabel = 'text'} = {}) {
 }
 
 /**
- * Extract clean suffix of previous chapter prose targeting 500-900 non-whitespace characters
- * (per 03 §2.1 & PRD P0-2). Never invents or pads text if source chapter is shorter than 500 chars.
+ * Extract clean suffix of previous chapter prose strictly within [minChars, maxChars]
+ * non-whitespace characters (default 500-900 per 03 §2.1 & PRD P0-2).
+ * Fail-Closed: throws WRITER_BRIEF_PREV_TAIL_TOO_SHORT if previous chapter prose < minChars.
  */
 export function extractPreviousChapterTail(rawChapterText, {minChars = 500, maxChars = 900} = {}) {
-  if (typeof rawChapterText !== 'string' || !rawChapterText.trim()) return '';
+  if (typeof rawChapterText !== 'string' || !rawChapterText.trim()) {
+    throw new Error('WRITER_BRIEF_PREV_TAIL_EMPTY');
+  }
   // Strip top Markdown chapter heading line if present (e.g. "# 第1章 ...")
   let body = rawChapterText.replace(/^\uFEFF/, '').trim();
   const lines = body.split(/\r?\n/);
@@ -185,7 +200,11 @@ export function extractPreviousChapterTail(rawChapterText, {minChars = 500, maxC
     body = lines.slice(1).join('\n').trim();
   }
   const countNonWs = s => s.replace(/\s+/g, '').length;
-  if (countNonWs(body) <= maxChars) return body;
+  const totalNonWs = countNonWs(body);
+  if (totalNonWs < minChars) {
+    throw new Error(`WRITER_BRIEF_PREV_TAIL_TOO_SHORT: ${totalNonWs} < ${minChars}`);
+  }
+  if (totalNonWs <= maxChars) return body;
 
   // Prefer paragraph-aligned tail within [minChars, maxChars]
   const paragraphs = body.split(/\n{2,}/).map(p => p.trim()).filter(Boolean);
@@ -315,11 +334,19 @@ export function assertWriterBriefTailOrder(briefText, {hasPrevChapter = true, mi
 
 /**
  * Compile a Pure Narrative Revision Card from a structured review report.
- * - Preserves 100% of preserveStrengths original quotes verbatim.
- * - Extracts only blocking issues (BLOCKER / MAJOR, open, not fix_in_arc) as
- *   pure natural-language narrative guidance.
- * - Strictly strips reverseDefense, raw JSON, issue IDs, severity labels, gate codes,
- *   and hard-rejects any time-pressure language via assertWriterContextPurity().
+ * Strict writer-safe field whitelist (PRD P0-2 §3.2 & 03 §2.1):
+ *  - Extracts ONLY:
+ *      1) preserveStrengths original quotes verbatim (no reviewer reason/ID/status).
+ *      2) narrativeGuidance of open mandatory blocking issues (BLOCKER / MAJOR
+ *         with explicit status === 'open', not deferred via fix_in_arc /
+ *         defer_to_final / keep_as_blank / advisory, and not blocking === false
+ *         or mustCloseInReReview === false).
+ *  - Fail-Closed validation:
+ *      - Throws if any issue has missing/invalid status or severity.
+ *      - Throws if any selected blocking issue lacks a non-empty narrativeGuidance
+ *        (never silently falls back to reviewer reason/suggestion or emits issue.quote).
+ *      - Strictly ignores reverseDefense and raw governance fields.
+ *      - Runs assertWriterContextPurity() before returning.
  */
 export function compileRevisionCard(report, {chapterNumber = null, extraDirectives = ''} = {}) {
   if (!report || typeof report !== 'object') {
@@ -327,8 +354,7 @@ export function compileRevisionCard(report, {chapterNumber = null, extraDirectiv
   }
   if (extraDirectives) assertNoTimePressure(extraDirectives, 'extraDirectives');
 
-  // 1. Collect preserveStrengths from R3 P1 (report.p1.preserveStrengths),
-  //    top-level report.preserveStrengths, or legacy report.strengths.
+  // 1. Strict preserveStrengths whitelist: verbatim original quotes ONLY (no s.reason / s.id).
   const rawStrengths = Array.isArray(report.p1?.preserveStrengths)
     ? report.p1.preserveStrengths
     : Array.isArray(report.preserveStrengths)
@@ -338,75 +364,89 @@ export function compileRevisionCard(report, {chapterNumber = null, extraDirectiv
         : [];
 
   const preservedQuotes = [];
-  for (const s of rawStrengths) {
-    if (typeof s === 'string' && s.trim()) {
-      assertNoTimePressure(s, 'preserveStrengths');
-      preservedQuotes.push({quote: sanitizeNarrativeText(s, {sourceLabel: 'preserveStrengths'}), note: ''});
+  for (const [idx, s] of rawStrengths.entries()) {
+    if (typeof s === 'string') {
+      if (!s.trim()) continue;
+      assertNoTimePressure(s, `preserveStrengths[${idx}]`);
+      preservedQuotes.push(sanitizeNarrativeText(s, {sourceLabel: `preserveStrengths[${idx}]`}));
     } else if (s && typeof s === 'object') {
-      if (s.status === 'not_established') continue;
-      if (nonempty(s.quote)) {
-        assertNoTimePressure(s.quote, 'preserveStrengths.quote');
-        const note = nonempty(s.reason) ? sanitizeNarrativeText(s.reason, {sourceLabel: 'preserveStrengths.reason'}) : '';
-        preservedQuotes.push({
-          quote: sanitizeNarrativeText(s.quote, {sourceLabel: 'preserveStrengths.quote'}),
-          note,
-        });
+      if (!['observed', 'not_established'].includes(s.status)) {
+        throw new Error(`REVISION_CARD_STRENGTH_STATUS_INVALID: preserveStrengths[${idx}].status`);
       }
+      if (s.status === 'not_established') continue;
+      if (!nonempty(s.quote)) {
+        throw new Error(`REVISION_CARD_STRENGTH_QUOTE_MISSING: preserveStrengths[${idx}].quote`);
+      }
+      assertNoTimePressure(s.quote, `preserveStrengths[${idx}].quote`);
+      preservedQuotes.push(sanitizeNarrativeText(s.quote, {sourceLabel: `preserveStrengths[${idx}].quote`}));
+    } else {
+      throw new Error(`REVISION_CARD_STRENGTH_INVALID: preserveStrengths[${idx}]`);
     }
   }
 
-  // 2. Extract only mandatory blocking issues (BLOCKER / MAJOR, status === 'open',
-  //    not deferred as fix_in_arc / defer_to_final / keep_as_blank).
-  //    Explicitly IGNORE reverseDefense and all governance fields.
+  // 2. Strict blocking issue selection & Fail-Closed validation:
+  //    NEVER reads or emits reverseDefense, reason, suggestion, or issue.quote.
+  if (report.issues !== undefined && !Array.isArray(report.issues)) {
+    throw new Error('REVISION_CARD_ISSUES_NOT_ARRAY');
+  }
   const rawIssues = Array.isArray(report.issues) ? report.issues : [];
-  const blockingIssues = rawIssues.filter(i => {
-    if (!i || typeof i !== 'object') return false;
-    if (i.status && i.status !== 'open') return false;
-    if (!['BLOCKER', 'MAJOR'].includes(i.severity)) return false;
-    if (i.severity === 'MAJOR' && i.disposition === 'fix_in_arc') return false;
-    if (['defer_to_final', 'keep_as_blank', 'advisory'].includes(i.disposition)) return false;
-    return true;
-  });
+  const validStatuses = ['open', 'resolved', 'accepted'];
+  const validSeverities = ['BLOCKER', 'MAJOR', 'MINOR', 'SUGGESTION'];
+  const nonBlockingDispositions = ['fix_in_arc', 'defer_to_final', 'keep_as_blank', 'advisory'];
 
-  const guidanceItems = blockingIssues.map(i => {
-    const quote = nonempty(i.quote) ? sanitizeNarrativeText(i.quote, {sourceLabel: 'issue.quote'}) : '';
-    const guidanceRaw = nonempty(i.narrativeGuidance)
-      ? i.narrativeGuidance
-      : [i.reason, i.suggestion].filter(nonempty).join('；');
-    assertNoTimePressure(guidanceRaw, 'issue.narrativeGuidance');
-    const guidance = sanitizeNarrativeText(guidanceRaw, {sourceLabel: 'issue.narrativeGuidance'});
-    return {
+  const guidanceItems = [];
+  for (const [idx, i] of rawIssues.entries()) {
+    if (!i || typeof i !== 'object') {
+      throw new Error(`REVISION_CARD_ISSUE_INVALID: issues[${idx}]`);
+    }
+    if (!validStatuses.includes(i.status)) {
+      throw new Error(`REVISION_CARD_ISSUE_STATUS_MISSING_OR_INVALID: issues[${idx}].status`);
+    }
+    if (!validSeverities.includes(i.severity)) {
+      throw new Error(`REVISION_CARD_ISSUE_SEVERITY_INVALID: issues[${idx}].severity`);
+    }
+    if (i.status !== 'open') continue;
+    if (!['BLOCKER', 'MAJOR'].includes(i.severity)) continue;
+    if (nonBlockingDispositions.includes(i.disposition)) continue;
+    if (i.blocking === false || i.mustCloseInReReview === false) continue;
+
+    if (!nonempty(i.narrativeGuidance)) {
+      throw new Error(`REVISION_CARD_NARRATIVE_GUIDANCE_REQUIRED: issues[${idx}].narrativeGuidance`);
+    }
+    assertNoTimePressure(i.narrativeGuidance, `issues[${idx}].narrativeGuidance`);
+    const guidance = sanitizeNarrativeText(i.narrativeGuidance, {sourceLabel: `issues[${idx}].narrativeGuidance`});
+    if (!guidance) {
+      throw new Error(`REVISION_CARD_NARRATIVE_GUIDANCE_EMPTY_AFTER_SANITIZE: issues[${idx}].narrativeGuidance`);
+    }
+    guidanceItems.push({
       chapter: Number.isInteger(i.chapter) ? i.chapter : chapterNumber,
-      quote,
       guidance,
-    };
-  });
+    });
+  }
 
   const targetCh = chapterNumber ?? (Number.isInteger(report.end) ? report.end : null);
   const sections = [];
   sections.push(targetCh ? `# 第${targetCh}章 叙事修订卡` : '# 章节叙事修订卡');
 
-  // Section 1: preserveStrengths (100% original quotes preserved)
+  // Section 1: preserveStrengths (100% original quotes verbatim ONLY)
   const strengthLines = ['## 必须守住的亮点原句'];
   if (preservedQuotes.length === 0) {
     strengthLines.push('- 本轮保留既有叙事节奏与人物语感，不做无关扩写。');
   } else {
-    preservedQuotes.forEach((item, idx) => {
-      strengthLines.push(`${idx + 1}. 原句：“${item.quote}”`);
-      if (item.note) strengthLines.push(`   保留要点：${item.note}`);
+    preservedQuotes.forEach((quote, idx) => {
+      strengthLines.push(`${idx + 1}. 原句：“${quote}”`);
     });
   }
   sections.push(strengthLines.join('\n'));
 
-  // Section 2: pure natural-language narrative revision directions
+  // Section 2: pure natural-language narrativeGuidance ONLY
   const fixLines = ['## 本次需要修正的剧情与逻辑要点'];
   if (guidanceItems.length === 0) {
     fixLines.push('- 当前没有必须修改的剧情硬伤，可直接保持正文自然连贯。');
   } else {
     guidanceItems.forEach((item, idx) => {
-      const chPrefix = item.chapter ? `（第${item.chapter}章相关片段）` : '';
-      fixLines.push(`${idx + 1}. ${item.guidance}${chPrefix}`);
-      if (item.quote) fixLines.push(`   对应原文：“${item.quote}”`);
+      const chPrefix = item.chapter ? `（第${item.chapter}章）` : '';
+      fixLines.push(`${idx + 1}. ${chPrefix}${item.guidance}`);
     });
   }
   if (nonempty(extraDirectives)) {
@@ -430,7 +470,7 @@ export function compileRevisionCard(report, {chapterNumber = null, extraDirectiv
   return {
     markdown,
     preservedStrengthsCount: preservedQuotes.length,
-    preservedQuotes: preservedQuotes.map(p => p.quote),
+    preservedQuotes,
     blockingGuidanceCount: guidanceItems.length,
     purity,
   };

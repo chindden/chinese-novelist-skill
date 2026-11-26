@@ -204,6 +204,37 @@ function safeOutPath(root, relOut) {
   return resolved;
 }
 
+function filterFutureSubsections(sectionMd, chapterNumber) {
+  if (!sectionMd) return '';
+  const lines = sectionMd.split(/\r?\n/);
+  const out = [];
+  let skipUntilLevel = 0;
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    const m = line.match(/^(#{3,6})\s+(.*)$/);
+    if (m) {
+      const level = m[1].length;
+      const title = m[2].trim();
+      if (skipUntilLevel > 0 && level <= skipUntilLevel) {
+        skipUntilLevel = 0;
+      }
+      if (skipUntilLevel === 0) {
+        const chMatch = title.match(/第\s*(\d+)\s*章/);
+        const isFutureChapter = chMatch && Number(chMatch[1]) > chapterNumber;
+        const isFutureArc = /(?:远期弧线|远期规划|后期弧线|后续弧线|后续章节|结局规划|终局|伏笔揭晓)/.test(title);
+        if (isFutureChapter || isFutureArc) {
+          skipUntilLevel = level;
+          continue;
+        }
+      }
+    }
+    if (skipUntilLevel === 0) {
+      out.push(line);
+    }
+  }
+  return out.join('\n').trim();
+}
+
 /**
  * Deterministically compile a Pure Narrative Writer Brief for a given chapter.
  */
@@ -232,9 +263,10 @@ export function buildWriterBrief(rootDir, chapterNumber, {extraDirectives = '', 
 
   const ledgerInfo = extractActiveLedgerNarrative(root, chapterNumber - 1);
 
-  // 1. Chapter outline & story beats
+  // 1. Chapter outline & story beats (strictly scoped to current chapterNumber)
+  const coreContractSection = extractH2Section(outlineMd, '核心契约');
   const chapterBeatRaw = extractChapterOutline(outlineMd, chapterNumber);
-  const coreContractRaw = extractH2Section(outlineMd, '核心契约') || outlineMd.replace(/^#\s+[^\n]*\n?/, '').slice(0, 1200);
+  const coreContractRaw = coreContractSection || filterFutureSubsections(outlineMd.replace(/^#\s+[^\n]*\n?/, ''), chapterNumber).slice(0, 1200);
   const chapterTitle = sanitizeNarrativeText(String(entry.title || ''), {sourceLabel: 'plan.chapter.title'});
   const novelName = sanitizeNarrativeText(String(plan.novelName || path.basename(root)), {sourceLabel: 'plan.novelName'});
 
@@ -257,9 +289,9 @@ export function buildWriterBrief(rootDir, chapterNumber, {extraDirectives = '', 
     if (cleanExtra) outlineSectionLines.push(`- 叙事侧重：${cleanExtra}`);
   }
 
-  // 2. Characters, relationships, and knowledge boundaries
-  const charCoreRaw = extractH2Section(charsMd, '核心人设') || charsMd.replace(/^#\s+[^\n]*\n?/, '');
-  const charRollingRaw = extractH2Section(charsMd, '动态状态与远期弧线');
+  // 2. Characters, relationships, and knowledge boundaries (strip future-chapter / far-arc spoilers)
+  const charCoreRaw = extractH2Section(charsMd, '核心人设') || filterFutureSubsections(charsMd.replace(/^#\s+[^\n]*\n?/, ''), chapterNumber);
+  const charRollingRaw = filterFutureSubsections(extractH2Section(charsMd, '动态状态与远期弧线'), chapterNumber);
   const charSectionLines = ['## 当前人物状态与知情边界'];
   const cleanCharCore = demoteH2(sanitizeNarrativeText(charCoreRaw, {sourceLabel: '00-人物档案.md'}));
   if (cleanCharCore) charSectionLines.push(cleanCharCore);
@@ -283,8 +315,12 @@ export function buildWriterBrief(rootDir, chapterNumber, {extraDirectives = '', 
     }
   }
 
-  // 3. Hard facts, numbers, anchors, and open foreshadowing (de-engineered natural Chinese)
-  const timelineSubs = extractSubsectionsMatching(outlineMd, /时间线|经济|核算|底账|物品|道具/);
+  // 3. Hard facts, numbers, anchors, and open foreshadowing
+  //    Only scan book-level stable core baseline (## 核心契约), NEVER global rolling volume/future chapters!
+  const stableBaselineSource = coreContractSection || '';
+  const timelineSubs = stableBaselineSource
+    ? extractSubsectionsMatching(stableBaselineSource, /时间线|经济|核算|底账|物品|道具/)
+    : [];
   const factSectionLines = ['## 核心事实与数字底账'];
   if (ledgerInfo.establishedFacts.length > 0) {
     for (const f of ledgerInfo.establishedFacts) {
@@ -310,10 +346,9 @@ export function buildWriterBrief(rootDir, chapterNumber, {extraDirectives = '', 
   if (!styleAnchorProse) throw new Error('WRITER_BRIEF_STYLE_ANCHOR_EMPTY');
   const styleSection = `${BRIEF_STYLE_HEADING}\n\n${styleAnchorProse}`;
 
-  // 5. Final H2 (最后一部分 / 最末位): Previous chapter verbatim ending (500-900 chars)
+  // 5. Final H2 (最后一部分 / 最末位): Previous chapter verbatim ending (strictly 500-900 chars, Fail-Closed)
   let prevTail = '';
   let hasPrevChapter = false;
-  let prevChapterRawNonWs = 0;
   if (chapterNumber > 1) {
     const prevEntry = (plan.chapters || []).find(c => c.chapterNumber === chapterNumber - 1);
     const prevFile = prevEntry ? safeFile(root, prevEntry.filePath) : null;
@@ -321,8 +356,6 @@ export function buildWriterBrief(rootDir, chapterNumber, {extraDirectives = '', 
       throw new Error('WRITER_BRIEF_PREV_CHAPTER_MISSING_' + (chapterNumber - 1));
     }
     const rawPrev = fs.readFileSync(prevFile, 'utf8');
-    const strippedBody = rawPrev.replace(/^\uFEFF/, '').trim().replace(/^#\s+[^\n]*\n+/, '');
-    prevChapterRawNonWs = strippedBody.replace(/\s+/g, '').length;
     const rawTail = extractPreviousChapterTail(rawPrev, {minChars: minTailChars, maxChars: maxTailChars});
     prevTail = demoteH2(sanitizeNarrativeText(rawTail, {sourceLabel: prevEntry.filePath}));
     if (!prevTail) throw new Error('WRITER_BRIEF_PREV_TAIL_EMPTY');
@@ -342,12 +375,12 @@ export function buildWriterBrief(rootDir, chapterNumber, {extraDirectives = '', 
 
   const markdown = sections.join('\n\n') + '\n';
 
-  // Fail-Closed validations: mandatory tail order + zero governance/time-pressure purity
+  // Fail-Closed validations: mandatory tail order + strict 500-900 length + zero governance/time-pressure purity
   const tailCheck = assertWriterBriefTailOrder(markdown, {
     hasPrevChapter,
     minTailChars,
     maxTailChars,
-    enforceTailLength: hasPrevChapter && prevChapterRawNonWs >= minTailChars,
+    enforceTailLength: hasPrevChapter,
   });
   const purity = assertWriterContextPurity(markdown);
   const durationMs = Number((performance.now() - t0).toFixed(2));
