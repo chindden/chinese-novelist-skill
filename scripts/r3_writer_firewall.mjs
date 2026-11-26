@@ -384,15 +384,18 @@ export function compileRevisionCard(report, {chapterNumber = null, extraDirectiv
     }
   }
 
-  // 2. Strict blocking issue selection & Fail-Closed validation:
-  //    NEVER reads or emits reverseDefense, reason, suggestion, or issue.quote.
+  // 2. Strict blocking issue selection & Fail-Closed protocol contradiction validation:
+  //    Aligned with frozen 06 & r3_p1_common.mjs (HARD_CAUSAL_FLOOR / ARC_RISK):
+  //    - BLOCKER is mandatory blocking and NEVER deferrable or waivable via blocking:false / accepted.
+  //    - MAJOR is legally deferrable ONLY when classification === 'B' && disposition === 'fix_in_arc'.
+  //    - MINOR / SUGGESTION cannot override blocking:true / mustCloseInReReview:true.
+  //    - NEVER reads or emits reverseDefense, reason, suggestion, or issue.quote.
   if (report.issues !== undefined && !Array.isArray(report.issues)) {
     throw new Error('REVISION_CARD_ISSUES_NOT_ARRAY');
   }
   const rawIssues = Array.isArray(report.issues) ? report.issues : [];
   const validStatuses = ['open', 'resolved', 'accepted'];
   const validSeverities = ['BLOCKER', 'MAJOR', 'MINOR', 'SUGGESTION'];
-  const nonBlockingDispositions = ['fix_in_arc', 'defer_to_final', 'keep_as_blank', 'advisory'];
 
   const guidanceItems = [];
   for (const [idx, i] of rawIssues.entries()) {
@@ -405,10 +408,40 @@ export function compileRevisionCard(report, {chapterNumber = null, extraDirectiv
     if (!validSeverities.includes(i.severity)) {
       throw new Error(`REVISION_CARD_ISSUE_SEVERITY_INVALID: issues[${idx}].severity`);
     }
-    if (i.status !== 'open') continue;
-    if (!['BLOCKER', 'MAJOR'].includes(i.severity)) continue;
-    if (nonBlockingDispositions.includes(i.disposition)) continue;
-    if (i.blocking === false || i.mustCloseInReReview === false) continue;
+
+    // Check contradictory / illegal severity-classification-disposition-blocking combinations FIRST (Fail-Closed)
+    if (i.severity === 'BLOCKER') {
+      if ((i.classification !== undefined && i.classification !== 'A') ||
+          (i.disposition !== undefined && i.disposition !== 'fix_now') ||
+          i.blocking === false ||
+          i.mustCloseInReReview === false ||
+          i.status === 'accepted') {
+        throw new Error(`REVISION_CARD_ILLEGAL_BLOCKER_DOWNGRADE: issues[${idx}]`);
+      }
+      if (i.status === 'resolved') continue;
+    } else if (i.severity === 'MAJOR') {
+      if (['defer_to_final', 'keep_as_blank', 'advisory'].includes(i.disposition)) {
+        throw new Error(`REVISION_CARD_ILLEGAL_MAJOR_DOWNGRADE: issues[${idx}]`);
+      }
+      if (i.disposition === 'fix_in_arc' && i.classification !== 'B') {
+        throw new Error(`REVISION_CARD_ILLEGAL_MAJOR_DEFER: issues[${idx}]`);
+      }
+      const isLegalArcDefer = i.classification === 'B' && i.disposition === 'fix_in_arc';
+      if ((i.blocking === false || i.mustCloseInReReview === false) && !isLegalArcDefer) {
+        throw new Error(`REVISION_CARD_ILLEGAL_MAJOR_DOWNGRADE: issues[${idx}]`);
+      }
+      if (i.status === 'accepted' && ['A', 'B'].includes(i.classification)) {
+        throw new Error(`REVISION_CARD_ILLEGAL_MAJOR_DOWNGRADE: issues[${idx}]`);
+      }
+      if (i.status !== 'open' || isLegalArcDefer) continue;
+    } else {
+      // MINOR / SUGGESTION: reject illegal blocking overrides, otherwise cleanly skip
+      if (i.blocking === true || i.mustCloseInReReview === true ||
+          (i.severity === 'SUGGESTION' && ['fix_now', 'fix_in_arc'].includes(i.disposition))) {
+        throw new Error(`REVISION_CARD_ILLEGAL_NONBLOCKING_OVERRIDE: issues[${idx}]`);
+      }
+      continue;
+    }
 
     if (!nonempty(i.narrativeGuidance)) {
       throw new Error(`REVISION_CARD_NARRATIVE_GUIDANCE_REQUIRED: issues[${idx}].narrativeGuidance`);

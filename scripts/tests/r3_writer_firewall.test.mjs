@@ -53,11 +53,20 @@ const CONTAMINATED_CHARACTERS = `# 人物档案
 - 周铁匠：西市老匠人，曾与沈青河师父有旧。 (R-02 | ch1)
 - 老赵：盐帮脚夫，惯常黎明前送信。 schemaVersion: 1, SHA-256: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
 
+### 第3章核心身份反转
+- 核心身份反转剧透：老赵实为官府暗桩。
+
+### 第三章密道揭秘
+- 密道机关暗语藏于北渡口砖缝。
+
 ## 动态状态与远期弧线
 - 沈青河已察觉有人夜探后院黑漆木箱，表面仍不动声色维持米铺开市。 R3_P1_HARD_CAUSAL_FLOOR pass_candidate
 
 ### 第3章状态变化
 - 沈青河在第三章意外得知周铁匠真实身份为前朝密探，并拿到玄铁秘钥一枚。
+
+### 第十二章终极对决
+- 第十二章焚仓终战揭露主谋。
 
 ### 远期弧线
 - 卷末揭晓盐帮幕后东家实为城守暗线，终局焚毁假米引。
@@ -476,11 +485,21 @@ test('TC-P0-2-3: Strict tail order (style anchor -> prev chapter tail) and Fail-
   const trailing = `${brief.markdown}\n## 补充说明\n不该放在最末位的内容\n`;
   assert.throws(() => assertWriterBriefTailOrder(trailing, {hasPrevChapter: true}), /WRITER_BRIEF_TAIL_ORDER_INVALID/);
 
-  // Direct extractPreviousChapterTail check
+  // Direct extractPreviousChapterTail check + VERBATIM fidelity assertion (no silent mutation of author prose)
   assert.throws(() => extractPreviousChapterTail(makeExactCharsProse(120)), /WRITER_BRIEF_PREV_TAIL_TOO_SHORT/);
   const tail = extractPreviousChapterTail(CHAPTER_1_PROSE, {minChars: 500, maxChars: 900});
   const tailNonWs = tail.replace(/\s+/g, '').length;
   assert.ok(tailNonWs >= 500 && tailNonWs <= 900, `Expected 500-900 chars, got ${tailNonWs}`);
+
+  const briefTailSection = brief.markdown.slice(prevIdx + BRIEF_PREV_TAIL_HEADING.length).trim();
+  assert.equal(briefTailSection, tail, 'Previous chapter tail in Writer Brief must match verbatim source slice byte-for-byte');
+  assert.ok(CHAPTER_1_PROSE.endsWith(briefTailSection), 'Previous chapter tail must be an unmodified suffix of source chapter');
+
+  // Contaminated previous chapter manuscript MUST Fail-Closed (reject rather than silently rewriting novel text)
+  const pollutedPrevRoot = createContaminatedProject(t, {
+    prevChapterContent: CHAPTER_1_PROSE + '\n[F-012 | ch1 | established] SHA-256 污染测试。',
+  });
+  assert.throws(() => buildWriterBrief(pollutedPrevRoot, 2), /WRITER_FIREWALL_GOVERNANCE_LEAK/);
 });
 
 // ============================================================================
@@ -530,7 +549,7 @@ test('TC-P0-2-4: Cleaning never swallows Chinese hard facts across commas/colons
     assert.ok(md.includes(fact), `Hard fact lost during cleaning: ${fact}`);
   }
 
-  // Superseded, provisional, paid foreshadowing, AND all Chapter 3 / far-arc future info MUST be absent
+  // Superseded, provisional, paid foreshadowing, AND all Chapter 3+ (Arabic & Chinese numeral, core & rolling) future info MUST be absent
   const forbiddenFutureOrStale = [
     '旧值二十两',
     '九千九百九十九两',
@@ -542,6 +561,10 @@ test('TC-P0-2-4: Cleaning never swallows Chinese hard facts across commas/colons
     '北渡口',
     '城守暗线',
     '焚毁假米引',
+    '核心身份反转剧透',
+    '官府暗桩',
+    '密道机关暗语',
+    '第十二章焚仓终战',
   ];
   for (const item of forbiddenFutureOrStale) {
     assert.equal(md.includes(item), false, `Stale or future-chapter info leaked into Ch 2 brief: ${item}`);
@@ -566,7 +589,7 @@ test('TC-P0-2-5: Revision Card enforces strict writer-safe whitelist, retains 10
     assert.ok(card.markdown.includes(s.quote), `Missing preserveStrengths quote: ${s.quote}`);
   }
 
-  // ONLY the 2 open mandatory blocking issues appear (MINOR, SUGGESTION, fix_in_arc, resolved all excluded)
+  // ONLY the 2 open mandatory blocking issues appear (MINOR, SUGGESTION, legal MAJOR/B/fix_in_arc, resolved all excluded)
   assert.equal(card.blockingGuidanceCount, 2);
   assert.ok(card.markdown.includes('沈青河腰袋里只有三十六两碎银'));
   assert.ok(card.markdown.includes('本章始终维持沈青河限知视角'));
@@ -619,17 +642,73 @@ test('TC-P0-2-5: Revision Card enforces strict writer-safe whitelist, retains 10
     issues: [{severity: 'CRITICAL', status: 'open', chapter: 2, narrativeGuidance: '说明'}],
   }, {chapterNumber: 2}), /REVISION_CARD_ISSUE_SEVERITY_INVALID/);
 
-  // 4. Non-open (resolved/accepted), deferred (fix_in_arc for BLOCKER & MAJOR, defer_to_final), and non-blocking MAJOR are all cleanly excluded
+  // 4. Illegal BLOCKER / MAJOR downgrades or deferrals & non-blocking overrides MUST Fail-Closed (NEVER silently skipped!)
+  const illegalIssues = [
+    {
+      issue: {severity: 'BLOCKER', status: 'open', classification: 'A', disposition: 'fix_in_arc', blocking: true},
+      err: /REVISION_CARD_ILLEGAL_BLOCKER_DOWNGRADE/,
+    },
+    {
+      issue: {severity: 'BLOCKER', status: 'open', classification: 'A', disposition: 'fix_now', blocking: false, mustCloseInReReview: false},
+      err: /REVISION_CARD_ILLEGAL_BLOCKER_DOWNGRADE/,
+    },
+    {
+      issue: {severity: 'BLOCKER', status: 'accepted', classification: 'A', disposition: 'fix_now'},
+      err: /REVISION_CARD_ILLEGAL_BLOCKER_DOWNGRADE/,
+    },
+    {
+      issue: {severity: 'BLOCKER', status: 'open', classification: 'B', disposition: 'fix_now'},
+      err: /REVISION_CARD_ILLEGAL_BLOCKER_DOWNGRADE/,
+    },
+    {
+      issue: {severity: 'MAJOR', status: 'open', classification: 'A', disposition: 'fix_in_arc'},
+      err: /REVISION_CARD_ILLEGAL_MAJOR_DEFER/,
+    },
+    {
+      issue: {severity: 'MAJOR', status: 'open', disposition: 'fix_in_arc'},
+      err: /REVISION_CARD_ILLEGAL_MAJOR_DEFER/,
+    },
+    {
+      issue: {severity: 'MAJOR', status: 'open', classification: 'A', disposition: 'fix_now', blocking: false},
+      err: /REVISION_CARD_ILLEGAL_MAJOR_DOWNGRADE/,
+    },
+    {
+      issue: {severity: 'MAJOR', status: 'open', classification: 'A', disposition: 'fix_now', mustCloseInReReview: false},
+      err: /REVISION_CARD_ILLEGAL_MAJOR_DOWNGRADE/,
+    },
+    {
+      issue: {severity: 'MAJOR', status: 'open', disposition: 'defer_to_final'},
+      err: /REVISION_CARD_ILLEGAL_MAJOR_DOWNGRADE/,
+    },
+    {
+      issue: {severity: 'MAJOR', status: 'accepted', classification: 'A', disposition: 'fix_now'},
+      err: /REVISION_CARD_ILLEGAL_MAJOR_DOWNGRADE/,
+    },
+    {
+      issue: {severity: 'SUGGESTION', status: 'open', blocking: true},
+      err: /REVISION_CARD_ILLEGAL_NONBLOCKING_OVERRIDE/,
+    },
+    {
+      issue: {severity: 'MINOR', status: 'open', mustCloseInReReview: true},
+      err: /REVISION_CARD_ILLEGAL_NONBLOCKING_OVERRIDE/,
+    },
+  ];
+  for (const {issue, err} of illegalIssues) {
+    assert.throws(
+      () => compileRevisionCard({decision: 'revise', issues: [issue]}, {chapterNumber: 2}),
+      err,
+      `Expected Fail-Closed throw for illegal issue: ${JSON.stringify(issue)}`,
+    );
+  }
+
+  // 5. ONLY protocol-legal non-blocking / resolved / arc-deferred (MAJOR + B + fix_in_arc) items are cleanly skipped
   const nonBlockingCard = compileRevisionCard({
     decision: 'pass_candidate',
     strengths: ['开篇三句落笔极稳，人物气口准确。'],
     issues: [
-      {severity: 'BLOCKER', status: 'resolved', chapter: 2, disposition: 'fix_now'},
-      {severity: 'MAJOR', status: 'accepted', chapter: 2, disposition: 'fix_now'},
-      {severity: 'BLOCKER', status: 'open', chapter: 2, disposition: 'fix_in_arc'},
-      {severity: 'MAJOR', status: 'open', chapter: 2, disposition: 'fix_in_arc'},
-      {severity: 'MAJOR', status: 'open', chapter: 2, blocking: false},
-      {severity: 'MAJOR', status: 'open', chapter: 2, mustCloseInReReview: false},
+      {severity: 'BLOCKER', status: 'resolved', classification: 'A', disposition: 'fix_now'},
+      {severity: 'MAJOR', status: 'resolved', classification: 'A', disposition: 'fix_now'},
+      {severity: 'MAJOR', status: 'open', classification: 'B', disposition: 'fix_in_arc'},
       {severity: 'MINOR', status: 'open', chapter: 2, disposition: 'defer_to_final'},
       {severity: 'SUGGESTION', status: 'open', chapter: 2, disposition: 'advisory'},
     ],

@@ -204,6 +204,31 @@ function safeOutPath(root, relOut) {
   return resolved;
 }
 
+function parseChapterNumberToken(token) {
+  if (!token) return null;
+  if (/^\d+$/.test(token)) return Number(token);
+  const digits = {'零': 0, '〇': 0, '一': 1, '二': 2, '两': 2, '三': 3, '四': 4, '五': 5, '六': 6, '七': 7, '八': 8, '九': 9};
+  const units = {'十': 10, '百': 100, '千': 1000};
+  let total = 0;
+  let current = 0;
+  let sawAny = false;
+  for (const ch of token) {
+    if (ch in digits) {
+      current = digits[ch];
+      sawAny = true;
+    } else if (ch in units) {
+      const u = units[ch];
+      total += (current === 0 ? 1 : current) * u;
+      current = 0;
+      sawAny = true;
+    } else {
+      return null;
+    }
+  }
+  if (!sawAny) return null;
+  return total + current;
+}
+
 function filterFutureSubsections(sectionMd, chapterNumber) {
   if (!sectionMd) return '';
   const lines = sectionMd.split(/\r?\n/);
@@ -219,8 +244,9 @@ function filterFutureSubsections(sectionMd, chapterNumber) {
         skipUntilLevel = 0;
       }
       if (skipUntilLevel === 0) {
-        const chMatch = title.match(/第\s*(\d+)\s*章/);
-        const isFutureChapter = chMatch && Number(chMatch[1]) > chapterNumber;
+        const chMatch = title.match(/第\s*([0-9零〇一二两三四五六七八九十百千]+)\s*章/);
+        const parsedCh = chMatch ? parseChapterNumberToken(chMatch[1]) : null;
+        const isFutureChapter = parsedCh !== null && parsedCh > chapterNumber;
         const isFutureArc = /(?:远期弧线|远期规划|后期弧线|后续弧线|后续章节|结局规划|终局|伏笔揭晓)/.test(title);
         if (isFutureChapter || isFutureArc) {
           skipUntilLevel = level;
@@ -289,8 +315,9 @@ export function buildWriterBrief(rootDir, chapterNumber, {extraDirectives = '', 
     if (cleanExtra) outlineSectionLines.push(`- 叙事侧重：${cleanExtra}`);
   }
 
-  // 2. Characters, relationships, and knowledge boundaries (strip future-chapter / far-arc spoilers)
-  const charCoreRaw = extractH2Section(charsMd, '核心人设') || filterFutureSubsections(charsMd.replace(/^#\s+[^\n]*\n?/, ''), chapterNumber);
+  // 2. Characters, relationships, and knowledge boundaries (filter future-chapter / far-arc spoilers across ALL character sections)
+  const rawCharCore = extractH2Section(charsMd, '核心人设') || charsMd.replace(/^#\s+[^\n]*\n?/, '');
+  const charCoreRaw = filterFutureSubsections(rawCharCore, chapterNumber);
   const charRollingRaw = filterFutureSubsections(extractH2Section(charsMd, '动态状态与远期弧线'), chapterNumber);
   const charSectionLines = ['## 当前人物状态与知情边界'];
   const cleanCharCore = demoteH2(sanitizeNarrativeText(charCoreRaw, {sourceLabel: '00-人物档案.md'}));
@@ -346,7 +373,7 @@ export function buildWriterBrief(rootDir, chapterNumber, {extraDirectives = '', 
   if (!styleAnchorProse) throw new Error('WRITER_BRIEF_STYLE_ANCHOR_EMPTY');
   const styleSection = `${BRIEF_STYLE_HEADING}\n\n${styleAnchorProse}`;
 
-  // 5. Final H2 (最后一部分 / 最末位): Previous chapter verbatim ending (strictly 500-900 chars, Fail-Closed)
+  // 5. Final H2 (最后一部分 / 最末位): Previous chapter VERBATIM ending (strictly 500-900 chars, Fail-Closed, never silently mutated)
   let prevTail = '';
   let hasPrevChapter = false;
   if (chapterNumber > 1) {
@@ -357,8 +384,12 @@ export function buildWriterBrief(rootDir, chapterNumber, {extraDirectives = '', 
     }
     const rawPrev = fs.readFileSync(prevFile, 'utf8');
     const rawTail = extractPreviousChapterTail(rawPrev, {minChars: minTailChars, maxChars: maxTailChars});
-    prevTail = demoteH2(sanitizeNarrativeText(rawTail, {sourceLabel: prevEntry.filePath}));
-    if (!prevTail) throw new Error('WRITER_BRIEF_PREV_TAIL_EMPTY');
+    if (/^##\s+/m.test(rawTail)) {
+      throw new Error('WRITER_BRIEF_PREV_TAIL_CONTAINS_H2');
+    }
+    // Fail-Closed purity check on verbatim manuscript tail: reject contaminated prose rather than mutating author text
+    assertWriterContextPurity(rawTail);
+    prevTail = rawTail;
     hasPrevChapter = true;
   }
 
