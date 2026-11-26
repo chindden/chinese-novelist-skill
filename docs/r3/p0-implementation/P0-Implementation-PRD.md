@@ -145,14 +145,14 @@ flowchart LR
 #### 10. 实际证据记录
 | 证据项 | 当前记录 |
 |---|---|
-| **独立 Commit SHA** | `待实施` |
-| **修改文件与 Diff 摘要** | `待实施` |
-| **测试命令与结果** | `待实施` |
-| **审计报告路径** | `待实施（预期：docs/r3/p0-implementation/P0-0-Baseline-Audit-Report.md）` |
+| **独立 Commit SHA** | *见本次 `P0-0` 独立提交与交付报告*（前置验收基线 `2d6061d6cd0e8b4b2da77619cb58239c44dc332e`） |
+| **修改文件与 Diff 摘要** | 仅限 `docs/r3/p0-implementation/` 下 4 份文档（新增 `P0-0-Baseline-Audit-Report.md`；更新 `README.md`、`P0-Progress-Log.md` 及本任务证据/状态栏）；0 生产代码/Skill/R2/测试/冻结架构改动 |
+| **测试命令与结果** | ① R3 `node --test`（7 文件）：**`71/71`** 通过（exit `0`）；<br>② V3/R2 独立 `node` 脚本（10 文件）：**`10/10`** 全绿（exit `0`）；<br>③ Python `unittest`（2 文件）：**`12/12`** 通过（`0.956s`，exit `0`） |
+| **审计报告路径** | [`docs/r3/p0-implementation/P0-0-Baseline-Audit-Report.md`](./P0-0-Baseline-Audit-Report.md) |
 
 #### 11. GPT-6 验收状态
-- **当前状态**：`NOT_STARTED`
-- **GPT-6 验收结论**：`NOT_SUBMITTED`（本管理 PRD `v1.0.1` 已于 `2026-11-26` 获 GPT-6 `ACCEPTED`，但**尚未获得作者单独授权启动 `P0-0`**）
+- **当前状态**：**`READY_FOR_REVIEW`**（基于作者预授权与 `2d6061d6` GPT-6 `ACCEPTED` 启动并完成纯只读审计）
+- **GPT-6 验收结论**：`PENDING`（等待 GPT-6 独立验收；验收通过前严禁推进 `P0-1`）
 - **审核时间与意见**：`—`
 
 ---
@@ -610,7 +610,7 @@ flowchart LR
 |---|---|---|---|---|---|---|
 | **P0 实施管理 PRD `v1.0`（初始化建档）** | `CHANGES_REQUESTED` | `95b0951d021eddf5d23a1710944550ccc38ca1ff` | `2026-11-25T17:12:50Z` *(GitHub 提交时间)* | **`CHANGES_REQUESTED`** | `2026-11-25` | 整体结构与管理机制认可；要求修正两处（`RW-PRD-001`）：① 统一 `P0-2` 末尾顺序为“倒数第二：本书文风锚点示范 → 最末位：上一章结尾原文（500–900 字）”；② 补齐初始化 Commit 完整 40 位 SHA 与 GitHub 提交时间 |
 | **P0 实施管理 PRD `v1.0.1`（内容整改 + 元数据补齐验收）** | **`ACCEPTED`** | 内容修订 `a12774f50956c5081252fe1722333893331ded5e`；<br>审核基线 `e52105adca3f994fca3cbdeef9aa935479ceaf9b` | `2026-11-25T17:23:04Z` / `2026-11-25T17:44:23Z` *(GitHub 提交时间，非实际研发开始时间)* | **`ACCEPTED`** | **`2026-11-26`** | GPT-6 基于 `e52105ad` 最终验收通过，关闭 `RW-PRD-001`，管理 PRD `v1.0.1` 正式冻结；**管理 PRD 验收通过不代表 `P0-0` 已获启动授权** |
-| **`P0-0` · 研发基线审计与实施准备** | `NOT_STARTED` | `—` | `—` | `NOT_SUBMITTED` | `—` | — |
+| **`P0-0` · 研发基线审计与实施准备** | **`READY_FOR_REVIEW`** | *见本次 `P0-0` 独立提交与交付报告* | `2026-11-26` | `PENDING` | `—` | 纯只读审计完成（Node `71/71` + 10 脚本 + Python `12/12` 全绿，0 代码改动），等待 GPT-6 独立验收 |
 | **`P0-1` · S1 四级枚举及下游兼容** | `NOT_STARTED` | `—` | `—` | `NOT_SUBMITTED` | `—` | — |
 | **`P0-2` · 写手语域防火墙** | `NOT_STARTED` | `—` | `—` | `NOT_SUBMITTED` | `—` | — |
 | **`P0-3` · `precheck v2`** | `NOT_STARTED` | `—` | `—` | `NOT_SUBMITTED` | `—` | — |

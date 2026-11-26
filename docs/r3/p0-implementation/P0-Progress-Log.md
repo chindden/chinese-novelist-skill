@@ -72,6 +72,33 @@
 
 ---
 
+### [2026-11-26] · `P0-0` · 正式启动记录（`NOT_STARTED` → `IN_PROGRESS`）
+
+| 字段 | 记录内容 |
+|---|---|
+| **触发与授权依据** | ① 作者此前已明确授予 **`P0-0` 预先授权**：`PROJECT-CONTEXT` 与 `AGENT-HANDOFF` 经 GPT-6 独立验收通过后，Neon 可直接启动纯只读 `P0-0`，无需再次申请授权（登记于 `DEC-11`）；<br>② **GPT-6 已对最终一致性修正 Commit `2d6061d6cd0e8b4b2da77619cb58239c44dc332e`（GitHub 提交时间 `2026-11-26T00:52:10Z`）给出最终验收结论：`ACCEPTED`**。 |
+| **关联任务** | `P0-0`（研发基线审计与实施准备，纯只读审计，严禁修改生产代码） |
+| **状态变更** | `NOT_STARTED` → **`IN_PROGRESS`**（*注：完整保留上方此前历史“尚未授权”记录，未删改任何历史状态*） |
+| **分支与起始基线** | `feat/r3-p0-controlled` @ `2d6061d6cd0e8b4b2da77619cb58239c44dc332e`（代码与冻结架构相对 `b5572a94` 保持 0 字节差异） |
+| **执行范围** | 按冻结 `P0-Implementation-PRD v1.0.1` 执行 7 项只读审计：代码基线、与本地 `feat/r3-phase1-throughput-o1-o3` (`c0966b12`) 差异、Node/Python 自动化测试基线固化、全仓 S1 消费者与 `ENG-FIX-P1` 扫描、G1–G6 样本就绪度核查、`G2-B underpowered` 缺口清册、输出 `P0-0-Baseline-Audit-Report.md` |
+
+---
+
+### [2026-11-26] · `P0-0` · 纯只读基线审计完成与提审（`IN_PROGRESS` → `READY_FOR_REVIEW`）
+
+| 字段 | 记录内容 |
+|---|---|
+| **关联任务** | `P0-0`（研发基线审计与实施准备） |
+| **状态变更** | `IN_PROGRESS` → **`READY_FOR_REVIEW`**（Neon 最高权限态；`P0-1` ~ `P0-6` 全部继续保持 `NOT_STARTED`，严禁在 `P0-0` 获 GPT-6 `ACCEPTED` 前推进 `P0-1`） |
+| **Commit SHA** | *见本次 `P0-0` 独立提交与交付报告*（一任务一独立 Commit，仅修改 `docs/r3/p0-implementation/` 下文档） |
+| **修改文件** | • 新增 `docs/r3/p0-implementation/P0-0-Baseline-Audit-Report.md`<br>• 更新 `docs/r3/p0-implementation/P0-Progress-Log.md`<br>• 更新 `docs/r3/p0-implementation/README.md`<br>• 更新 `docs/r3/p0-implementation/P0-Implementation-PRD.md`（仅限填写 `P0-0` “10. 实际证据记录”、“11. GPT-6 验收状态”及第五节 `P0-0` 验收总表行，不改任何冻结 PRD 条款） |
+| **测试结果（零代码改动基线固化）** | ① **R3 `node --test`（7 文件）**：`71 / 71` passed（`0 fail`, `0 skipped`, exit `0`）；<br>② **V3 / R2 独立 `node` 脚本（10 文件）**：`10 / 10` 全绿（exit `0`：`init_chapter_summaries` 6 passed、`validate_project` 8 passed、`v3_gate` 16 assertions、`check_repetition` 2 assertions 及 6 个单套件 PASS/OK）；<br>③ **Python `unittest`（2 文件）**：`Ran 12 tests in 0.956s — OK`（`test_snapshot.py` 2/2 + `test_webnovel_knowledge.py` 10/10，exit `0`）；<br>④ **零代码污染校验**：`git diff --name-only 2d6061d6..HEAD` 仅限 `docs/r3/p0-implementation/`，0 生产代码/Skill/R2/测试/冻结架构改动 |
+| **关键审计发现摘要** | ① `c0966b12` 含 19 文件差异（`+2461/-60`），其中旧版 `precheck_chapter.mjs` 硬阻断字数与重复段直接违背冻结 `06`，严禁整枝合并；<br>② 全仓查明 5 处核心 S1 硬编码校验脚本与 5 处透传脚本；核实 `r3_p1_common.mjs` L118/125/206 遗留缺陷由 `P0-1` 修复，原 `ENG-FIX-P1` 的 `r3_atomic_ops`/`r3_telemetry` 脚本不在主基线、由 `P0-4` 及后续遥测原生规避；<br>③ 核实 G1/G2-A/G4 原始样本存在于本地 VM，**`G2-B`（`0/20` 章、`0/60` 案例）与 `G6`（`0/12–16` 章）均为 `underpowered`**，且 `G3` 缺 `+1` 章/`+6` 段、`G5` 缺 `+2` 死锁章；明确 `P0-1`~`P0-5` 不依赖外部历史包 |
+| **GPT-6 审核结论** | **`PENDING`**（已提交独立验收，暂停等待 GPT-6 结论） |
+| **返工及复审记录** | 无 |
+
+---
+
 ### 标准后续活动记录模板（自 `P0-0` 获批启动后按条复制追加）
 
 ```markdown
@@ -107,4 +134,4 @@
 
 | 阻塞编号 | 关联任务 | 触发日期 | 阻塞原因与精确缺口 | 解除阻塞的硬前置条件 | 当前状态 |
 |---|---|---|---|---|---|
-| `BLK-G2B-001`（预登记风险） | `P0-6` | `2026-11-25`（继承自冻结基线 `v1.2.3`） | `G2-B Independent Holdout` 当前处于 **`underpowered`**（已就绪全新独立未见样本 `0` 章 / `0` 案例；距过线仍缺 `+20` 个全新独立来源章节、`+60` 条独立非阻断案例，单章 `<=3` 条、覆盖 `>=3` 题材、`0` 章重叠且禁入 `NH-1..5` / `V22-H1..4`）；同时 `G6` 12–16 章跨题材 Holdout 样本集尚未构建 | 在进入 `P0-6` 正式裁决前，由独立样本构建与双评委+第三仲裁定案流程补齐 `G2-B` 与 `G6` 盲测样本集，严禁混算历史集或降低原门槛 | `PRE_REGISTERED`（`P0-6` 尚未启动） |
+| `BLK-G2B-001`（预登记风险，经 `P0-0` 实测确认） | `P0-6` | `2026-11-25`（`2026-11-26` `P0-0` 实测复核） | `G2-B Independent Holdout` 经 `P0-0` 核实仍处于 **`underpowered`**（已就绪全新独立未见样本 `0` 章 / `0` 案例；精确缺口 `+20` 个全新独立来源章节、`+60` 条独立非阻断案例，单章 `<=3` 条、覆盖 `>=3` 题材、`0` 章重叠且禁入 `OLD-HOLD-1..4` / `NH-1..5` / `V22-H1..4`）；同时核实 `G6`（`0/12–16` 章）、`G3`（缺 `+1` 章/`+6` 段）与 `G5`（缺 `+2` 死锁章）均存在样本缺口（详见 [`P0-0-Baseline-Audit-Report.md`](./P0-0-Baseline-Audit-Report.md) §五） | 在进入 `P0-6` 正式裁决前，由独立样本构建与双评委+第三仲裁定案流程补齐 `G2-B`、`G3`、`G5` 与 `G6` 盲测样本集，严禁混算历史集或降低原门槛 | `PRE_REGISTERED`（`P0-6` 尚未启动；不阻塞 `P0-1`~`P0-5`） |

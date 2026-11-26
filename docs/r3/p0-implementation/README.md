@@ -1,7 +1,7 @@
 # R3 审核体系 v3 · P0 受控研发实施管理总览
 
 > **管理体系定位**：本目录（`docs/r3/p0-implementation/`）是 R3 审核体系 v3 **P0 阶段受控研发**的独立日常实施与验收管理体系，**只负责 P0 专项实施与验收**（全仓库长期历史、创作原则、实验证据与跨会话恢复上下文见仓库级档案 [`docs/PROJECT-CONTEXT.md`](../../PROJECT-CONTEXT.md)，本目录不复制该档案）。  
-> **红线声明**：本目录文档**不重新设计、不覆盖、不降低**已冻结架构 PRD `v1.2.3` 的任何设计约束与验收门槛；所有 `P0-0` 至 `P0-6` 任务当前均处于 **`NOT_STARTED`**，**未获得 `P0-0` 启动授权，未启动任何生产代码修改或小说实验**。
+> **红线声明**：本目录文档**不重新设计、不覆盖、不降低**已冻结架构 PRD `v1.2.3` 的任何设计约束与验收门槛；当前仅依据作者预先授权及 GPT-6 文档验收通过（`2d6061d6` `ACCEPTED`）执行了纯只读 **`P0-0`**（现处于 **`READY_FOR_REVIEW`** 等待 GPT-6 独立验收）；**`P0-1` 至 `P0-6` 全部继续保持 `NOT_STARTED`，零生产代码修改、零 Skill/R2/测试改动、零新小说实验**。
 
 ---
 
@@ -37,9 +37,10 @@
 | **实施管理文档初始化 Commit SHA** | **`95b0951d021eddf5d23a1710944550ccc38ca1ff`**（GitHub 提交时间 `2026-11-25T17:12:50Z`，*仅为管理文档初始化提交时间，非实际研发开始时间*） |
 | **P0 管理 PRD `v1.0.1` 内容修订 Commit SHA** | **`a12774f50956c5081252fe1722333893331ded5e`**（GitHub 提交时间 `2026-11-25T17:23:04Z`，*仅为 `v1.0.1` 内容修订的 GitHub 提交时间，非实际研发开始时间*） |
 | **P0 管理 PRD 验收基线 Commit SHA** | **`e52105adca3f994fca3cbdeef9aa935479ceaf9b`**（GitHub 提交时间 `2026-11-25T17:44:23Z`；**GPT-6 最终验收 `ACCEPTED`，验收日期 `2026-11-26`**） |
-| **历史本地实验参考（未合入基线）** | `feat/r3-phase1-throughput-o1-o3` @ `c0966b1`（仅作 `P0-0` 只读差异审计参考，严禁整枝盲目合入） |
-| **当前阶段** | **P0 实施管理 PRD `v1.0.1` 已获 GPT-6 最终验收（`ACCEPTED`，`2026-11-26`，基线 `e52105ad`）；PROJECT-CONTEXT v1.0 已建立，当前等待 GPT-6 独立审核；P0-0 尚未获得作者启动授权。** |
-| **总体进度** | **`0 / 7` 任务已验收（`0%`）**（`P0-0` ~ `P0-6` 全部保持 `NOT_STARTED`；*管理 PRD 验收通过不代表 `P0-0` 已获启动授权*） |
+| **上下文与 Handoff 验收基线 Commit SHA** | **`2d6061d6cd0e8b4b2da77619cb58239c44dc332e`**（GitHub 提交时间 `2026-11-26T00:52:10Z`；**GPT-6 最终验收 `ACCEPTED`**，正式触发作者预授权的纯只读 `P0-0` 启动） |
+| **历史本地实验参考（未合入基线）** | `feat/r3-phase1-throughput-o1-o3` @ `c0966b1`（已在 `P0-0` 完成只读差异审计，严禁整枝盲目合入） |
+| **当前阶段** | **纯只读 `P0-0：研发基线审计与实施准备` 已完成并提交 `READY_FOR_REVIEW`，等待 GPT-6 独立验收；`P0-0` 获 `ACCEPTED` 前严禁推进 `P0-1`。** |
+| **总体进度** | **`0 / 7` 任务已验收（`0%`）**（`P0-0` = **`READY_FOR_REVIEW`**；`P0-1` ~ `P0-6` 全部保持 `NOT_STARTED`） |
 
 ### 引用的正式冻结架构基线文档（只读权威，禁止修改）
 - [`docs/r3/review-v3/03-R3审核体系v3总体架构设计.md`](../review-v3/03-R3审核体系v3总体架构设计.md)（`v1.2.2` 对齐冻结）
@@ -57,13 +58,13 @@
 
 | 任务 ID | 任务名称 | 前置依赖 | 当前状态 | 独立 Commit SHA | GPT-6 验收状态 | 关键风险 / 当前备注 |
 |---|---|---|---|---|---|---|
-| **P0-0** | 研发基线审计与实施准备 | 本 PRD 已获 GPT-6 `ACCEPTED`；**尚待作者单独授权启动** | `NOT_STARTED` | `—` | `NOT_SUBMITTED` | 管理 PRD 验收通过不代表已获启动授权；纯只读审计，不改生产代码与冻结架构定义 |
-| **P0-1** | S1 四级枚举及下游兼容（含 `ENG-FIX-P1`） | `P0-0 (ACCEPTED)` | `NOT_STARTED` | `—` | `NOT_SUBMITTED` | 严守 R2 零破坏与 `SUGGESTION` 0% 阻断（`08` E1 & G5） |
+| **P0-0** | 研发基线审计与实施准备 | PRD `ACCEPTED` + 文档 `2d6061d6` `ACCEPTED` + 作者预授权（均已满足） | **`READY_FOR_REVIEW`** | *见本次 `P0-0` 独立提交与交付报告* | `PENDING` | 已完成纯只读审计并交付 [`P0-0-Baseline-Audit-Report.md`](./P0-0-Baseline-Audit-Report.md)（Node `71/71` + 10 独立脚本 + Python `12/12` 全绿，0 代码改动），等待 GPT-6 独立验收 |
+| **P0-1** | S1 四级枚举及下游兼容（含 `ENG-FIX-P1`） | `P0-0 (ACCEPTED)` | `NOT_STARTED` | `—` | `NOT_SUBMITTED` | 严守 R2 零破坏与 `SUGGESTION` 0% 阻断（`08` E1 & G5）；须待 `P0-0` 获 `ACCEPTED` 后方可启动 |
 | **P0-2** | 写手语域防火墙 | `P0-0 (ACCEPTED)` | `NOT_STARTED` | `—` | `NOT_SUBMITTED` | 写手上下文治理词/限时压迫词 `= 0`；末尾严格按“倒数第二部分：本书文风锚点示范 → 最后一部分（最末位）：上一章结尾原文（500–900 字）”排列（`03` 2.1 节 & `08` E5） |
 | **P0-3** | `precheck v2` | `P0-0 (ACCEPTED)` | `NOT_STARTED` | `—` | `NOT_SUBMITTED` | 仅文件破损与作者显式硬约束阻断；字数/重复段/跨段引语不阻断 |
 | **P0-4** | 复合审读指纹与 Fail-Closed | `P0-1 (ACCEPTED)` | `NOT_STARTED` | `—` | `NOT_SUBMITTED` | 五元组复合指纹 + 6 维取证槽 + 修空增 `revision` Bug（`08` E2） |
 | **P0-5** | A/B/C 三方案审稿原型（含 `PLANNING_CONFLICT_BLOCK`） | `P0-2`, `P0-3`, `P0-4 (均 ACCEPTED)` | `NOT_STARTED` | `—` | `NOT_SUBMITTED` | 仅在隔离沙箱落地原型，**禁止提前替换生产主审稿模板** |
-| **P0-6** | G1–G6 统计与文学质量验收 | `P0-5 (ACCEPTED)` | `NOT_STARTED` | `—` | `NOT_SUBMITTED` | **G2-A 与 G2-B 严格分离；G2-B 当前 `underpowered`（0/20 章、0/60 案例），补齐过线前禁止宣布独立泛化通过** |
+| **P0-6** | G1–G6 统计与文学质量验收 | `P0-5 (ACCEPTED)` | `NOT_STARTED` | `—` | `NOT_SUBMITTED` | **G2-A 与 G2-B 严格分离；G2-B 当前 `underpowered`（0/20 章、0/60 案例），同时已核实 G3（缺 +1 章/+6 段）、G5（缺 +2 死锁章）与 G6（0/12–16 章）缺口** |
 
 ---
 
@@ -74,3 +75,4 @@
 | [`README.md`](./README.md)（本文件） | 项目目标与范围、基线元信息、当前阶段、总体进度与 `P0-0` ~ `P0-6` 状态总览面板 |
 | [`P0-Implementation-PRD.md`](./P0-Implementation-PRD.md) | `P0-0` ~ `P0-6` 逐项完整实施规范（含全部 11 个标准字段）、权限与提交规范、回滚预案及 GPT-6 验收记录表 |
 | [`P0-Progress-Log.md`](./P0-Progress-Log.md) | 按时间线记录每次实施活动、Commit SHA、变更文件、测试输出、GPT-6 审核结论及返工/复审闭环台账 |
+| [`P0-0-Baseline-Audit-Report.md`](./P0-0-Baseline-Audit-Report.md) | `P0-0` 纯只读基线审计报告（代码基线、与 `c0966b12` 差异、Node/Python 固化测试基线、全仓 S1 消费者与 `ENG-FIX-P1` 拆解、G1–G6 样本就绪度与 `G2-B underpowered` 缺口清册） |
