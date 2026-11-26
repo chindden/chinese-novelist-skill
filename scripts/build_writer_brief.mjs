@@ -400,11 +400,9 @@ export function buildWriterBrief(rootDir, chapterNumber, {extraDirectives = '', 
     factSectionLines.join('\n'),
     styleSection,
   ];
-  if (hasPrevChapter) {
-    sections.push(`${BRIEF_PREV_TAIL_HEADING}\n\n${prevTail}`);
-  }
-
-  const markdown = sections.join('\n\n') + '\n';
+  const markdown = hasPrevChapter
+    ? `${sections.join('\n\n')}\n\n${BRIEF_PREV_TAIL_HEADING}\n\n${prevTail}`
+    : `${sections.join('\n\n')}\n`;
 
   // Fail-Closed validations: mandatory tail order + strict 500-900 length + zero governance/time-pressure purity
   const tailCheck = assertWriterBriefTailOrder(markdown, {

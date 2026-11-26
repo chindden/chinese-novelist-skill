@@ -185,71 +185,85 @@ export function sanitizeNarrativeText(text, {sourceLabel = 'text'} = {}) {
 }
 
 /**
- * Extract clean suffix of previous chapter prose strictly within [minChars, maxChars]
- * non-whitespace characters (default 500-900 per 03 §2.1 & PRD P0-2).
+ * Extract an unmodified contiguous suffix of previous chapter prose strictly within
+ * [minChars, maxChars] non-whitespace characters (default 500-900 per 03 §2.1 & PRD P0-2).
+ * Never trims, normalizes CRLF, or rebuilds paragraphs — returned string is guaranteed
+ * to be a byte-for-byte contiguous suffix of rawChapterText.
  * Fail-Closed: throws WRITER_BRIEF_PREV_TAIL_TOO_SHORT if previous chapter prose < minChars.
  */
 export function extractPreviousChapterTail(rawChapterText, {minChars = 500, maxChars = 900} = {}) {
   if (typeof rawChapterText !== 'string' || !rawChapterText.trim()) {
     throw new Error('WRITER_BRIEF_PREV_TAIL_EMPTY');
   }
-  // Strip top Markdown chapter heading line if present (e.g. "# 第1章 ...")
-  let body = rawChapterText.replace(/^\uFEFF/, '').trim();
-  const lines = body.split(/\r?\n/);
-  if (lines.length > 1 && /^#\s+/.test(lines[0])) {
-    body = lines.slice(1).join('\n').trim();
+  // Advance past optional UTF-8 BOM and optional top Markdown "# Title" heading line(s) ONLY,
+  // preserving raw CRLF, multi-blank-lines, and trailing spaces untouched in rawBody.
+  let bodyStart = rawChapterText.startsWith('\uFEFF') ? 1 : 0;
+  const headMatch = rawChapterText.slice(bodyStart).match(/^#[ \t]+[^\r\n]*(?:\r?\n)+/);
+  if (headMatch) {
+    bodyStart += headMatch[0].length;
   }
+  const rawBody = rawChapterText.slice(bodyStart);
   const countNonWs = s => s.replace(/\s+/g, '').length;
-  const totalNonWs = countNonWs(body);
+  const totalNonWs = countNonWs(rawBody);
+  if (totalNonWs === 0) {
+    throw new Error('WRITER_BRIEF_PREV_TAIL_EMPTY');
+  }
   if (totalNonWs < minChars) {
     throw new Error(`WRITER_BRIEF_PREV_TAIL_TOO_SHORT: ${totalNonWs} < ${minChars}`);
   }
-  if (totalNonWs <= maxChars) return body;
+  if (totalNonWs <= maxChars) return rawBody;
 
-  // Prefer paragraph-aligned tail within [minChars, maxChars]
-  const paragraphs = body.split(/\n{2,}/).map(p => p.trim()).filter(Boolean);
-  if (paragraphs.length > 1) {
-    const picked = [];
-    let len = 0;
-    for (let i = paragraphs.length - 1; i >= 0; i--) {
-      const pLen = countNonWs(paragraphs[i]);
-      if (len + pLen <= maxChars) {
-        picked.unshift(paragraphs[i]);
-        len += pLen;
-      } else {
-        break;
-      }
-    }
-    if (len >= minChars) {
-      return picked.join('\n\n');
-    }
-  }
-
-  // Fallback: take suffix of raw characters so non-whitespace count is within [minChars, maxChars],
-  // snapped cleanly to the nearest sentence boundary inside the window.
-  let idx = body.length;
+  // Locate exact index window [minStartIdx, maxStartIdx] in rawBody where
+  // non-whitespace count of rawBody.slice(idx) falls within [minChars, maxChars].
+  let idx = rawBody.length;
   let nonWs = 0;
-  let minIdx = body.length;
-  let maxIdx = 0;
+  let maxStartIdx = rawBody.length;
+  let minStartIdx = 0;
   while (idx > 0 && nonWs < maxChars) {
     idx--;
-    if (!/\s/.test(body[idx])) nonWs++;
-    if (nonWs === minChars) minIdx = idx;
-    maxIdx = idx;
+    if (!/\s/.test(rawBody[idx])) {
+      nonWs++;
+      if (nonWs === minChars) maxStartIdx = idx;
+      if (nonWs === maxChars) minStartIdx = idx;
+    }
   }
-  // Search forward from maxIdx to minIdx for a clean paragraph or sentence start
-  const windowSlice = body.slice(maxIdx, minIdx);
-  const paraBreak = windowSlice.indexOf('\n\n');
-  if (paraBreak >= 0) {
-    const candidate = body.slice(maxIdx + paraBreak + 2).trim();
-    if (countNonWs(candidate) >= minChars && countNonWs(candidate) <= maxChars) return candidate;
+
+  // 0. If minStartIdx itself already sits at the start of a paragraph, keep that exact paragraph start
+  if (minStartIdx === 0) {
+    return rawBody;
   }
-  const sentMatch = windowSlice.match(/[。！？…」”]\s*/);
-  if (sentMatch && sentMatch.index !== undefined) {
-    const candidate = body.slice(maxIdx + sentMatch.index + sentMatch[0].length).trim();
-    if (countNonWs(candidate) >= minChars && countNonWs(candidate) <= maxChars) return candidate;
+  const beforeMin = rawBody.slice(0, minStartIdx);
+  const exactParaMatch = beforeMin.match(/(?:\r?\n){2,}([ \t]*)$/);
+  if (exactParaMatch) {
+    const cand = rawBody.slice(minStartIdx - exactParaMatch[1].length);
+    const len = countNonWs(cand);
+    if (len >= minChars && len <= maxChars) return cand;
   }
-  return body.slice(maxIdx).trim();
+
+  const searchWindow = rawBody.slice(minStartIdx, maxStartIdx + 1);
+
+  // 1. Prefer earliest paragraph boundary (after blank line(s), LF or CRLF) inside the window
+  const paraRe = /(?:\r?\n){2,}/g;
+  let pm;
+  while ((pm = paraRe.exec(searchWindow)) !== null) {
+    const candStart = minStartIdx + pm.index + pm[0].length;
+    const cand = rawBody.slice(candStart);
+    const len = countNonWs(cand);
+    if (len >= minChars && len <= maxChars) return cand;
+  }
+
+  // 2. Fallback: earliest sentence boundary inside the window
+  const sentRe = /[。！？…」”][ \t]*(?:\r?\n)*/g;
+  let sm;
+  while ((sm = sentRe.exec(searchWindow)) !== null) {
+    const candStart = minStartIdx + sm.index + sm[0].length;
+    const cand = rawBody.slice(candStart);
+    const len = countNonWs(cand);
+    if (len >= minChars && len <= maxChars) return cand;
+  }
+
+  // 3. Exact fallback at minStartIdx (contiguous suffix of rawBody, no trim/mutation)
+  return rawBody.slice(minStartIdx);
 }
 
 /**
@@ -354,7 +368,8 @@ export function compileRevisionCard(report, {chapterNumber = null, extraDirectiv
   }
   if (extraDirectives) assertNoTimePressure(extraDirectives, 'extraDirectives');
 
-  // 1. Strict preserveStrengths whitelist: verbatim original quotes ONLY (no s.reason / s.id).
+  // 1. Strict preserveStrengths whitelist (B3):
+  //    Fail-Closed purity check FIRST; if clean, preserve quote 100% verbatim without calling sanitizeNarrativeText().
   const rawStrengths = Array.isArray(report.p1?.preserveStrengths)
     ? report.p1.preserveStrengths
     : Array.isArray(report.preserveStrengths)
@@ -367,8 +382,8 @@ export function compileRevisionCard(report, {chapterNumber = null, extraDirectiv
   for (const [idx, s] of rawStrengths.entries()) {
     if (typeof s === 'string') {
       if (!s.trim()) continue;
-      assertNoTimePressure(s, `preserveStrengths[${idx}]`);
-      preservedQuotes.push(sanitizeNarrativeText(s, {sourceLabel: `preserveStrengths[${idx}]`}));
+      assertWriterContextPurity(s);
+      preservedQuotes.push(s);
     } else if (s && typeof s === 'object') {
       if (!['observed', 'not_established'].includes(s.status)) {
         throw new Error(`REVISION_CARD_STRENGTH_STATUS_INVALID: preserveStrengths[${idx}].status`);
@@ -377,18 +392,18 @@ export function compileRevisionCard(report, {chapterNumber = null, extraDirectiv
       if (!nonempty(s.quote)) {
         throw new Error(`REVISION_CARD_STRENGTH_QUOTE_MISSING: preserveStrengths[${idx}].quote`);
       }
-      assertNoTimePressure(s.quote, `preserveStrengths[${idx}].quote`);
-      preservedQuotes.push(sanitizeNarrativeText(s.quote, {sourceLabel: `preserveStrengths[${idx}].quote`}));
+      assertWriterContextPurity(s.quote);
+      preservedQuotes.push(s.quote);
     } else {
       throw new Error(`REVISION_CARD_STRENGTH_INVALID: preserveStrengths[${idx}]`);
     }
   }
 
-  // 2. Strict blocking issue selection & Fail-Closed protocol contradiction validation:
-  //    Aligned with frozen 06 & r3_p1_common.mjs (HARD_CAUSAL_FLOOR / ARC_RISK):
-  //    - BLOCKER is mandatory blocking and NEVER deferrable or waivable via blocking:false / accepted.
-  //    - MAJOR is legally deferrable ONLY when classification === 'B' && disposition === 'fix_in_arc'.
-  //    - MINOR / SUGGESTION cannot override blocking:true / mustCloseInReReview:true.
+  // 2. Strict blocking issue selection & full P0-1 S1 severity x classification x disposition validation (B1):
+  //    Explicitly distinguishes R3/P1 reports (report.p1 present or any issue carries P1 fields)
+  //    from legacy R2 reports (no p1 object and no P1 classification/disposition/evidence fields).
+  //    - In R3/P1 mode: BLOCKER/MAJOR/MINOR MUST supply valid classification & disposition matching r3_p1_common.mjs.
+  //    - In legacy R2 mode: still enforces explicit status/severity & blocking consistency.
   //    - NEVER reads or emits reverseDefense, reason, suggestion, or issue.quote.
   if (report.issues !== undefined && !Array.isArray(report.issues)) {
     throw new Error('REVISION_CARD_ISSUES_NOT_ARRAY');
@@ -396,6 +411,18 @@ export function compileRevisionCard(report, {chapterNumber = null, extraDirectiv
   const rawIssues = Array.isArray(report.issues) ? report.issues : [];
   const validStatuses = ['open', 'resolved', 'accepted'];
   const validSeverities = ['BLOCKER', 'MAJOR', 'MINOR', 'SUGGESTION'];
+  const p1Classifications = ['A', 'B', 'C', 'blank'];
+  const p1Dispositions = ['fix_now', 'fix_in_arc', 'defer_to_final', 'keep_as_blank'];
+  const isR3P1 = Boolean(
+    report.p1 ||
+    rawIssues.some(i => i && typeof i === 'object' && (
+      i.classification !== undefined ||
+      i.disposition !== undefined ||
+      i.evidenceLevel !== undefined ||
+      i.evidenceBasis !== undefined
+    ))
+  );
+  const reportMode = isR3P1 ? 'r3_p1' : 'legacy_r2';
 
   const guidanceItems = [];
   for (const [idx, i] of rawIssues.entries()) {
@@ -409,38 +436,105 @@ export function compileRevisionCard(report, {chapterNumber = null, extraDirectiv
       throw new Error(`REVISION_CARD_ISSUE_SEVERITY_INVALID: issues[${idx}].severity`);
     }
 
-    // Check contradictory / illegal severity-classification-disposition-blocking combinations FIRST (Fail-Closed)
-    if (i.severity === 'BLOCKER') {
-      if ((i.classification !== undefined && i.classification !== 'A') ||
-          (i.disposition !== undefined && i.disposition !== 'fix_now') ||
-          i.blocking === false ||
-          i.mustCloseInReReview === false ||
-          i.status === 'accepted') {
-        throw new Error(`REVISION_CARD_ILLEGAL_BLOCKER_DOWNGRADE: issues[${idx}]`);
+    if (isR3P1) {
+      // R3/P1 mode: enforce full P0-1 S1 severity x classification x disposition contract (matches r3_p1_common.mjs)
+      if (i.severity !== 'SUGGESTION') {
+        if (!p1Classifications.includes(i.classification)) {
+          throw new Error(`REVISION_CARD_R3_CLASSIFICATION_REQUIRED_OR_INVALID: issues[${idx}]`);
+        }
+        if (!p1Dispositions.includes(i.disposition)) {
+          throw new Error(`REVISION_CARD_R3_DISPOSITION_REQUIRED_OR_INVALID: issues[${idx}]`);
+        }
       }
-      if (i.status === 'resolved') continue;
-    } else if (i.severity === 'MAJOR') {
-      if (['defer_to_final', 'keep_as_blank', 'advisory'].includes(i.disposition)) {
-        throw new Error(`REVISION_CARD_ILLEGAL_MAJOR_DOWNGRADE: issues[${idx}]`);
+      if (i.evidenceLevel === 'causal_break' && i.classification !== 'A') {
+        throw new Error(`REVISION_CARD_ILLEGAL_CAUSAL_BREAK: issues[${idx}]`);
       }
-      if (i.disposition === 'fix_in_arc' && i.classification !== 'B') {
-        throw new Error(`REVISION_CARD_ILLEGAL_MAJOR_DEFER: issues[${idx}]`);
+
+      if (i.severity === 'BLOCKER') {
+        if (i.classification !== 'A' ||
+            i.disposition !== 'fix_now' ||
+            i.blocking === false ||
+            i.mustCloseInReReview === false ||
+            i.status === 'accepted') {
+          throw new Error(`REVISION_CARD_ILLEGAL_BLOCKER_DOWNGRADE: issues[${idx}]`);
+        }
+        if (i.status === 'resolved') continue;
+      } else if (i.severity === 'MAJOR') {
+        if (!['A', 'B'].includes(i.classification)) {
+          throw new Error(`REVISION_CARD_ILLEGAL_MAJOR_CLASSIFICATION: issues[${idx}]`);
+        }
+        if (i.classification === 'A') {
+          if (i.disposition !== 'fix_now' ||
+              i.blocking === false ||
+              i.mustCloseInReReview === false ||
+              i.status === 'accepted') {
+            throw new Error(`REVISION_CARD_ILLEGAL_MAJOR_DOWNGRADE: issues[${idx}]`);
+          }
+          if (i.status === 'resolved') continue;
+        } else {
+          // classification === 'B'
+          if (!['fix_now', 'fix_in_arc'].includes(i.disposition) || i.status === 'accepted') {
+            throw new Error(`REVISION_CARD_ILLEGAL_MAJOR_DOWNGRADE: issues[${idx}]`);
+          }
+          const isLegalArcDefer = i.disposition === 'fix_in_arc';
+          if (!isLegalArcDefer && (i.blocking === false || i.mustCloseInReReview === false)) {
+            throw new Error(`REVISION_CARD_ILLEGAL_MAJOR_DOWNGRADE: issues[${idx}]`);
+          }
+          if (i.status === 'resolved' || isLegalArcDefer) continue;
+        }
+      } else if (i.severity === 'MINOR') {
+        if (['A', 'B'].includes(i.classification)) {
+          throw new Error(`REVISION_CARD_ILLEGAL_MINOR_CLASSIFICATION: issues[${idx}]`);
+        }
+        if (i.blocking === true || i.mustCloseInReReview === true) {
+          throw new Error(`REVISION_CARD_ILLEGAL_NONBLOCKING_OVERRIDE: issues[${idx}]`);
+        }
+        if (i.classification === 'C' && !['fix_now', 'defer_to_final'].includes(i.disposition)) {
+          throw new Error(`REVISION_CARD_ILLEGAL_MINOR_DISPOSITION: issues[${idx}]`);
+        }
+        if (i.classification === 'blank' && (i.disposition !== 'keep_as_blank' || i.status !== 'accepted')) {
+          throw new Error(`REVISION_CARD_ILLEGAL_BLANK_ISSUE: issues[${idx}]`);
+        }
+        continue;
+      } else {
+        // SUGGESTION in R3/P1
+        if (['A', 'B'].includes(i.classification)) {
+          throw new Error(`REVISION_CARD_ILLEGAL_SUGGESTION_CLASSIFICATION: issues[${idx}]`);
+        }
+        if (i.classification !== undefined && !['C', 'blank', 'advisory'].includes(i.classification)) {
+          throw new Error(`REVISION_CARD_ILLEGAL_SUGGESTION_CLASSIFICATION: issues[${idx}]`);
+        }
+        if (i.blocking === true ||
+            i.mustCloseInReReview === true ||
+            ['fix_now', 'fix_in_arc'].includes(i.disposition)) {
+          throw new Error(`REVISION_CARD_ILLEGAL_NONBLOCKING_OVERRIDE: issues[${idx}]`);
+        }
+        if (i.disposition !== undefined && !['defer_to_final', 'keep_as_blank', 'advisory'].includes(i.disposition)) {
+          throw new Error(`REVISION_CARD_ILLEGAL_SUGGESTION_DISPOSITION: issues[${idx}]`);
+        }
+        if (i.classification === 'blank' && (i.disposition !== 'keep_as_blank' || i.status !== 'accepted')) {
+          throw new Error(`REVISION_CARD_ILLEGAL_BLANK_ISSUE: issues[${idx}]`);
+        }
+        continue;
       }
-      const isLegalArcDefer = i.classification === 'B' && i.disposition === 'fix_in_arc';
-      if ((i.blocking === false || i.mustCloseInReReview === false) && !isLegalArcDefer) {
-        throw new Error(`REVISION_CARD_ILLEGAL_MAJOR_DOWNGRADE: issues[${idx}]`);
-      }
-      if (i.status === 'accepted' && ['A', 'B'].includes(i.classification)) {
-        throw new Error(`REVISION_CARD_ILLEGAL_MAJOR_DOWNGRADE: issues[${idx}]`);
-      }
-      if (i.status !== 'open' || isLegalArcDefer) continue;
     } else {
-      // MINOR / SUGGESTION: reject illegal blocking overrides, otherwise cleanly skip
-      if (i.blocking === true || i.mustCloseInReReview === true ||
-          (i.severity === 'SUGGESTION' && ['fix_now', 'fix_in_arc'].includes(i.disposition))) {
-        throw new Error(`REVISION_CARD_ILLEGAL_NONBLOCKING_OVERRIDE: issues[${idx}]`);
+      // Explicit legacy R2 compatibility path (no report.p1 and no P1 fields on any issue)
+      if (i.severity === 'BLOCKER') {
+        if (i.blocking === false || i.mustCloseInReReview === false || i.status === 'accepted') {
+          throw new Error(`REVISION_CARD_ILLEGAL_BLOCKER_DOWNGRADE: issues[${idx}]`);
+        }
+        if (i.status === 'resolved') continue;
+      } else if (i.severity === 'MAJOR') {
+        if (i.blocking === false || i.mustCloseInReReview === false) {
+          throw new Error(`REVISION_CARD_ILLEGAL_MAJOR_DOWNGRADE: issues[${idx}]`);
+        }
+        if (i.status !== 'open') continue;
+      } else {
+        if (i.blocking === true || i.mustCloseInReReview === true) {
+          throw new Error(`REVISION_CARD_ILLEGAL_NONBLOCKING_OVERRIDE: issues[${idx}]`);
+        }
+        continue;
       }
-      continue;
     }
 
     if (!nonempty(i.narrativeGuidance)) {
@@ -502,6 +596,7 @@ export function compileRevisionCard(report, {chapterNumber = null, extraDirectiv
 
   return {
     markdown,
+    reportMode,
     preservedStrengthsCount: preservedQuotes.length,
     preservedQuotes,
     blockingGuidanceCount: guidanceItems.length,

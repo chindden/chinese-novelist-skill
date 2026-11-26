@@ -309,6 +309,7 @@ function makeContaminatedReviewReport() {
         severity: 'BLOCKER',
         status: 'resolved',
         chapter: 2,
+        classification: 'A',
         disposition: 'fix_now',
         narrativeGuidance: '已解决的阻断项不应再次进入修订卡。',
       },
@@ -485,15 +486,52 @@ test('TC-P0-2-3: Strict tail order (style anchor -> prev chapter tail) and Fail-
   const trailing = `${brief.markdown}\n## 补充说明\n不该放在最末位的内容\n`;
   assert.throws(() => assertWriterBriefTailOrder(trailing, {hasPrevChapter: true}), /WRITER_BRIEF_TAIL_ORDER_INVALID/);
 
-  // Direct extractPreviousChapterTail check + VERBATIM fidelity assertion (no silent mutation of author prose)
+  // Direct extractPreviousChapterTail check + TRUE byte-for-byte VERBATIM fidelity (B2)
   assert.throws(() => extractPreviousChapterTail(makeExactCharsProse(120)), /WRITER_BRIEF_PREV_TAIL_TOO_SHORT/);
   const tail = extractPreviousChapterTail(CHAPTER_1_PROSE, {minChars: 500, maxChars: 900});
   const tailNonWs = tail.replace(/\s+/g, '').length;
   assert.ok(tailNonWs >= 500 && tailNonWs <= 900, `Expected 500-900 chars, got ${tailNonWs}`);
 
-  const briefTailSection = brief.markdown.slice(prevIdx + BRIEF_PREV_TAIL_HEADING.length).trim();
-  assert.equal(briefTailSection, tail, 'Previous chapter tail in Writer Brief must match verbatim source slice byte-for-byte');
-  assert.ok(CHAPTER_1_PROSE.endsWith(briefTailSection), 'Previous chapter tail must be an unmodified suffix of source chapter');
+  // Exact slice after "## 上一章结尾原文\n\n" (no .trim() masking!)
+  const briefTailExact = brief.markdown.slice(prevIdx + BRIEF_PREV_TAIL_HEADING.length + 2);
+  assert.equal(briefTailExact, tail, 'Previous chapter tail in Writer Brief must match raw slice byte-for-byte');
+  assert.ok(CHAPTER_1_PROSE.endsWith(briefTailExact), 'Previous chapter tail must be an unmodified contiguous suffix of source chapter');
+
+  // CRLF (\r\n), multiple blank lines (\r\n\r\n\r\n), trailing spaces ("   ") MUST survive byte-for-byte
+  const crlfChapter = [
+    '# 第1章 特殊空白保真测试',
+    '',
+    '前文铺垫段。'.repeat(70) + '  ',
+    '',
+    '',
+    '中段过渡保留行尾双空格与多空行。'.repeat(22) + '   ',
+    '',
+    '',
+    '末段收尾保留原始换行与尾随空格。'.repeat(18) + '  ',
+    '',
+  ].join('\r\n');
+  const crlfRoot = createContaminatedProject(t, {prevChapterContent: crlfChapter});
+  const crlfBrief = buildWriterBrief(crlfRoot, 2);
+  const crlfPrevIdx = crlfBrief.markdown.indexOf(BRIEF_PREV_TAIL_HEADING);
+  const crlfTailExact = crlfBrief.markdown.slice(crlfPrevIdx + BRIEF_PREV_TAIL_HEADING.length + 2);
+  assert.ok(crlfChapter.endsWith(crlfTailExact), 'CRLF Writer Brief tail must be exact contiguous suffix of raw CRLF file');
+  assert.ok(crlfTailExact.includes('\r\n\r\n\r\n'), 'Multiple CRLF blank lines must be preserved verbatim');
+  assert.ok(crlfTailExact.includes('   \r\n'), 'Trailing line spaces must be preserved verbatim');
+
+  // Exact paragraph-start alignment at maxChars (450 + 450 = 900 non-ws chars) keeps the full paragraph start cleanly
+  const exactBoundaryParaChapter = '# 第1章\n\n' + '甲'.repeat(300) + '。\n\n  ' + '乙'.repeat(449) + '。\n\n' + '丙'.repeat(449) + '。';
+  const exactBoundaryTail = extractPreviousChapterTail(exactBoundaryParaChapter, {minChars: 500, maxChars: 900});
+  assert.equal(exactBoundaryTail, '  ' + '乙'.repeat(449) + '。\n\n' + '丙'.repeat(449) + '。');
+  assert.ok(exactBoundaryParaChapter.endsWith(exactBoundaryTail));
+
+  // Over-long single paragraph (no blank lines, >1200 chars) slices a true contiguous suffix with CRLF preserved
+  const singleLongPara = '# 第1章 超长单段\r\n\r\n' + '青石巷湿冷江风拍打木门，沈青河低头拨动算珠清点灵米与碎银。'.repeat(45) + '  \r\n';
+  const singleParaRoot = createContaminatedProject(t, {prevChapterContent: singleLongPara});
+  const singleParaBrief = buildWriterBrief(singleParaRoot, 2);
+  const spIdx = singleParaBrief.markdown.indexOf(BRIEF_PREV_TAIL_HEADING);
+  const spTailExact = singleParaBrief.markdown.slice(spIdx + BRIEF_PREV_TAIL_HEADING.length + 2);
+  assert.ok(singleLongPara.endsWith(spTailExact), 'Over-long single-paragraph slice must be exact contiguous suffix of raw chapter');
+  assert.ok(singleParaBrief.tailCheck.prevTailChars >= 500 && singleParaBrief.tailCheck.prevTailChars <= 900);
 
   // Contaminated previous chapter manuscript MUST Fail-Closed (reject rather than silently rewriting novel text)
   const pollutedPrevRoot = createContaminatedProject(t, {
@@ -619,13 +657,13 @@ test('TC-P0-2-5: Revision Card enforces strict writer-safe whitelist, retains 10
     assert.equal(card.markdown.includes(forbidden), false, `Revision Card leaked non-whitelisted field: ${forbidden}`);
   }
 
-  // Negative Fail-Closed tests:
+  // Negative Fail-Closed tests (B1 & B3):
   // 1. Open blocking issue missing narrativeGuidance MUST fail closed (NO fallback to reason/suggestion)
   assert.throws(() => compileRevisionCard({
     decision: 'revise',
     strengths: ['开篇三句落笔极稳。'],
     issues: [{
-      severity: 'MAJOR', status: 'open', chapter: 2, disposition: 'fix_now',
+      severity: 'MAJOR', status: 'open', chapter: 2, classification: 'A', disposition: 'fix_now',
       quote: '他转身走出门外。', reason: '不应回退透传的理由', suggestion: '不应回退透传的建议',
     }],
   }, {chapterNumber: 2}), /REVISION_CARD_NARRATIVE_GUIDANCE_REQUIRED/);
@@ -642,8 +680,9 @@ test('TC-P0-2-5: Revision Card enforces strict writer-safe whitelist, retains 10
     issues: [{severity: 'CRITICAL', status: 'open', chapter: 2, narrativeGuidance: '说明'}],
   }, {chapterNumber: 2}), /REVISION_CARD_ISSUE_SEVERITY_INVALID/);
 
-  // 4. Illegal BLOCKER / MAJOR downgrades or deferrals & non-blocking overrides MUST Fail-Closed (NEVER silently skipped!)
-  const illegalIssues = [
+  // 4. Full P0-1 S1 severity x classification x disposition contract (B1) — ALL contradictory/incomplete R3 combinations MUST Fail-Closed
+  const illegalR3Issues = [
+    // BLOCKER illegal downgrades / invalid classification or disposition
     {
       issue: {severity: 'BLOCKER', status: 'open', classification: 'A', disposition: 'fix_in_arc', blocking: true},
       err: /REVISION_CARD_ILLEGAL_BLOCKER_DOWNGRADE/,
@@ -660,13 +699,18 @@ test('TC-P0-2-5: Revision Card enforces strict writer-safe whitelist, retains 10
       issue: {severity: 'BLOCKER', status: 'open', classification: 'B', disposition: 'fix_now'},
       err: /REVISION_CARD_ILLEGAL_BLOCKER_DOWNGRADE/,
     },
+    // MAJOR illegal classifications (C / blank) & illegal deferrals / downgrades
     {
-      issue: {severity: 'MAJOR', status: 'open', classification: 'A', disposition: 'fix_in_arc'},
-      err: /REVISION_CARD_ILLEGAL_MAJOR_DEFER/,
+      issue: {severity: 'MAJOR', status: 'open', classification: 'C', disposition: 'fix_now', narrativeGuidance: '说明'},
+      err: /REVISION_CARD_ILLEGAL_MAJOR_CLASSIFICATION/,
     },
     {
-      issue: {severity: 'MAJOR', status: 'open', disposition: 'fix_in_arc'},
-      err: /REVISION_CARD_ILLEGAL_MAJOR_DEFER/,
+      issue: {severity: 'MAJOR', status: 'open', classification: 'blank', disposition: 'keep_as_blank'},
+      err: /REVISION_CARD_ILLEGAL_MAJOR_CLASSIFICATION/,
+    },
+    {
+      issue: {severity: 'MAJOR', status: 'open', classification: 'A', disposition: 'fix_in_arc'},
+      err: /REVISION_CARD_ILLEGAL_MAJOR_DOWNGRADE/,
     },
     {
       issue: {severity: 'MAJOR', status: 'open', classification: 'A', disposition: 'fix_now', blocking: false},
@@ -677,31 +721,85 @@ test('TC-P0-2-5: Revision Card enforces strict writer-safe whitelist, retains 10
       err: /REVISION_CARD_ILLEGAL_MAJOR_DOWNGRADE/,
     },
     {
-      issue: {severity: 'MAJOR', status: 'open', disposition: 'defer_to_final'},
+      issue: {severity: 'MAJOR', status: 'open', classification: 'B', disposition: 'defer_to_final'},
       err: /REVISION_CARD_ILLEGAL_MAJOR_DOWNGRADE/,
     },
     {
       issue: {severity: 'MAJOR', status: 'accepted', classification: 'A', disposition: 'fix_now'},
       err: /REVISION_CARD_ILLEGAL_MAJOR_DOWNGRADE/,
     },
+    // MINOR illegal downgrades of classification A / B or illegal blocking override
+    {
+      issue: {severity: 'MINOR', status: 'open', classification: 'A', disposition: 'defer_to_final', blocking: false, mustCloseInReReview: false},
+      err: /REVISION_CARD_ILLEGAL_MINOR_CLASSIFICATION/,
+    },
+    {
+      issue: {severity: 'MINOR', status: 'open', classification: 'B', disposition: 'defer_to_final'},
+      err: /REVISION_CARD_ILLEGAL_MINOR_CLASSIFICATION/,
+    },
+    {
+      issue: {severity: 'MINOR', status: 'open', classification: 'C', disposition: 'fix_in_arc'},
+      err: /REVISION_CARD_ILLEGAL_MINOR_DISPOSITION/,
+    },
+    {
+      issue: {severity: 'MINOR', status: 'open', classification: 'C', disposition: 'defer_to_final', mustCloseInReReview: true},
+      err: /REVISION_CARD_ILLEGAL_NONBLOCKING_OVERRIDE/,
+    },
+    // SUGGESTION illegal classification A / B or illegal blocking/fix_now override
+    {
+      issue: {severity: 'SUGGESTION', status: 'open', classification: 'A', disposition: 'advisory'},
+      err: /REVISION_CARD_ILLEGAL_SUGGESTION_CLASSIFICATION/,
+    },
+    {
+      issue: {severity: 'SUGGESTION', status: 'open', classification: 'B', disposition: 'advisory'},
+      err: /REVISION_CARD_ILLEGAL_SUGGESTION_CLASSIFICATION/,
+    },
+    {
+      issue: {severity: 'SUGGESTION', status: 'open', classification: 'C', disposition: 'fix_now'},
+      err: /REVISION_CARD_ILLEGAL_NONBLOCKING_OVERRIDE/,
+    },
     {
       issue: {severity: 'SUGGESTION', status: 'open', blocking: true},
       err: /REVISION_CARD_ILLEGAL_NONBLOCKING_OVERRIDE/,
     },
+    // Incomplete R3/P1 issues (missing required classification or disposition in R3 report MUST NOT silently fall back to legacy!)
     {
-      issue: {severity: 'MINOR', status: 'open', mustCloseInReReview: true},
-      err: /REVISION_CARD_ILLEGAL_NONBLOCKING_OVERRIDE/,
+      issue: {severity: 'MAJOR', status: 'open', disposition: 'fix_in_arc'},
+      err: /REVISION_CARD_R3_CLASSIFICATION_REQUIRED_OR_INVALID/,
+    },
+    {
+      issue: {severity: 'MAJOR', status: 'open', classification: 'A', narrativeGuidance: '缺 disposition'},
+      err: /REVISION_CARD_R3_DISPOSITION_REQUIRED_OR_INVALID/,
+    },
+    {
+      issue: {severity: 'MINOR', status: 'open', disposition: 'defer_to_final'},
+      err: /REVISION_CARD_R3_CLASSIFICATION_REQUIRED_OR_INVALID/,
+    },
+    // causal_break MUST be classification A (matches r3_p1_common.mjs)
+    {
+      issue: {severity: 'MINOR', status: 'open', classification: 'C', disposition: 'defer_to_final', evidenceLevel: 'causal_break'},
+      err: /REVISION_CARD_ILLEGAL_CAUSAL_BREAK/,
+    },
+    {
+      issue: {severity: 'SUGGESTION', status: 'open', classification: 'advisory', disposition: 'advisory', evidenceLevel: 'causal_break'},
+      err: /REVISION_CARD_ILLEGAL_CAUSAL_BREAK/,
     },
   ];
-  for (const {issue, err} of illegalIssues) {
+  for (const {issue, err} of illegalR3Issues) {
     assert.throws(
       () => compileRevisionCard({decision: 'revise', issues: [issue]}, {chapterNumber: 2}),
       err,
       `Expected Fail-Closed throw for illegal issue: ${JSON.stringify(issue)}`,
     );
   }
+  // Incomplete R3 report carrying report.p1 MUST also reject an issue missing classification/disposition
+  assert.throws(() => compileRevisionCard({
+    decision: 'revise',
+    p1: {schemaVersion: 1, preserveStrengths: []},
+    issues: [{severity: 'MINOR', status: 'open'}],
+  }, {chapterNumber: 2}), /REVISION_CARD_R3_CLASSIFICATION_REQUIRED_OR_INVALID/);
 
-  // 5. ONLY protocol-legal non-blocking / resolved / arc-deferred (MAJOR + B + fix_in_arc) items are cleanly skipped
+  // 5. Explicit R3/P1 legal non-blocking / resolved / arc-deferred (MAJOR + B + fix_in_arc) items are cleanly skipped
   const nonBlockingCard = compileRevisionCard({
     decision: 'pass_candidate',
     strengths: ['开篇三句落笔极稳，人物气口准确。'],
@@ -709,13 +807,56 @@ test('TC-P0-2-5: Revision Card enforces strict writer-safe whitelist, retains 10
       {severity: 'BLOCKER', status: 'resolved', classification: 'A', disposition: 'fix_now'},
       {severity: 'MAJOR', status: 'resolved', classification: 'A', disposition: 'fix_now'},
       {severity: 'MAJOR', status: 'open', classification: 'B', disposition: 'fix_in_arc'},
-      {severity: 'MINOR', status: 'open', chapter: 2, disposition: 'defer_to_final'},
-      {severity: 'SUGGESTION', status: 'open', chapter: 2, disposition: 'advisory'},
+      {severity: 'MINOR', status: 'open', chapter: 2, classification: 'C', disposition: 'defer_to_final'},
+      {severity: 'SUGGESTION', status: 'open', chapter: 2, classification: 'advisory', disposition: 'advisory'},
     ],
   }, {chapterNumber: 2});
+  assert.equal(nonBlockingCard.reportMode, 'r3_p1');
   assert.equal(nonBlockingCard.preservedStrengthsCount, 1);
   assert.equal(nonBlockingCard.blockingGuidanceCount, 0);
   assert.ok(nonBlockingCard.markdown.includes('开篇三句落笔极稳，人物气口准确。'));
+
+  // 6. Explicit Legacy R2 compatibility path (no report.p1 and no P1 fields on any issue)
+  const legacyR2Card = compileRevisionCard({
+    decision: 'revise',
+    strengths: ['旧版R2亮点原句——  保留原始双空格与破折号。'],
+    issues: [
+      {severity: 'MAJOR', status: 'open', chapter: 2, narrativeGuidance: '旧版兼容路径下请修正人物入场顺序。'},
+      {severity: 'MINOR', status: 'open', chapter: 2},
+    ],
+  }, {chapterNumber: 2});
+  assert.equal(legacyR2Card.reportMode, 'legacy_r2');
+  assert.equal(legacyR2Card.blockingGuidanceCount, 1);
+  assert.ok(legacyR2Card.markdown.includes('旧版R2亮点原句——  保留原始双空格与破折号。'));
+
+  // 7. preserveStrengths verbatim fidelity & Fail-Closed rejection of contaminated quotes (B3)
+  const exactQuote = '风箱拉到第三下——  炭火猛地蹿起半尺青焰。';
+  const verbatimStrengthCard = compileRevisionCard({
+    decision: 'pass_candidate',
+    p1: {
+      schemaVersion: 1,
+      preserveStrengths: [{id: 'STR-V', status: 'observed', chapter: 2, quote: exactQuote, reason: '不应输出'}],
+    },
+    issues: [],
+  }, {chapterNumber: 2});
+  assert.equal(verbatimStrengthCard.preservedQuotes[0], exactQuote);
+  assert.ok(verbatimStrengthCard.markdown.includes(`原句：“${exactQuote}”`), 'Clean preserveStrengths quote must survive 100% verbatim without whitespace normalization');
+
+  // Contaminated preserveStrengths quote (object & legacy string) MUST Fail-Closed rather than being silently mutated
+  assert.throws(() => compileRevisionCard({
+    decision: 'pass_candidate',
+    p1: {
+      schemaVersion: 1,
+      preserveStrengths: [{id: 'STR-BAD', status: 'observed', chapter: 2, quote: '[F-012 | ch2 | established] 炭火猛地蹿起。'}],
+    },
+    issues: [],
+  }, {chapterNumber: 2}), /WRITER_FIREWALL_GOVERNANCE_LEAK/);
+
+  assert.throws(() => compileRevisionCard({
+    decision: 'pass_candidate',
+    strengths: ['包含 SHA-256 的污染亮点原句'],
+    issues: [],
+  }, {chapterNumber: 2}), /WRITER_FIREWALL_GOVERNANCE_LEAK/);
 });
 
 // ============================================================================
