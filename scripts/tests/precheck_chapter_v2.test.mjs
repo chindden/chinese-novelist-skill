@@ -206,14 +206,152 @@ test('TC-P0-3-1: engineering file integrity failures always enter hardErrors wit
   assert.equal(resCorrupt.blocking, true);
   assert.ok(resCorrupt.hardErrors.some(e => e.code === 'PLAN_JSON_CORRUPT'));
 
-  // 8. Unauthorized tampering of finalized chapter (STALE_REVIEW_AFTER_EDIT) vs approved retcon
+  // 8. B1: Finalized chapter tampering & strict 3-step retcon recovery protocol (frozen Doc 06 §2.4 & §5.2)
   const ch1Original = makeProseOfChineseWords(3200);
-  const ch1Tampered = ch1Original + '\n未经批准私自追加的一段话。\n';
-  const ch2Draft = makeProseOfChineseWords(3200);
+  const ch1Edited = ch1Original + '\n经正式 retcon 修订后新增的剧情衔接段落。\n';
+  const ch2Text = makeProseOfChineseWords(3200);
+  const ch3Draft = makeProseOfChineseWords(3200);
   const ch1OrigHash = sha256(Buffer.from(ch1Original, 'utf8'));
-  const ch1TamperedHash = sha256(Buffer.from(ch1Tampered, 'utf8'));
+  const ch1EditedHash = sha256(Buffer.from(ch1Edited, 'utf8'));
+  const ch2Hash = sha256(Buffer.from(ch2Text, 'utf8'));
+  const ch3Hash = sha256(Buffer.from(ch3Draft, 'utf8'));
 
+  // 8a. Unauthorized tamper -> STALE_REVIEW_AFTER_EDIT (blocking=true)
   const tamperDir = makeTempProject(t, {
+    plan: {
+      minWordsPerChapter: 3000,
+      chapters: [
+        {chapterNumber: 1, title: '第一章', filePath: 'chapters/ch001.md', status: 'completed'},
+        {chapterNumber: 2, title: '第二章', filePath: 'chapters/ch002.md', status: 'completed'},
+        {chapterNumber: 3, title: '第三章', filePath: 'chapters/ch003.md', status: 'draft'},
+      ],
+      v3: {
+        pilot: {
+          status: 'approved',
+          manuscriptHashes: {'1': ch1OrigHash, '2': ch2Hash, '3': ch3Hash},
+        },
+        r2: {
+          schemaVersion: 1,
+          chapterReviews: {
+            '1': {status: 'passed', revision: 1, manuscriptHashes: {'1': ch1OrigHash}},
+            '2': {status: 'passed', revision: 1, manuscriptHashes: {'2': ch2Hash}},
+          },
+        },
+      },
+    },
+    chapters: {
+      'chapters/ch001.md': ch1Edited,
+      'chapters/ch002.md': ch2Text,
+      'chapters/ch003.md': ch3Draft,
+    },
+  });
+  const resTamper = precheckChapterV2(tamperDir, 3);
+  assert.equal(resTamper.blocking, true);
+  assert.ok(resTamper.hardErrors.some(e => e.code === 'STALE_REVIEW_AFTER_EDIT' && e.chapter === 1));
+
+  // 8b. Approval-only retcon (NO snapshot, NO re-review, NO updated manuscriptHashes) MUST STILL BLOCK!
+  fs.mkdirSync(path.join(tamperDir, 'reviews/r3/retcons'), {recursive: true});
+  fs.writeFileSync(
+    path.join(tamperDir, 'reviews/r3/retcons/retcon-001-approval.json'),
+    JSON.stringify({status: 'approved', chapter: 1, newSha256: ch1EditedHash}, null, 2),
+    'utf8',
+  );
+  const resApprovalOnly = precheckChapterV2(tamperDir, 3);
+  assert.equal(resApprovalOnly.blocking, true, 'Standalone retcon approval MUST NOT lift STALE_REVIEW_AFTER_EDIT');
+  assert.ok(resApprovalOnly.hardErrors.some(e => e.code === 'STALE_REVIEW_AFTER_EDIT' && e.chapter === 1));
+
+  // 8c. Create verified r3_snapshots-style immutable directory snapshot on disk (Step 1)
+  const snapRel = 'reviews/r3/retcons/snap-retcon-001';
+  const snapAbs = path.join(tamperDir, snapRel);
+  fs.mkdirSync(snapAbs, {recursive: true});
+  fs.writeFileSync(path.join(snapAbs, 'ch001.md'), ch1Original, 'utf8');
+  const snapManifest = {
+    schemaVersion: 1,
+    files: {'ch001.md': ch1OrigHash},
+  };
+  const snapManifestBytes = Buffer.from(JSON.stringify(snapManifest, null, 2) + '\n', 'utf8');
+  fs.writeFileSync(path.join(snapAbs, 'manifest.json'), snapManifestBytes);
+  const snapDigest = sha256(snapManifestBytes);
+
+  // 8d. Partial recovery: Step 1 snapshot + R2 updated, BUT Pilot still holds old ch1OrigHash -> MUST STILL BLOCK!
+  const updatedReviewFile = 'reviews/r2/review-ch001-v2.json';
+  const updatedReviewContent = JSON.stringify({schemaVersion: 1, decision: 'pass_candidate', revision: 2}, null, 2) + '\n';
+  fs.mkdirSync(path.join(tamperDir, 'reviews/r2'), {recursive: true});
+  fs.writeFileSync(path.join(tamperDir, updatedReviewFile), updatedReviewContent, 'utf8');
+  const updatedReviewSha = sha256(Buffer.from(updatedReviewContent, 'utf8'));
+  const newFingerprint = sha256(Buffer.from('ch1-retcon-v2-fingerprint', 'utf8'));
+
+  const partialPlan = JSON.parse(fs.readFileSync(path.join(tamperDir, '02-写作计划.json'), 'utf8'));
+  partialPlan.v3.r2.chapterReviews['1'] = {
+    status: 'passed',
+    revision: 2,
+    manuscriptHashes: {'1': ch1EditedHash},
+    reviewPath: updatedReviewFile,
+    reviewSha256: updatedReviewSha,
+    reviewFingerprint: newFingerprint,
+  };
+  fs.writeFileSync(path.join(tamperDir, '02-写作计划.json'), JSON.stringify(partialPlan, null, 2) + '\n', 'utf8');
+  fs.writeFileSync(
+    path.join(tamperDir, 'reviews/r3/retcons/retcon-001-approval.json'),
+    JSON.stringify({
+      status: 'approved',
+      chapter: 1,
+      snapshotPath: snapRel,
+      snapshotSha256: snapDigest,
+      newSha256: ch1EditedHash,
+      reReviewRevision: 2,
+      reviewFingerprint: newFingerprint,
+      directImpactChapters: [2],
+      reReviewRevisions: {'2': 2},
+    }, null, 2),
+    'utf8',
+  );
+  const resPartialPilotAndImpact = precheckChapterV2(tamperDir, 3);
+  assert.equal(resPartialPilotAndImpact.blocking, true, 'Stale Pilot baseline and un-re-reviewed directImpactChapters MUST still block');
+  assert.ok(resPartialPilotAndImpact.hardErrors.some(e => e.code === 'STALE_REVIEW_AFTER_EDIT' && e.source === 'v3.pilot'));
+  assert.ok(resPartialPilotAndImpact.hardErrors.some(e => e.code === 'STALE_REVIEW_AFTER_EDIT' && e.chapter === 2));
+
+  // 8e. Complete all 3 frozen recovery steps (verified snapshot + ch1 & directImpactChapters[2] re-reviewed + Pilot/R2/fingerprint updated) -> UNBLOCKS!
+  partialPlan.v3.pilot.manuscriptHashes['1'] = ch1EditedHash;
+  partialPlan.v3.r2.chapterReviews['2'] = {
+    status: 'passed',
+    revision: 2,
+    manuscriptHashes: {'2': ch2Hash},
+  };
+  fs.writeFileSync(path.join(tamperDir, '02-写作计划.json'), JSON.stringify(partialPlan, null, 2) + '\n', 'utf8');
+  const resFullRecovery = precheckChapterV2(tamperDir, 3);
+  assert.equal(resFullRecovery.blocking, false, `Full 3-step retcon recovery should pass, got: ${JSON.stringify(resFullRecovery.hardErrors)}`);
+  assert.equal(resFullRecovery.hardErrors.length, 0);
+
+  // 8f. Tampering snapshot or mismatching reviewFingerprint breaks recovery again (Fail-Closed)
+  fs.writeFileSync(path.join(snapAbs, 'ch001.md'), ch1Original + 'tamper', 'utf8');
+  const resBrokenSnap = precheckChapterV2(tamperDir, 3);
+  assert.equal(resBrokenSnap.blocking, true);
+  assert.ok(resBrokenSnap.hardErrors.some(e => e.code === 'STALE_REVIEW_AFTER_EDIT'));
+
+  // 9. B2: Fail-Closed when finalized records lack chapter mapping or valid SHA-256 (zero silent skip)
+  // 9a. Finalized chapter deleted from plan.chapters
+  const deletedMappingDir = makeTempProject(t, {
+    plan: {
+      minWordsPerChapter: 3000,
+      chapters: [{chapterNumber: 2, title: '第二章', filePath: 'chapters/ch002.md', status: 'draft'}],
+      v3: {
+        r2: {
+          schemaVersion: 1,
+          chapterReviews: {
+            '1': {status: 'passed', revision: 1, manuscriptHashes: {'1': ch1OrigHash}},
+          },
+        },
+      },
+    },
+    chapters: {'chapters/ch002.md': ch2Text},
+  });
+  const resDeletedMapping = precheckChapterV2(deletedMappingDir, 2);
+  assert.equal(resDeletedMapping.blocking, true);
+  assert.ok(resDeletedMapping.hardErrors.some(e => e.code === 'STALE_REVIEW_AFTER_EDIT' && e.chapter === 1));
+
+  // 9b. Passed chapterReviews entry missing / malformed SHA-256
+  const missingReviewHashDir = makeTempProject(t, {
     plan: {
       minWordsPerChapter: 3000,
       chapters: [
@@ -224,30 +362,59 @@ test('TC-P0-3-1: engineering file integrity failures always enter hardErrors wit
         r2: {
           schemaVersion: 1,
           chapterReviews: {
-            '1': {status: 'passed', revision: 1, manuscriptHashes: {'1': ch1OrigHash}},
+            '1': {status: 'passed', revision: 1, manuscriptHashes: {}},
           },
         },
       },
     },
+    chapters: {'chapters/ch001.md': ch1Original, 'chapters/ch002.md': ch2Text},
+  });
+  const resMissingRevHash = precheckChapterV2(missingReviewHashDir, 2);
+  assert.equal(resMissingRevHash.blocking, true);
+  assert.ok(resMissingRevHash.hardErrors.some(e => e.code === 'STALE_REVIEW_AFTER_EDIT' && e.chapter === 1));
+
+  // 9c. Approved Pilot missing or malformed manuscriptHashes
+  const badPilotDir = makeTempProject(t, {
+    plan: {
+      minWordsPerChapter: 3000,
+      chapters: [
+        {chapterNumber: 1, title: '第一章', filePath: 'chapters/ch001.md', status: 'completed'},
+        {chapterNumber: 2, title: '第二章', filePath: 'chapters/ch002.md', status: 'completed'},
+        {chapterNumber: 3, title: '第三章', filePath: 'chapters/ch003.md', status: 'completed'},
+        {chapterNumber: 4, title: '第四章', filePath: 'chapters/ch004.md', status: 'draft'},
+      ],
+      v3: {
+        pilot: {
+          status: 'approved',
+          manuscriptHashes: {'1': ch1OrigHash, '2': 'not-a-valid-sha256'},
+        },
+      },
+    },
     chapters: {
-      'chapters/ch001.md': ch1Tampered,
-      'chapters/ch002.md': ch2Draft,
+      'chapters/ch001.md': ch1Original,
+      'chapters/ch002.md': ch2Text,
+      'chapters/ch003.md': ch3Draft,
+      'chapters/ch004.md': ch3Draft,
     },
   });
-  const resTamper = precheckChapterV2(tamperDir, 2);
-  assert.equal(resTamper.blocking, true);
-  assert.ok(resTamper.hardErrors.some(e => e.code === 'STALE_REVIEW_AFTER_EDIT' && e.chapter === 1));
+  const resBadPilot = precheckChapterV2(badPilotDir, 4);
+  assert.equal(resBadPilot.blocking, true);
+  assert.ok(resBadPilot.hardErrors.some(e => e.code === 'STALE_REVIEW_AFTER_EDIT' && e.source === 'v3.pilot'));
 
-  // Now add explicit approved retcon matching ch1TamperedHash -> unblocks cleanly!
-  fs.mkdirSync(path.join(tamperDir, 'reviews/r3/retcons'), {recursive: true});
-  fs.writeFileSync(
-    path.join(tamperDir, 'reviews/r3/retcons/retcon-001-approval.json'),
-    JSON.stringify({status: 'approved', chapter: 1, newSha256: ch1TamperedHash}, null, 2),
-    'utf8',
-  );
-  const resRetconOk = precheckChapterV2(tamperDir, 2);
-  assert.equal(resRetconOk.blocking, false);
-  assert.equal(resRetconOk.hardErrors.length, 0);
+  // 9d. Explicit chapter.finalizedSha256 malformed
+  const badFinalizedFieldDir = makeTempProject(t, {
+    plan: {
+      minWordsPerChapter: 3000,
+      chapters: [
+        {chapterNumber: 1, title: '第一章', filePath: 'chapters/ch001.md', finalizedSha256: 'bad'},
+        {chapterNumber: 2, title: '第二章', filePath: 'chapters/ch002.md'},
+      ],
+    },
+    chapters: {'chapters/ch001.md': ch1Original, 'chapters/ch002.md': ch2Text},
+  });
+  const resBadFin = precheckChapterV2(badFinalizedFieldDir, 2);
+  assert.equal(resBadFin.blocking, true);
+  assert.ok(resBadFin.hardErrors.some(e => e.code === 'STALE_REVIEW_AFTER_EDIT' && e.source === 'chapter.finalizedSha256'));
 });
 
 // ============================================================================
@@ -297,8 +464,13 @@ test('TC-P0-3-2: explicit author hardConstraints block when violated; absent har
   assert.ok(resStrict.hardErrors.some(e => e.code === 'HARD_CONSTRAINT_MUST_INCLUDE_MISSING'));
   assert.ok(resStrict.hardErrors.some(e => e.code === 'HARD_CONSTRAINT_MUST_EXCLUDE_HIT'));
   assert.ok(resStrict.hardErrors.some(e => e.code === 'HARD_CONSTRAINT_MIN_WORDS_VIOLATED'));
-  // need_semantic_audit routes into needsSemanticAudit (never hardErrors)
-  assert.ok(resStrict.needsSemanticAudit.some(a => a.category === 'author_semantic_constraint' && a.hint.includes('铜钥匙来源')));
+  // need_semantic_audit routes into needsSemanticAudit (never hardErrors); unmatched anchor explicitly flagged
+  const unmatchedAuthorAudit = resStrict.needsSemanticAudit.find(
+    a => a.category === 'author_semantic_constraint' && a.hint.includes('铜钥匙来源'),
+  );
+  assert.ok(unmatchedAuthorAudit);
+  assert.equal(unmatchedAuthorAudit.anchorMatched, false);
+  assert.ok(unmatchedAuthorAudit.hint.includes('未找到作者锚点'));
 
   // 3. Satisfying all explicit hardConstraints passes cleanly
   const passingText = makeProseOfChineseWords(2200) + '\n\n沈青河将护心镜收入怀中，稳步踏入浓雾。\n';
@@ -332,6 +504,8 @@ test('TC-P0-3-2: explicit author hardConstraints block when violated; absent har
   const authorAudit = resPassStrict.needsSemanticAudit.find(a => a.category === 'author_semantic_constraint');
   assert.ok(authorAudit);
   assert.equal(authorAudit.anchorQuote, '沈青河将护心镜收入怀中');
+  assert.equal(authorAudit.anchorMatched, true);
+  assert.ok(!authorAudit.hint.includes('未找到作者锚点'));
 
   // 4. Fail-Closed on malformed hardConstraints (e.g. non-boolean enforceMinWords, null hardConstraints)
   const malformedConfigs = [

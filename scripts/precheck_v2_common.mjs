@@ -198,145 +198,446 @@ export function extractBodyParagraphs(rawText) {
   return paragraphs;
 }
 
+const HEX64_RE = /^[a-f0-9]{64}$/;
+
 /**
- * Load approved retcon records under reviews/r3/retcons (read-only).
- * Returns Map<chapterNumber, Set<approvedSha256 | '*'>>.
+ * Pure read-only verification of a snapshot path inside reviews/r3/ against expectedSha256.
+ * Supports both r3_snapshots.mjs directory snapshots (manifest.json + all listed files verified)
+ * and regular immutable snapshot files, with zero write APIs or symlink escapes.
  */
-function loadApprovedRetcons(root) {
-  const approved = new Map();
+function verifyReadOnlySnapshot(root, relPath, expectedSha256) {
+  if (typeof relPath !== 'string' || !/^reviews\/r3\/[a-zA-Z0-9/._-]+$/.test(relPath) ||
+      relPath.includes('//') || relPath.includes('..') || !HEX64_RE.test(expectedSha256)) {
+    return {ok: false, reason: 'SNAPSHOT_PATH_OR_DIGEST_INVALID'};
+  }
+  const realRoot = fs.realpathSync(root);
+  const abs = path.resolve(realRoot, relPath);
+  if (!abs.startsWith(realRoot + path.sep)) {
+    return {ok: false, reason: 'SNAPSHOT_PATH_OUTSIDE_ROOT'};
+  }
+  let st;
+  try {
+    st = fs.lstatSync(abs);
+  } catch {
+    return {ok: false, reason: 'SNAPSHOT_MISSING'};
+  }
+  if (st.isSymbolicLink()) {
+    return {ok: false, reason: 'SNAPSHOT_SYMLINK_FORBIDDEN'};
+  }
+  if (st.isFile()) {
+    const actual = sha256Hex(fs.readFileSync(abs));
+    return actual === expectedSha256
+      ? {ok: true}
+      : {ok: false, reason: 'SNAPSHOT_FILE_HASH_MISMATCH'};
+  }
+  if (!st.isDirectory()) {
+    return {ok: false, reason: 'SNAPSHOT_UNSUPPORTED_TYPE'};
+  }
+  const manifestPath = path.join(abs, 'manifest.json');
+  let mst;
+  try {
+    mst = fs.lstatSync(manifestPath);
+  } catch {
+    return {ok: false, reason: 'SNAPSHOT_MANIFEST_MISSING'};
+  }
+  if (!mst.isFile() || mst.isSymbolicLink()) {
+    return {ok: false, reason: 'SNAPSHOT_MANIFEST_INVALID'};
+  }
+  const manifestBytes = fs.readFileSync(manifestPath);
+  let m;
+  try {
+    m = JSON.parse(manifestBytes.toString('utf8'));
+  } catch {
+    return {ok: false, reason: 'SNAPSHOT_MANIFEST_CORRUPT'};
+  }
+  if (!isPlainObject(m) || m.schemaVersion !== 1 || !isPlainObject(m.files) || Object.keys(m.files).length === 0) {
+    return {ok: false, reason: 'SNAPSHOT_MANIFEST_SCHEMA_INVALID'};
+  }
+  if (sha256Hex(manifestBytes) !== expectedSha256) {
+    return {ok: false, reason: 'SNAPSHOT_MANIFEST_HASH_MISMATCH'};
+  }
+  const actualEntries = fs.readdirSync(abs).sort();
+  const expectedEntries = [...Object.keys(m.files), 'manifest.json'].sort();
+  if (JSON.stringify(actualEntries) !== JSON.stringify(expectedEntries)) {
+    return {ok: false, reason: 'SNAPSHOT_EXTRA_OR_MISSING_FILE'};
+  }
+  for (const [name, expectedFileHash] of Object.entries(m.files)) {
+    if (typeof name !== 'string' || !/^[a-zA-Z0-9][a-zA-Z0-9._-]*$/.test(name) || name.includes('..')) {
+      return {ok: false, reason: 'SNAPSHOT_ENTRY_NAME_INVALID'};
+    }
+    if (!HEX64_RE.test(expectedFileHash)) return {ok: false, reason: 'SNAPSHOT_ENTRY_HASH_INVALID'};
+    const filePath = path.join(abs, name);
+    const fst = fs.lstatSync(filePath);
+    if (!fst.isFile() || fst.isSymbolicLink()) return {ok: false, reason: 'SNAPSHOT_ENTRY_UNSAFE'};
+    if (sha256Hex(fs.readFileSync(filePath)) !== expectedFileHash) {
+      return {ok: false, reason: 'SNAPSHOT_ENTRY_HASH_MISMATCH'};
+    }
+  }
+  return {ok: true};
+}
+
+/**
+ * Load all retcon JSON records under reviews/r3/retcons/ (read-only).
+ * Returned records are audited for complete 3-step recovery — an approval record alone
+ * NEVER waives a finalized manuscript hash mismatch (frozen Doc 06 §2.4 & §5.2).
+ */
+function loadRetconRecords(root) {
+  const records = [];
   const retconDirRel = 'reviews/r3/retcons';
   const dirCandidate = path.resolve(root, retconDirRel);
   const rel = path.relative(root, dirCandidate);
-  if (!rel || rel.startsWith('..') || !fs.existsSync(dirCandidate)) return approved;
+  if (!rel || rel.startsWith('..') || !fs.existsSync(dirCandidate)) return records;
   let realDir;
   try {
     realDir = fs.realpathSync(dirCandidate);
     const realRel = path.relative(root, realDir);
-    if (!realRel || realRel.startsWith('..') || !fs.statSync(realDir).isDirectory()) return approved;
+    if (!realRel || realRel.startsWith('..') || !fs.statSync(realDir).isDirectory()) {
+      return [{relPath: retconDirRel, corrupt: true, reason: 'RETCON_DIR_UNSAFE'}];
+    }
   } catch {
-    return approved;
+    return [{relPath: retconDirRel, corrupt: true, reason: 'RETCON_DIR_UNREADABLE'}];
   }
   let entries;
   try {
-    entries = fs.readdirSync(realDir);
+    entries = fs.readdirSync(realDir).sort();
   } catch {
-    return approved;
+    return records;
   }
   for (const name of entries) {
     if (!name.endsWith('.json')) continue;
-    const inspected = inspectSafeFile(root, path.join(retconDirRel, name));
-    if (inspected.status !== 'ok') continue;
+    const relPath = path.join(retconDirRel, name);
+    const inspected = inspectSafeFile(root, relPath);
+    if (inspected.status !== 'ok') {
+      records.push({relPath, corrupt: true, reason: inspected.reason});
+      continue;
+    }
     try {
       const rec = JSON.parse(fs.readFileSync(inspected.realPath, 'utf8').replace(/^\uFEFF/, ''));
-      if (!isPlainObject(rec) || rec.status !== 'approved') continue;
-      const chapters = [];
-      if (Number.isSafeInteger(rec.chapter) && rec.chapter >= 1) chapters.push(rec.chapter);
-      if (Array.isArray(rec.chapters)) {
-        for (const c of rec.chapters) {
-          if (Number.isSafeInteger(c) && c >= 1) chapters.push(c);
-        }
-      }
-      const allowedHash =
-        typeof rec.newSha256 === 'string' && /^[a-f0-9]{64}$/.test(rec.newSha256)
-          ? rec.newSha256
-          : typeof rec.approvedSha256 === 'string' && /^[a-f0-9]{64}$/.test(rec.approvedSha256)
-            ? rec.approvedSha256
-            : null;
-      for (const ch of chapters) {
-        if (!approved.has(ch)) approved.set(ch, new Set());
-        if (allowedHash) approved.get(ch).add(allowedHash);
-        else if (isPlainObject(rec.newHashes) && typeof rec.newHashes[String(ch)] === 'string') {
-          approved.get(ch).add(rec.newHashes[String(ch)]);
-        }
+      if (!isPlainObject(rec)) {
+        records.push({relPath, corrupt: true, reason: 'NOT_OBJECT'});
+      } else {
+        records.push({relPath, corrupt: false, rec});
       }
     } catch {
-      // Ignore malformed non-retcon files
+      records.push({relPath, corrupt: true, reason: 'BAD_JSON'});
     }
   }
-  return approved;
+  return records;
 }
 
 /**
- * Check whether any previously finalized chapter (passed R2/R3 review, approved Pilot,
- * or chapterEntry.finalizedSha256) was tampered on disk without an approved retcon.
+ * Fail-Closed finalized chapter integrity audit (B1 + B2):
+ *  1. Collects EVERY finalized baseline independently (v3.pilot, v3.r2.chapterReviews, chapter.finalizedSha256)
+ *     without silently overwriting across sources or skipping missing/malformed hashes/chapter mappings.
+ *  2. Any disk hash mismatch against ANY finalized baseline ALWAYS emits STALE_REVIEW_AFTER_EDIT
+ *     (standalone retcon approval NEVER lifts integrity hard-block).
+ *  3. Any approved retcon record in reviews/r3/retcons/ MUST satisfy all 3 frozen recovery steps
+ *     (verified snapshot on disk + re-review of target & directImpactChapters + updated latest hashes/fingerprint),
+ *     otherwise emits STALE_REVIEW_AFTER_EDIT.
  */
 function checkFinalizedChapterIntegrity(root, plan) {
   const errors = [];
-  const expectedByChapter = new Map();
+  const expectedRecords = [];
+  const actualDiskHashes = new Map();
 
-  // 1. Approved Pilot hashes
-  if (plan.v3?.pilot?.status === 'approved' && isPlainObject(plan.v3.pilot.manuscriptHashes)) {
-    for (const [k, h] of Object.entries(plan.v3.pilot.manuscriptHashes)) {
-      const n = Number(k);
-      if (Number.isSafeInteger(n) && n >= 1 && typeof h === 'string' && /^[a-f0-9]{64}$/.test(h)) {
-        expectedByChapter.set(n, {sha256: h, source: 'v3.pilot'});
-      }
+  const resolveDiskHash = chNum => {
+    if (actualDiskHashes.has(chNum)) return actualDiskHashes.get(chNum);
+    const entry = plan.chapters.find(c => c?.chapterNumber === chNum);
+    if (!entry) {
+      const res = {ok: false, reason: 'CHAPTER_MAPPING_MISSING'};
+      actualDiskHashes.set(chNum, res);
+      return res;
     }
-  }
-
-  // 2. Passed chapterReviews in v3.r2
-  const reviews = plan.v3?.r2?.chapterReviews;
-  if (isPlainObject(reviews)) {
-    for (const [k, rec] of Object.entries(reviews)) {
-      const n = Number(k);
-      if (!Number.isSafeInteger(n) || n < 1 || !isPlainObject(rec) || rec.status !== 'passed') continue;
-      let hash = rec.manuscriptHashes?.[String(n)] ?? rec.manuscriptSha256 ?? null;
-      if (!hash && typeof rec.inputPath === 'string') {
-        const packetInspected = inspectSafeFile(root, rec.inputPath);
-        if (packetInspected.status === 'ok') {
-          try {
-            const packet = JSON.parse(fs.readFileSync(packetInspected.realPath, 'utf8').replace(/^\uFEFF/, ''));
-            hash = packet?.manuscriptHashes?.[String(n)] ?? null;
-          } catch {
-            // ignore unreadable packet
-          }
-        }
-      }
-      if (typeof hash === 'string' && /^[a-f0-9]{64}$/.test(hash)) {
-        expectedByChapter.set(n, {sha256: hash, source: 'v3.r2.chapterReviews'});
-      }
-    }
-  }
-
-  // 3. Explicit finalizedSha256 on chapter entries
-  for (const ch of plan.chapters) {
-    if (typeof ch.finalizedSha256 === 'string' && /^[a-f0-9]{64}$/.test(ch.finalizedSha256)) {
-      expectedByChapter.set(ch.chapterNumber, {sha256: ch.finalizedSha256, source: 'chapter.finalizedSha256'});
-    }
-  }
-
-  if (expectedByChapter.size === 0) return errors;
-
-  const approvedRetcons = loadApprovedRetcons(root);
-  for (const [chNum, {sha256: expectedHash, source}] of [...expectedByChapter.entries()].sort((a, b) => a[0] - b[0])) {
-    const entry = plan.chapters.find(c => c.chapterNumber === chNum);
-    if (!entry) continue;
     const inspected = inspectSafeFile(root, entry.filePath);
     if (inspected.status !== 'ok') {
+      const res = {ok: false, reason: inspected.reason};
+      actualDiskHashes.set(chNum, res);
+      return res;
+    }
+    const res = {ok: true, sha256: sha256Hex(fs.readFileSync(inspected.realPath))};
+    actualDiskHashes.set(chNum, res);
+    return res;
+  };
+
+  // 1. Approved Pilot hashes (Fail-Closed on missing/malformed manuscriptHashes or missing chapters 1..3)
+  if (plan.v3?.pilot?.status === 'approved') {
+    const pilotHashes = plan.v3.pilot.manuscriptHashes;
+    if (!isPlainObject(pilotHashes)) {
+      errors.push({
+        code: 'STALE_REVIEW_AFTER_EDIT',
+        source: 'v3.pilot',
+        message: '已批准 Pilot 缺少合法的 manuscriptHashes 映射，完整性基线破损。',
+      });
+    } else {
+      const pilotKeys = new Set(['1', '2', '3', ...Object.keys(pilotHashes)]);
+      for (const k of [...pilotKeys].sort((a, b) => Number(a) - Number(b))) {
+        const h = pilotHashes[k];
+        if (!/^[1-9]\d*$/.test(k) || typeof h !== 'string' || !HEX64_RE.test(h)) {
+          errors.push({
+            code: 'STALE_REVIEW_AFTER_EDIT',
+            chapter: /^[1-9]\d*$/.test(k) ? Number(k) : null,
+            source: 'v3.pilot',
+            message: `已批准 Pilot 第 ${k} 章缺少有效的 64 位 SHA-256 基线哈希，禁止静默跳过。`,
+          });
+        } else {
+          expectedRecords.push({chapter: Number(k), sha256: h, source: 'v3.pilot'});
+        }
+      }
+    }
+  }
+
+  // 2. Passed chapterReviews in v3.r2 (Fail-Closed on malformed chapterReviews or missing/malformed hash)
+  const r2Obj = plan.v3?.r2;
+  const passedReviewByChapter = new Map();
+  if (isPlainObject(r2Obj) && hasOwn(r2Obj, 'chapterReviews')) {
+    const reviews = r2Obj.chapterReviews;
+    if (!isPlainObject(reviews)) {
+      errors.push({
+        code: 'STALE_REVIEW_AFTER_EDIT',
+        source: 'v3.r2.chapterReviews',
+        message: 'v3.r2.chapterReviews 结构损坏（非对象），无法核验已定稿章节基线。',
+      });
+    } else {
+      for (const [k, rec] of Object.entries(reviews)) {
+        if (!isPlainObject(rec)) {
+          if (rec !== null) {
+            errors.push({
+              code: 'STALE_REVIEW_AFTER_EDIT',
+              source: 'v3.r2.chapterReviews',
+              message: `v3.r2.chapterReviews["${k}"] 记录格式非法。`,
+            });
+          }
+          continue;
+        }
+        if (rec.status !== 'passed') continue;
+        if (!/^[1-9]\d*$/.test(k)) {
+          errors.push({
+            code: 'STALE_REVIEW_AFTER_EDIT',
+            source: 'v3.r2.chapterReviews',
+            message: `已通过审稿记录的章号键 "${k}" 非法，无法映射章节基线。`,
+          });
+          continue;
+        }
+        const n = Number(k);
+        let hash = rec.manuscriptHashes?.[String(n)] ?? rec.manuscriptSha256 ?? null;
+        if (!(typeof hash === 'string' && HEX64_RE.test(hash)) && typeof rec.inputPath === 'string') {
+          const packetInspected = inspectSafeFile(root, rec.inputPath);
+          if (packetInspected.status === 'ok') {
+            try {
+              const packet = JSON.parse(fs.readFileSync(packetInspected.realPath, 'utf8').replace(/^\uFEFF/, ''));
+              hash = packet?.manuscriptHashes?.[String(n)] ?? null;
+            } catch {
+              hash = null;
+            }
+          }
+        }
+        if (typeof hash !== 'string' || !HEX64_RE.test(hash)) {
+          errors.push({
+            code: 'STALE_REVIEW_AFTER_EDIT',
+            chapter: n,
+            source: 'v3.r2.chapterReviews',
+            message: `已通过审稿的第 ${n} 章记录缺少有效 SHA-256 哈希（manuscriptHashes/inputPath 均无效），禁止静默跳过。`,
+          });
+          continue;
+        }
+        passedReviewByChapter.set(n, {rec, sha256: hash});
+        expectedRecords.push({chapter: n, sha256: hash, source: 'v3.r2.chapterReviews'});
+      }
+    }
+  }
+
+  // 3. Explicit finalizedSha256 on chapter entries (Fail-Closed if present and malformed)
+  for (const ch of plan.chapters) {
+    if (!isPlainObject(ch) || !hasOwn(ch, 'finalizedSha256')) continue;
+    if (typeof ch.finalizedSha256 !== 'string' || !HEX64_RE.test(ch.finalizedSha256)) {
+      errors.push({
+        code: 'STALE_REVIEW_AFTER_EDIT',
+        chapter: Number.isSafeInteger(ch.chapterNumber) ? ch.chapterNumber : null,
+        source: 'chapter.finalizedSha256',
+        message: `第 ${ch.chapterNumber} 章显式 finalizedSha256 哈希格式非法，禁止静默跳过。`,
+      });
+    } else {
+      expectedRecords.push({chapter: ch.chapterNumber, sha256: ch.finalizedSha256, source: 'chapter.finalizedSha256'});
+    }
+  }
+
+  // Load retcon records for strict 3-step recovery audit (NEVER to waive a hash mismatch)
+  const retconFiles = loadRetconRecords(root);
+  const approvedRetconChapters = new Set();
+  for (const rf of retconFiles) {
+    if (!rf.corrupt && rf.rec.status === 'approved' && Number.isSafeInteger(rf.rec.chapter)) {
+      approvedRetconChapters.add(rf.rec.chapter);
+    }
+  }
+
+  // 4. Verify EVERY finalized baseline record against disk (B1 + B2 Fail-Closed)
+  expectedRecords.sort((a, b) => a.chapter - b.chapter || a.source.localeCompare(b.source));
+  for (const {chapter: chNum, sha256: expectedHash, source} of expectedRecords) {
+    const disk = resolveDiskHash(chNum);
+    if (!disk.ok) {
       errors.push({
         code: 'STALE_REVIEW_AFTER_EDIT',
         chapter: chNum,
         source,
-        message: `已定稿第 ${chNum} 章文件缺失或路径异常（${inspected.reason}），未经显式 retcon 破坏已定稿基线。`,
+        reason: disk.reason,
+        message:
+          disk.reason === 'CHAPTER_MAPPING_MISSING'
+            ? `已定稿第 ${chNum} 章在 02-写作计划.json 中缺少章节映射条目，禁止绕过完整性保护。`
+            : `已定稿第 ${chNum} 章文件缺失或路径异常（${disk.reason}），完整性基线破损。`,
       });
       continue;
     }
-    const actualHash = sha256Hex(fs.readFileSync(inspected.realPath));
-    if (actualHash !== expectedHash) {
-      const retconHashes = approvedRetcons.get(chNum);
-      if (retconHashes && retconHashes.has(actualHash)) {
-        continue;
-      }
+    if (disk.sha256 !== expectedHash) {
+      const hasApprovalNote = approvedRetconChapters.has(chNum)
+        ? '（检测到 retcon 审批记录，但仅凭审批不能解除完整性硬阻断；须完成快照留痕、直接影响集复审并更新最新 manuscriptHashes / reviewFingerprint 基线，或回滚原快照）'
+        : '';
       errors.push({
         code: 'STALE_REVIEW_AFTER_EDIT',
         chapter: chNum,
         source,
         expectedSha256: expectedHash,
-        actualSha256: actualHash,
-        message: `已定稿第 ${chNum} 章正文未经显式 retcon 审批被外部修改（预期哈希 ${expectedHash.slice(0, 12)}…，实际 ${actualHash.slice(0, 12)}…）。`,
+        actualSha256: disk.sha256,
+        message: `已定稿第 ${chNum} 章正文与已定稿基线不一致（预期哈希 ${expectedHash.slice(0, 12)}…，实际 ${disk.sha256.slice(0, 12)}…）${hasApprovalNote}。`,
       });
     }
   }
+
+  // 5. Audit any approved retcon record in reviews/r3/retcons/ for complete 3-step recovery (frozen Doc 06 §2.4 & §5.2)
+  for (const rf of retconFiles) {
+    if (rf.corrupt) {
+      errors.push({
+        code: 'STALE_REVIEW_AFTER_EDIT',
+        source: rf.relPath,
+        message: `retcon 记录文件 ${rf.relPath} 损坏或不可读（${rf.reason}）。`,
+      });
+      continue;
+    }
+    const rec = rf.rec;
+    if (rec.status !== 'approved') continue;
+
+    const chNum = rec.chapter;
+    if (!Number.isSafeInteger(chNum) || chNum < 1) {
+      errors.push({
+        code: 'STALE_REVIEW_AFTER_EDIT',
+        source: rf.relPath,
+        message: `${rf.relPath} 缺少有效的正整数 chapter 字段。`,
+      });
+      continue;
+    }
+
+    // Step 1: Verified immutable snapshot on disk
+    const snapCheck = verifyReadOnlySnapshot(root, rec.snapshotPath, rec.snapshotSha256);
+    if (!snapCheck.ok) {
+      errors.push({
+        code: 'STALE_REVIEW_AFTER_EDIT',
+        chapter: chNum,
+        source: rf.relPath,
+        message: `retcon ${rf.relPath} 缺少有效的快照留痕或快照校验失败（${snapCheck.reason}），未满足冻结恢复协议第 1 步。`,
+      });
+    }
+
+    // Step 2 & 3: Verified newSha256 + updated passed re-review on target chapter & all directImpactChapters + fingerprint
+    if (typeof rec.newSha256 !== 'string' || !HEX64_RE.test(rec.newSha256)) {
+      errors.push({
+        code: 'STALE_REVIEW_AFTER_EDIT',
+        chapter: chNum,
+        source: rf.relPath,
+        message: `retcon ${rf.relPath} 缺少有效的 newSha256，无法核验最新基线。`,
+      });
+    } else {
+      const targetDisk = resolveDiskHash(chNum);
+      if (!targetDisk.ok || targetDisk.sha256 !== rec.newSha256) {
+        errors.push({
+          code: 'STALE_REVIEW_AFTER_EDIT',
+          chapter: chNum,
+          source: rf.relPath,
+          message: `retcon ${rf.relPath} 声明的 newSha256 与磁盘第 ${chNum} 章实际正文不一致。`,
+        });
+      }
+      const targetReview = passedReviewByChapter.get(chNum);
+      if (!targetReview || targetReview.sha256 !== rec.newSha256) {
+        errors.push({
+          code: 'STALE_REVIEW_AFTER_EDIT',
+          chapter: chNum,
+          source: rf.relPath,
+          message: `retcon ${rf.relPath} 尚未完成第 ${chNum} 章重新审核并更新最新 manuscriptHashes，未满足冻结恢复协议第 2–3 步。`,
+        });
+      } else {
+        if (hasOwn(rec, 'reReviewRevision')) {
+          if (!Number.isSafeInteger(rec.reReviewRevision) || targetReview.rec.revision < rec.reReviewRevision) {
+            errors.push({
+              code: 'STALE_REVIEW_AFTER_EDIT',
+              chapter: chNum,
+              source: rf.relPath,
+              message: `retcon ${rf.relPath} 第 ${chNum} 章复审版本号未达到声明的 reReviewRevision。`,
+            });
+          }
+        }
+        if (typeof targetReview.rec.reviewPath === 'string' && typeof targetReview.rec.reviewSha256 === 'string') {
+          const revFile = inspectSafeFile(root, targetReview.rec.reviewPath);
+          if (revFile.status !== 'ok' || sha256Hex(fs.readFileSync(revFile.realPath)) !== targetReview.rec.reviewSha256) {
+            errors.push({
+              code: 'STALE_REVIEW_AFTER_EDIT',
+              chapter: chNum,
+              source: rf.relPath,
+              message: `retcon ${rf.relPath} 关联的第 ${chNum} 章复审报告文件缺失或哈希不匹配。`,
+            });
+          }
+        }
+        if (hasOwn(rec, 'reviewFingerprint') || hasOwn(targetReview.rec, 'reviewFingerprint')) {
+          const rfHash = rec.reviewFingerprint;
+          const revHash = targetReview.rec.reviewFingerprint;
+          if (typeof rfHash !== 'string' || !HEX64_RE.test(rfHash) ||
+              typeof revHash !== 'string' || !HEX64_RE.test(revHash) ||
+              rfHash !== revHash) {
+            errors.push({
+              code: 'STALE_REVIEW_AFTER_EDIT',
+              chapter: chNum,
+              source: rf.relPath,
+              message: `retcon ${rf.relPath} 与第 ${chNum} 章复审记录的 reviewFingerprint 缺失或不匹配，未满足冻结恢复协议第 3 步。`,
+            });
+          }
+        }
+      }
+    }
+
+    // Step 2: directImpactChapters MUST be explicitly declared (array) and every impacted chapter must have passed re-review
+    if (!Array.isArray(rec.directImpactChapters) ||
+        !rec.directImpactChapters.every(x => Number.isSafeInteger(x) && x >= 1)) {
+      errors.push({
+        code: 'STALE_REVIEW_AFTER_EDIT',
+        chapter: chNum,
+        source: rf.relPath,
+        message: `retcon ${rf.relPath} 缺少合法的 directImpactChapters 数组，无法确认直接影响集复审范围。`,
+      });
+    } else {
+      for (const impCh of rec.directImpactChapters) {
+        const impDisk = resolveDiskHash(impCh);
+        const impReview = passedReviewByChapter.get(impCh);
+        if (!impDisk.ok || !impReview || impReview.sha256 !== impDisk.sha256) {
+          errors.push({
+            code: 'STALE_REVIEW_AFTER_EDIT',
+            chapter: impCh,
+            source: rf.relPath,
+            message: `retcon ${rf.relPath} 的直接影响章第 ${impCh} 章尚未完成最新有效复审，未满足冻结恢复协议第 2 步。`,
+          });
+          continue;
+        }
+        if (isPlainObject(rec.reReviewRevisions) && hasOwn(rec.reReviewRevisions, String(impCh))) {
+          const reqRev = rec.reReviewRevisions[String(impCh)];
+          if (!Number.isSafeInteger(reqRev) || impReview.rec.revision < reqRev) {
+            errors.push({
+              code: 'STALE_REVIEW_AFTER_EDIT',
+              chapter: impCh,
+              source: rf.relPath,
+              message: `retcon ${rf.relPath} 直接影响章第 ${impCh} 章复审版本未达到 reReviewRevisions 要求。`,
+            });
+          }
+        }
+      }
+    }
+  }
+
   return errors;
 }
 
@@ -872,20 +1173,30 @@ export function extractNeedsSemanticAudit(paragraphs, {authorSemanticRules = [],
   // 4. author_semantic_constraint (from 02-写作计划.json hardConstraints.needSemanticAudit / need_semantic_audit)
   for (const ruleObj of authorSemanticRules) {
     let matchedIdx = 1;
+    let anchorMatched = false;
     let anchor = paragraphs[0] ? makeVerbatimAnchor(paragraphs[0], splitSentencesVerbatim(paragraphs[0])[0]) : '';
     if (ruleObj.anchor) {
       const foundIdx = paragraphs.findIndex(p => p.includes(ruleObj.anchor));
       if (foundIdx >= 0) {
         matchedIdx = foundIdx + 1;
         anchor = ruleObj.anchor;
+        anchorMatched = true;
       }
     }
-    pushClue(
-      'author_semantic_constraint',
-      matchedIdx,
-      anchor,
-      `作者显式语义核查条款：${ruleObj.hint}`,
-    );
+    const fallbackNotice = anchorMatched
+      ? ''
+      : '（未找到作者锚点，以下默认定位至第 1 段，请审稿人通读全章核销）';
+    const key = `author_semantic_constraint|${matchedIdx}|${anchor}|${ruleObj.hint}`;
+    if (!dedup.has(key)) {
+      dedup.add(key);
+      rawClues.push({
+        category: 'author_semantic_constraint',
+        paragraphIndex: matchedIdx,
+        anchorQuote: anchor,
+        anchorMatched,
+        hint: `作者显式语义核查条款：${ruleObj.hint}${fallbackNotice}`,
+      });
+    }
   }
 
   // Optional structured ledger mismatches from r3_structured_checks.mjs (read-only, non-blocking)
@@ -917,6 +1228,7 @@ export function extractNeedsSemanticAudit(paragraphs, {authorSemanticRules = [],
     category: c.category,
     anchorQuote: c.anchorQuote,
     paragraphIndex: c.paragraphIndex,
+    ...(c.anchorMatched !== undefined ? {anchorMatched: c.anchorMatched} : {}),
     hint: c.hint,
   }));
 }
