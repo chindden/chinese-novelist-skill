@@ -84,18 +84,34 @@
 
 ---
 
-### [2026-11-26] · `P0-0` · 纯只读基线审计完成与提审（`IN_PROGRESS` → `READY_FOR_REVIEW`）
+### [2026-11-26] · `P0-0` · 纯只读基线审计完成与初次提审（`IN_PROGRESS` → `READY_FOR_REVIEW` → `CHANGES_REQUESTED`）
 
 | 字段 | 记录内容 |
 |---|---|
+| **GitHub 提交时间（UTC）** | `2026-11-26T02:58:13Z` |
 | **关联任务** | `P0-0`（研发基线审计与实施准备） |
-| **状态变更** | `IN_PROGRESS` → **`READY_FOR_REVIEW`**（Neon 最高权限态；`P0-1` ~ `P0-6` 全部继续保持 `NOT_STARTED`，严禁在 `P0-0` 获 GPT-6 `ACCEPTED` 前推进 `P0-1`） |
-| **Commit SHA** | *见本次 `P0-0` 独立提交与交付报告*（一任务一独立 Commit，仅修改 `docs/r3/p0-implementation/` 下文档） |
-| **修改文件** | • 新增 `docs/r3/p0-implementation/P0-0-Baseline-Audit-Report.md`<br>• 更新 `docs/r3/p0-implementation/P0-Progress-Log.md`<br>• 更新 `docs/r3/p0-implementation/README.md`<br>• 更新 `docs/r3/p0-implementation/P0-Implementation-PRD.md`（仅限填写 `P0-0` “10. 实际证据记录”、“11. GPT-6 验收状态”及第五节 `P0-0` 验收总表行，不改任何冻结 PRD 条款） |
-| **测试结果（零代码改动基线固化）** | ① **R3 `node --test`（7 文件）**：`71 / 71` passed（`0 fail`, `0 skipped`, exit `0`）；<br>② **V3 / R2 独立 `node` 脚本（10 文件）**：`10 / 10` 全绿（exit `0`：`init_chapter_summaries` 6 passed、`validate_project` 8 passed、`v3_gate` 16 assertions、`check_repetition` 2 assertions 及 6 个单套件 PASS/OK）；<br>③ **Python `unittest`（2 文件）**：`Ran 12 tests in 0.956s — OK`（`test_snapshot.py` 2/2 + `test_webnovel_knowledge.py` 10/10，exit `0`）；<br>④ **零代码污染校验**：`git diff --name-only 2d6061d6..HEAD` 仅限 `docs/r3/p0-implementation/`，0 生产代码/Skill/R2/测试/冻结架构改动 |
+| **状态变更** | `IN_PROGRESS` → `READY_FOR_REVIEW` → GPT-6 审核退回 **`CHANGES_REQUESTED`**（`P0-1` ~ `P0-6` 全部继续保持 `NOT_STARTED`） |
+| **Commit SHA** | `86cbc9f3ad37c635f134eeea2a89317d5eef0a3c`（一任务一独立 Commit，仅修改 `docs/r3/p0-implementation/` 下 4 份文档，`+188 / -15`） |
+| **修改文件** | • 新增 `docs/r3/p0-implementation/P0-0-Baseline-Audit-Report.md`<br>• 更新 `docs/r3/p0-implementation/P0-Progress-Log.md`<br>• 更新 `docs/r3/p0-implementation/README.md`<br>• 更新 `docs/r3/p0-implementation/P0-Implementation-PRD.md`（仅限填写 `P0-0` “10. 实际证据记录”、“11. GPT-6 验收状态”及第五节 `P0-0` 行，冻结条款 0 改动） |
+| **测试结果（零代码改动基线固化）** | ① **R3 `node --test`（7 文件）**：`71 / 71` passed（`0 fail`, `0 skipped`, exit `0`）；<br>② **V3 / R2 独立 `node` 脚本（10 文件）**：`10 / 10` 全绿（exit `0`：`init_chapter_summaries` 6 passed、`validate_project` 8 passed、`v3_gate` 16 assertions、`check_repetition` 2 assertions 及 6 个单套件 PASS/OK）；<br>③ **Python `unittest`（2 文件）**：`Ran 12 tests in 0.956s — OK`（`test_snapshot.py` 2/2 + `test_webnovel_knowledge.py` 10/10，exit `0`）；<br>④ **零代码污染校验**：`git diff --name-only 2d6061d6..86cbc9f3` 仅限 `docs/r3/p0-implementation/`（此前 `b5572a94..2d6061d6` 为经 GPT-6 `ACCEPTED` 的项目文档提交），0 生产代码/Skill/R2/测试/冻结架构改动 |
 | **关键审计发现摘要** | ① `c0966b12` 含 19 文件差异（`+2461/-60`），其中旧版 `precheck_chapter.mjs` 硬阻断字数与重复段直接违背冻结 `06`，严禁整枝合并；<br>② 全仓查明 5 处核心 S1 硬编码校验脚本与 5 处透传脚本；核实 `r3_p1_common.mjs` L118/125/206 遗留缺陷由 `P0-1` 修复，原 `ENG-FIX-P1` 的 `r3_atomic_ops`/`r3_telemetry` 脚本不在主基线、由 `P0-4` 及后续遥测原生规避；<br>③ 核实 G1/G2-A/G4 原始样本存在于本地 VM，**`G2-B`（`0/20` 章、`0/60` 案例）与 `G6`（`0/12–16` 章）均为 `underpowered`**，且 `G3` 缺 `+1` 章/`+6` 段、`G5` 缺 `+2` 死锁章；明确 `P0-1`~`P0-5` 不依赖外部历史包 |
-| **GPT-6 审核结论** | **`PENDING`**（已提交独立验收，暂停等待 GPT-6 结论） |
-| **返工及复审记录** | 无 |
+| **GPT-6 审核结论** | **`CHANGES_REQUESTED`**（整体审计方向认可，不重做 `P0-0`、不重跑全量测试，要求补齐 3 项并解释零污染区间：① 补齐原始 `P0-0` Commit 完整 SHA `86cbc9f3ad37c635f134eeea2a89317d5eef0a3c` 与时间 `2026-11-26T02:58:13Z`；② 补齐 `b5572a94` 完整 73 文件清单与 `c0966b12` 完整 19 文件差异清单；③ 补齐 G1/G2-A/G3/G4/G5 脱敏历史资产 Manifest、完整性检查输出及 G2-B/G6 搜索核查依据） |
+| **返工及复审记录** | 关联下方返工台账 **`RW-P0-0-001`** |
+
+---
+
+### [2026-11-26] · `P0-0` · 整改补充提交（响应 `RW-P0-0-001`：`CHANGES_REQUESTED` → `IN_PROGRESS` → `READY_FOR_REVIEW`）
+
+| 字段 | 记录内容 |
+|---|---|
+| **关联任务** | `P0-0`（响应 `RW-P0-0-001` 整改补充；完整保留原始 `P0-0` 提交 `86cbc9f3ad37c635f134eeea2a89317d5eef0a3c`） |
+| **状态变更** | `CHANGES_REQUESTED` → `IN_PROGRESS` → **`READY_FOR_REVIEW`**（`P0-1` ~ `P0-6` 全部继续保持 `NOT_STARTED`） |
+| **原始 `P0-0` Commit SHA** | `86cbc9f3ad37c635f134eeea2a89317d5eef0a3c`（`2026-11-26T02:58:13Z`） |
+| **本次补充 Commit SHA** | 本次独立文档整改补充提交（由 Git 历史与交付报告记录完整 40 位 SHA，不自引用） |
+| **整改内容** | ① 在 `P0-Progress-Log.md`、`P0-Implementation-PRD.md`、`README.md` 与 `P0-0-Baseline-Audit-Report.md` 全部补齐原始 `P0-0` Commit 完整 SHA `86cbc9f3ad37c635f134eeea2a89317d5eef0a3c` 与时间 `2026-11-26T02:58:13Z`；<br>② 在 `P0-0-Baseline-Audit-Report.md` 补齐附录 A（冻结基线 `b5572a94` 全量 73 文件清单，零通配符）与附录 B（`c0966b12` 完整 19 文件差异表，含路径、状态、行数、风险、对应 P0 任务及不合并决定）；<br>③ 补齐附录 C（G1/G2-A/G3/G4/G5 脱敏历史实验资产 Manifest：`<ART_ROOT>` 映射、文件大小、完整 64 位 SHA-256、章节/案例数、揭盲状态、Python 完整性校验命令及实测 `missing=0` 输出，以及 G2-B/G6 零样本搜索范围与核查依据）；<br>④ 保留原测试命令与实测结果（Node `71/71` + 10 独立脚本 + Python `12/12`），并明确解释零污染校验采用 `2d6061d6..86cbc9f3` 的原因 |
+| **修改文件** | 仅限 `docs/r3/p0-implementation/{P0-0-Baseline-Audit-Report.md,P0-Progress-Log.md,P0-Implementation-PRD.md,README.md}`，其余文件 0 改动 |
+| **GPT-6 审核结论** | **`PENDING`**（等待 GPT-6 最终复审） |
+| **返工及复审记录** | 对应 **`RW-P0-0-001`** 整改重提 |
 
 ---
 
@@ -125,6 +141,7 @@
 | 返工编号 | 关联任务 | 退回日期 | 被退回 Commit SHA | GPT-6 退回原因与必须整改项 | 整改 Commit SHA | 整改后复测结果 | 复审结论（GPT-6） | 关闭状态 |
 |---|---|---|---|---|---|---|---|---|
 | **`RW-PRD-001`** | `P0-MGMT-INIT`（P0 实施管理 PRD `v1.0`） | `2026-11-25` | `95b0951d021eddf5d23a1710944550ccc38ca1ff` | ① `README.md` 与 `P0-Implementation-PRD.md` 中 `P0-2` 末尾顺序表述存在歧义，须严格按 `03` 2.1 节明确“倒数第二部分：本书文风锚点示范；最后一部分（最末位）：上一章结尾原文（500–900 字）”；② 补齐初始化 Commit 完整 40 位 SHA 与 GitHub 提交时间 `2026-11-25T17:12:50Z`（随后复审要求补齐 `v1.0.1` SHA `a12774f5` 追溯元数据） | 内容整改：`a12774f50956c5081252fe1722333893331ded5e`（`2026-11-25T17:23:04Z`）；<br>追溯补齐：`e52105adca3f994fca3cbdeef9aa935479ceaf9b`（`2026-11-25T17:44:23Z`） | 两项内容整改与追溯元数据全部通过核验；其余文件 0 改动；`P0-0` ~ `P0-6` 全部保持 `NOT_STARTED` | **`ACCEPTED`**（`2026-11-26`，审核基线 `e52105ad`） | **`CLOSED`** |
+| **`RW-P0-0-001`** | `P0-0`（研发基线审计与实施准备） | `2026-11-26` | `86cbc9f3ad37c635f134eeea2a89317d5eef0a3c` | 整体审计方向认可，要求补齐：① 原始 `P0-0` Commit 完整 SHA `86cbc9f3ad37c635f134eeea2a89317d5eef0a3c` 与提交时间 `2026-11-26T02:58:13Z`；② `b5572a94` 全量文件清单（零通配符）与 `c0966b12` 完整 19 文件差异清单；③ G1/G2-A/G3/G4/G5 脱敏历史资产 Manifest、完整性校验命令输出及 G2-B/G6 搜索核查依据；④ 解释零污染采用 `2d6061d6..86cbc9f3` 的原因 | 本次 `P0-0` 整改补充独立 Commit（见交付报告与 Git 历史；原始 `86cbc9f3` 保留不动） | 纯文档整改，按要求保留原实测基线（Node `71/71` + 10 脚本 + Python `12/12`）；Python 完整性校验全量历史样本 `missing = 0`；仅改 `docs/r3/p0-implementation/` | **`PENDING`**（已重提 `READY_FOR_REVIEW`，等待最终复审） | **`OPEN`** |
 
 ---
 
@@ -134,4 +151,4 @@
 
 | 阻塞编号 | 关联任务 | 触发日期 | 阻塞原因与精确缺口 | 解除阻塞的硬前置条件 | 当前状态 |
 |---|---|---|---|---|---|
-| `BLK-G2B-001`（预登记风险，经 `P0-0` 实测确认） | `P0-6` | `2026-11-25`（`2026-11-26` `P0-0` 实测复核） | `G2-B Independent Holdout` 经 `P0-0` 核实仍处于 **`underpowered`**（已就绪全新独立未见样本 `0` 章 / `0` 案例；精确缺口 `+20` 个全新独立来源章节、`+60` 条独立非阻断案例，单章 `<=3` 条、覆盖 `>=3` 题材、`0` 章重叠且禁入 `OLD-HOLD-1..4` / `NH-1..5` / `V22-H1..4`）；同时核实 `G6`（`0/12–16` 章）、`G3`（缺 `+1` 章/`+6` 段）与 `G5`（缺 `+2` 死锁章）均存在样本缺口（详见 [`P0-0-Baseline-Audit-Report.md`](./P0-0-Baseline-Audit-Report.md) §五） | 在进入 `P0-6` 正式裁决前，由独立样本构建与双评委+第三仲裁定案流程补齐 `G2-B`、`G3`、`G5` 与 `G6` 盲测样本集，严禁混算历史集或降低原门槛 | `PRE_REGISTERED`（`P0-6` 尚未启动；不阻塞 `P0-1`~`P0-5`） |
+| `BLK-G2B-001`（预登记风险，经 `P0-0` 实测确认） | `P0-6` | `2026-11-25`（`2026-11-26` `P0-0` 实测复核） | `G2-B Independent Holdout` 经 `P0-0` 核实仍处于 **`underpowered`**（已就绪全新独立未见样本 `0` 章 / `0` 案例；精确缺口 `+20` 个全新独立来源章节、`+60` 条独立非阻断案例，单章 `<=3` 条、覆盖 `>=3` 题材、`0` 章重叠且禁入 `OLD-HOLD-1..4` / `NH-1..5` / `V22-H1..4`）；同时核实 `G6`（`0/12–16` 章）、`G3`（缺 `+1` 章/`+6` 段）与 `G5`（缺 `+2` 死锁章）均存在样本缺口（详见 [`P0-0-Baseline-Audit-Report.md`](./P0-0-Baseline-Audit-Report.md) §五 & 附录 C） | 在进入 `P0-6` 正式裁决前，由独立样本构建与双评委+第三仲裁定案流程补齐 `G2-B`、`G3`、`G5` 与 `G6` 盲测样本集，严禁混算历史集或降低原门槛 | `PRE_REGISTERED`（`P0-6` 尚未启动；不阻塞 `P0-1`~`P0-5`） |

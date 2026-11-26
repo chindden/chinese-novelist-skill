@@ -58,7 +58,7 @@
 
 | 任务 ID | 任务名称 | 前置依赖 | 当前状态 | 独立 Commit SHA | GPT-6 验收状态 | 关键风险 / 当前备注 |
 |---|---|---|---|---|---|---|
-| **P0-0** | 研发基线审计与实施准备 | PRD `ACCEPTED` + 文档 `2d6061d6` `ACCEPTED` + 作者预授权（均已满足） | **`READY_FOR_REVIEW`** | *见本次 `P0-0` 独立提交与交付报告* | `PENDING` | 已完成纯只读审计并交付 [`P0-0-Baseline-Audit-Report.md`](./P0-0-Baseline-Audit-Report.md)（Node `71/71` + 10 独立脚本 + Python `12/12` 全绿，0 代码改动），等待 GPT-6 独立验收 |
+| **P0-0** | 研发基线审计与实施准备 | PRD `ACCEPTED` + 文档 `2d6061d6` `ACCEPTED` + 作者预授权（均已满足） | **`READY_FOR_REVIEW`** | `86cbc9f3ad37c635f134eeea2a89317d5eef0a3c`（`2026-11-26T02:58:13Z`）+ `RW-P0-0-001` 补充提交 | `PENDING`（`RW-P0-0-001` 整改重提） | 已完成纯只读审计并补齐完整文件清单与历史样本脱敏 Manifest（[`P0-0-Baseline-Audit-Report.md`](./P0-0-Baseline-Audit-Report.md)；Node `71/71` + 10 脚本 + Python `12/12` 全绿，0 代码改动），等待 GPT-6 最终复审 |
 | **P0-1** | S1 四级枚举及下游兼容（含 `ENG-FIX-P1`） | `P0-0 (ACCEPTED)` | `NOT_STARTED` | `—` | `NOT_SUBMITTED` | 严守 R2 零破坏与 `SUGGESTION` 0% 阻断（`08` E1 & G5）；须待 `P0-0` 获 `ACCEPTED` 后方可启动 |
 | **P0-2** | 写手语域防火墙 | `P0-0 (ACCEPTED)` | `NOT_STARTED` | `—` | `NOT_SUBMITTED` | 写手上下文治理词/限时压迫词 `= 0`；末尾严格按“倒数第二部分：本书文风锚点示范 → 最后一部分（最末位）：上一章结尾原文（500–900 字）”排列（`03` 2.1 节 & `08` E5） |
 | **P0-3** | `precheck v2` | `P0-0 (ACCEPTED)` | `NOT_STARTED` | `—` | `NOT_SUBMITTED` | 仅文件破损与作者显式硬约束阻断；字数/重复段/跨段引语不阻断 |
