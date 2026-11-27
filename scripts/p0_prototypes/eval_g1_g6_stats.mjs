@@ -5,12 +5,17 @@
  * Implements frozen acceptance protocol `08-工程效率与文学质量双重验收方案.md` (v1.2.3) §2.1 & §3
  * and `P0-Implementation-PRD.md` task `P0-6`:
  *   - Strict separation of `G2-A Regression/Calibration` vs `G2-B Independent Holdout` (ZERO mixing!)
- *   - Hard anti-leakage assertions: zero chapter/content overlap & retired blacklist (`NH-1..5`, `V22-H1..4`,
- *     `OLD-HOLD-1..4`, `DOC-1..6`, `Arm 0..2 Ch 1..3`, etc.)
- *   - Deterministic chapter-cluster nonparametric Bootstrap 95% CI (locked B = 2,000, explicit reminder that
- *     Bootstrap does NOT compensate for insufficient independent chapters N_ch)
+ *   - Hard anti-leakage assertions: zero chapter/source/hash overlap against historical sets AND
+ *     internal Holdout provenance & uniqueness (`sourceChapterId` + 64-hex `contentSha256` required & unique)
+ *   - Retired blacklist (`NH-1..5`, `V22-H1..4`, `OLD-HOLD-1..4`, `DOC-1..6`, `Arm 0..2 Ch 1..3`, etc.)
+ *   - Manifest-to-run strong consistency: every run MUST cover 100% of declared chapters with non-negative
+ *     integer counts matching declared positives/negatives/paragraphs and reconciled Bootstrap `nClusters`
+ *   - Fair A/B/C side-by-side gate: `adjudicateSchemes()` requires complete `{A, B, C}` AND exact
+ *     canonical dataset equivalence across all 3 schemes before allowing `GO_CANDIDATE_SELECTED`
+ *   - Deterministic chapter-cluster nonparametric Bootstrap 95% CI (locked B = 2,000)
  *   - Exact ordered 4-class confusion matrix (`BLOCKER`, `MAJOR`, `MINOR`, `SUGGESTION`), quadratic weighted
- *     Kappa (primary, >= 0.85) + unweighted Cohen's Kappa (auxiliary) + `SUGGESTION` loop-leak count
+ *     Kappa (primary, >= 0.85, degenerate marginals strictly undefined / non-passing) + unweighted Kappa +
+ *     per-case `caseId`/`sourceChapterId` traceability & 4-class coverage
  *   - Mandatory `UNDERPOWERED` / `BLOCKED_UNDERPOWERED` enforcement whenever fresh independent samples are
  *     below frozen thresholds (NEVER weakens thresholds or fabricates a PASS!)
  *   - Scheme B hard elimination rule (> 1.0 pp recall lag vs A/C in G1 or G6, or ANY 1 BLOCKER miss)
@@ -19,12 +24,16 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import {fileURLToPath} from 'node:url';
+import {canonicalJson} from '../r3_review_kernel.mjs';
 
 export const P0_6_STATS_SCHEMA = 'r3-p0-6-g1-g6-stats-1';
 export const BOOTSTRAP_ITERATIONS = 2000;
 export const DEFAULT_BOOTSTRAP_SEED = 20261126;
 
 export const ORDERED_SEVERITIES = Object.freeze(['BLOCKER', 'MAJOR', 'MINOR', 'SUGGESTION']);
+export const REQUIRED_ADJUDICATION_SCHEMES = Object.freeze(['A', 'B', 'C']);
+
+const HEX64_RE = /^[a-f0-9]{64}$/i;
 
 export const FROZEN_THRESHOLDS = Object.freeze({
   G1: Object.freeze({
@@ -81,7 +90,9 @@ export const FROZEN_THRESHOLDS = Object.freeze({
   }),
   G6: Object.freeze({
     minGenres: 4,
+    maxBudgetGenres: 6,
     minChapters: 12,
+    maxBudgetChapters: 16,
     minPositives: 30,
     minNegatives: 40,
     requiredRepeats: 1,
@@ -124,6 +135,7 @@ export const RETIRED_BLACKLIST_TITLES = Object.freeze([
 
 const isPlainObject = x => Boolean(x) && typeof x === 'object' && !Array.isArray(x);
 const isNonEmptyString = x => typeof x === 'string' && x.trim().length > 0;
+const isNonNegInt = x => Number.isSafeInteger(x) && x >= 0;
 const round6 = x => (typeof x === 'number' && Number.isFinite(x) ? Number(x.toFixed(6)) : null);
 
 export function normalizeId(raw) {
@@ -256,6 +268,69 @@ export function assertZeroLeakage(referenceChapters, holdoutChapters, {holdoutNa
 }
 
 /**
+ * Blocking 3: Independent Holdout internal provenance & uniqueness verification.
+ * Every non-empty G2-B / G6 holdout chapter MUST carry a valid non-empty `sourceChapterId` AND valid
+ * 64-hex `contentSha256`, and NEITHER may repeat under renamed `chapterId`s inside the holdout.
+ */
+export function assertHoldoutInternalProvenanceAndUniqueness(chapters, {holdoutName = 'G2-B'} = {}) {
+  const seenSources = new Map();
+  const seenHashes = new Map();
+  const violations = [];
+
+  for (const ch of chapters || []) {
+    const chId = ch?.chapterId ?? '<missing>';
+    const rawSrc = ch?.sourceChapterId;
+    const rawHash = ch?.contentSha256;
+
+    if (!isNonEmptyString(rawSrc) || !isNonEmptyString(rawHash) || !HEX64_RE.test(rawHash.trim())) {
+      violations.push({
+        code: 'R3_P0_6_HOLDOUT_PROVENANCE_UNVERIFIED',
+        holdoutName,
+        chapterId: chId,
+        message: `${holdoutName} 章节 ${chId} 缺少可验证的 sourceChapterId 或合法 64 位 SHA-256 contentSha256，按 Fail-Closed 拒收。`,
+      });
+      continue;
+    }
+
+    const normSrc = normalizeId(rawSrc);
+    const normHash = rawHash.trim().toLowerCase();
+
+    if (seenSources.has(normSrc)) {
+      violations.push({
+        code: 'R3_P0_6_HOLDOUT_DUPLICATE_SOURCE_CHAPTER',
+        holdoutName,
+        chapterId: chId,
+        duplicateOf: seenSources.get(normSrc),
+        sourceChapterId: rawSrc,
+        message: `${holdoutName} 内部存在重复 sourceChapterId（${rawSrc}：${chId} 与 ${seenSources.get(normSrc)}），严禁改名虚增独立章节数 N_ch。`,
+      });
+    } else {
+      seenSources.set(normSrc, chId);
+    }
+
+    if (seenHashes.has(normHash)) {
+      violations.push({
+        code: 'R3_P0_6_HOLDOUT_DUPLICATE_CONTENT_HASH',
+        holdoutName,
+        chapterId: chId,
+        duplicateOf: seenHashes.get(normHash),
+        contentSha256: normHash,
+        message: `${holdoutName} 内部存在重复正文 contentSha256（${chId} 与 ${seenHashes.get(normHash)}），严禁改名虚增独立章节数 N_ch。`,
+      });
+    } else {
+      seenHashes.set(normHash, chId);
+    }
+  }
+
+  return {
+    ok: violations.length === 0,
+    exitCode: violations.length === 0 ? 0 : 2,
+    error: violations.length === 0 ? null : violations[0].code,
+    violations,
+  };
+}
+
+/**
  * Chapter-level cluster nonparametric Bootstrap 95% CI (locked B = 2,000).
  *
  * Each entry in `clusters` represents ONE independent chapter:
@@ -335,6 +410,10 @@ export function chapterClusterBootstrapCI(
 /**
  * Compute exact 4x4 confusion matrix, Quadratic Weighted Kappa (primary), and Unweighted Cohen's Kappa (auxiliary)
  * for ordered S1 severity labels: ['BLOCKER', 'MAJOR', 'MINOR', 'SUGGESTION'].
+ *
+ * Blocking 4: When marginals are degenerate (`weightedExp === 0` or `1 - peUnweighted === 0`),
+ * Kappa is mathematically undefined and MUST return `null` with `kappaStatus: 'UNDEFINED_DEGENERATE_MARGINALS'`
+ * (NEVER fabricated as `1.0`).
  */
 export function computeOrderedKappa(pairs, {labels = ORDERED_SEVERITIES} = {}) {
   const k = labels.length;
@@ -359,6 +438,7 @@ export function computeOrderedKappa(pairs, {labels = ORDERED_SEVERITIES} = {}) {
       agreementRate: null,
       quadraticWeightedKappa: null,
       unweightedKappa: null,
+      kappaStatus: 'EMPTY_SAMPLE',
       degenerateMarginals: false,
     };
   }
@@ -386,11 +466,12 @@ export function computeOrderedKappa(pairs, {labels = ORDERED_SEVERITIES} = {}) {
     }
   }
 
-  const degenerateMarginals = weightedExp === 0 || 1 - peUnweighted === 0;
-  const quadraticWeightedKappa =
-    weightedExp === 0 ? (weightedObs === 0 ? 1.0 : null) : 1 - weightedObs / weightedExp;
-  const unweightedKappa =
-    1 - peUnweighted === 0 ? (poUnweighted === 1 ? 1.0 : null) : (poUnweighted - peUnweighted) / (1 - peUnweighted);
+  const degenerateWeighted = weightedExp === 0;
+  const degenerateUnweighted = 1 - peUnweighted === 0;
+  const degenerateMarginals = degenerateWeighted || degenerateUnweighted;
+
+  const quadraticWeightedKappa = degenerateWeighted ? null : 1 - weightedObs / weightedExp;
+  const unweightedKappa = degenerateUnweighted ? null : (poUnweighted - peUnweighted) / (1 - peUnweighted);
 
   const labeledMatrix = {};
   for (let i = 0; i < k; i++) {
@@ -408,6 +489,7 @@ export function computeOrderedKappa(pairs, {labels = ORDERED_SEVERITIES} = {}) {
     agreementRate: round6(poUnweighted),
     quadraticWeightedKappa: round6(quadraticWeightedKappa),
     unweightedKappa: round6(unweightedKappa),
+    kappaStatus: degenerateMarginals ? 'UNDEFINED_DEGENERATE_MARGINALS' : 'DEFINED',
     degenerateMarginals,
   };
 }
@@ -500,7 +582,7 @@ function summarizeConfusionAcrossRuns(runs) {
 }
 
 function assertUniqueChapters(chapters, gateName) {
-  const seen = new Set();
+  const byId = new Map();
   const duplicates = [];
   for (const ch of chapters || []) {
     const id = normalizeId(ch?.chapterId);
@@ -511,10 +593,10 @@ function assertUniqueChapters(chapters, gateName) {
         message: `${gateName} 存在缺失或空的 chapterId。`,
       };
     }
-    if (seen.has(id)) {
+    if (byId.has(id)) {
       duplicates.push(ch.chapterId);
     }
-    seen.add(id);
+    byId.set(id, ch);
   }
   if (duplicates.length > 0) {
     return {
@@ -524,15 +606,29 @@ function assertUniqueChapters(chapters, gateName) {
       message: `${gateName} 存在重复 chapterId（严禁通过重复章节虚增独立章节数 N_ch）：${duplicates.join(', ')}`,
     };
   }
-  return {ok: true, idSet: seen};
+  return {ok: true, byId};
 }
 
-function assertRunsOnlyUseDeclaredChapters(runs, declaredIdSet, gateName) {
+/**
+ * Blocking 1: Strict manifest-to-run chapter coverage AND per-chapter non-negative integer count consistency.
+ * Rejects partial-chapter runs masquerading as full N_ch, negative/non-integer counts, inclusion violations
+ * (`clearTierFp > fp`, `blockerMisses > fn`, `noIssue > nonBlockingTn`), and per-chapter totals diverging
+ * from declared ground-truth counts (`positives`, `negatives`, `paragraphs`).
+ */
+function assertRunsMatchDeclaredManifest(runs, declaredById, mode, gateName) {
   for (let idx = 0; idx < (runs || []).length; idx++) {
+    const runChapters = runs[idx]?.chapters;
+    if (!Array.isArray(runChapters)) {
+      return {
+        ok: false,
+        code: 'R3_P0_6_INVALID_OBSERVATION_COUNTS',
+        message: `${gateName} 第 ${idx + 1} 轮缺少 chapters 数组。`,
+      };
+    }
     const runSeen = new Set();
-    for (const ch of runs[idx]?.chapters || []) {
+    for (const ch of runChapters) {
       const id = normalizeId(ch?.chapterId);
-      if (!id || !declaredIdSet.has(id)) {
+      if (!id || !declaredById.has(id)) {
         return {
           ok: false,
           code: 'R3_P0_6_UNDECLARED_RUN_CHAPTER',
@@ -551,6 +647,134 @@ function assertRunsOnlyUseDeclaredChapters(runs, declaredIdSet, gateName) {
         };
       }
       runSeen.add(id);
+
+      const decl = declaredById.get(id);
+      if (mode === 'g1') {
+        const tp = ch.tp ?? 0;
+        const fn = ch.fn ?? 0;
+        const blk = ch.blockerMisses ?? 0;
+        if (!isNonNegInt(tp) || !isNonNegInt(fn) || !isNonNegInt(blk) || blk > fn) {
+          return {
+            ok: false,
+            code: 'R3_P0_6_INVALID_OBSERVATION_COUNTS',
+            message: `${gateName} 第 ${idx + 1} 轮章节 ${ch.chapterId} 存在非法计数（须非负整数且 blockerMisses <= fn）。`,
+          };
+        }
+        if (!isNonNegInt(decl.positives) || tp + fn !== decl.positives) {
+          return {
+            ok: false,
+            code: 'R3_P0_6_OBSERVATION_MANIFEST_MISMATCH',
+            message: `${gateName} 第 ${idx + 1} 轮章节 ${ch.chapterId} 观测正例 tp+fn=${tp + fn} 与清册 positives=${decl.positives} 不一致。`,
+          };
+        }
+      } else if (mode === 'g2') {
+        const tp = ch.tp ?? 0;
+        const fn = ch.fn ?? 0;
+        const fp = ch.fp ?? 0;
+        const tn = ch.tn ?? 0;
+        const clearFp = ch.clearTierFp ?? 0;
+        if (
+          !isNonNegInt(tp) ||
+          !isNonNegInt(fn) ||
+          !isNonNegInt(fp) ||
+          !isNonNegInt(tn) ||
+          !isNonNegInt(clearFp) ||
+          clearFp > fp
+        ) {
+          return {
+            ok: false,
+            code: 'R3_P0_6_INVALID_OBSERVATION_COUNTS',
+            message: `${gateName} 第 ${idx + 1} 轮章节 ${ch.chapterId} 存在非法计数（须非负整数且 clearTierFp <= fp）。`,
+          };
+        }
+        if (!isNonNegInt(decl.negatives) || fp + tn !== decl.negatives) {
+          return {
+            ok: false,
+            code: 'R3_P0_6_OBSERVATION_MANIFEST_MISMATCH',
+            message: `${gateName} 第 ${idx + 1} 轮章节 ${ch.chapterId} 观测负例 fp+tn=${fp + tn} 与清册 negatives=${decl.negatives} 不一致。`,
+          };
+        }
+        if (decl.positives !== undefined && (!isNonNegInt(decl.positives) || tp + fn !== decl.positives)) {
+          return {
+            ok: false,
+            code: 'R3_P0_6_OBSERVATION_MANIFEST_MISMATCH',
+            message: `${gateName} 第 ${idx + 1} 轮章节 ${ch.chapterId} 观测正例 tp+fn=${tp + fn} 与清册 positives=${decl.positives} 不一致。`,
+          };
+        }
+      } else if (mode === 'g3') {
+        const blkFp = ch.blockingFp ?? 0;
+        const nonBlkTn = ch.nonBlockingTn ?? 0;
+        const noIssue = ch.noIssue ?? 0;
+        if (
+          !isNonNegInt(blkFp) ||
+          !isNonNegInt(nonBlkTn) ||
+          !isNonNegInt(noIssue) ||
+          noIssue > nonBlkTn
+        ) {
+          return {
+            ok: false,
+            code: 'R3_P0_6_INVALID_OBSERVATION_COUNTS',
+            message: `${gateName} 第 ${idx + 1} 轮章节 ${ch.chapterId} 存在非法计数（须非负整数且 noIssue <= nonBlockingTn）。`,
+          };
+        }
+        if (!isNonNegInt(decl.paragraphs) || blkFp + nonBlkTn !== decl.paragraphs) {
+          return {
+            ok: false,
+            code: 'R3_P0_6_OBSERVATION_MANIFEST_MISMATCH',
+            message: `${gateName} 第 ${idx + 1} 轮章节 ${ch.chapterId} 观测段落数=${blkFp + nonBlkTn} 与清册 paragraphs=${decl.paragraphs} 不一致。`,
+          };
+        }
+      } else if (mode === 'g6') {
+        const tp = ch.tp ?? 0;
+        const fn = ch.fn ?? 0;
+        const fp = ch.fp ?? 0;
+        const tn = ch.tn ?? 0;
+        const clearFp = ch.clearTierFp ?? 0;
+        const blk = ch.blockerMisses ?? 0;
+        if (
+          !isNonNegInt(tp) ||
+          !isNonNegInt(fn) ||
+          !isNonNegInt(fp) ||
+          !isNonNegInt(tn) ||
+          !isNonNegInt(clearFp) ||
+          !isNonNegInt(blk) ||
+          clearFp > fp ||
+          blk > fn
+        ) {
+          return {
+            ok: false,
+            code: 'R3_P0_6_INVALID_OBSERVATION_COUNTS',
+            message: `${gateName} 第 ${idx + 1} 轮章节 ${ch.chapterId} 存在非法计数（须非负整数且 clearTierFp <= fp, blockerMisses <= fn）。`,
+          };
+        }
+        if (!isNonNegInt(decl.positives) || tp + fn !== decl.positives) {
+          return {
+            ok: false,
+            code: 'R3_P0_6_OBSERVATION_MANIFEST_MISMATCH',
+            message: `${gateName} 第 ${idx + 1} 轮章节 ${ch.chapterId} 观测正例 tp+fn=${tp + fn} 与清册 positives=${decl.positives} 不一致。`,
+          };
+        }
+        if (!isNonNegInt(decl.negatives) || fp + tn !== decl.negatives) {
+          return {
+            ok: false,
+            code: 'R3_P0_6_OBSERVATION_MANIFEST_MISMATCH',
+            message: `${gateName} 第 ${idx + 1} 轮章节 ${ch.chapterId} 观测负例 fp+tn=${fp + tn} 与清册 negatives=${decl.negatives} 不一致。`,
+          };
+        }
+      }
+    }
+
+    if (runSeen.size !== declaredById.size) {
+      const missing = [...declaredById.keys()].filter(id => !runSeen.has(id));
+      return {
+        ok: false,
+        code: 'R3_P0_6_RUN_CHAPTER_COVERAGE_MISMATCH',
+        runIndex: idx + 1,
+        observedChapters: runSeen.size,
+        declaredChapters: declaredById.size,
+        missingChapters: missing,
+        message: `${gateName} 第 ${idx + 1} 轮仅覆盖 ${runSeen.size}/${declaredById.size} 个声明章节（缺失：${missing.slice(0, 5).join(', ')}），严禁声明多章实测少章。`,
+      };
     }
   }
   return {ok: true};
@@ -568,11 +792,11 @@ export function evaluateG1(g1Data, {seed = DEFAULT_BOOTSTRAP_SEED, iterations = 
 
   const uT2 = assertUniqueChapters(track2Chapters, 'G1.track2');
   if (!uT2.ok) return {gate: 'G1', status: 'INVALID_DESIGN', exitCode: 2, error: uT2.code, message: uT2.message, pass: false};
-  const rT2 = assertRunsOnlyUseDeclaredChapters(track2Runs, uT2.idSet, 'G1.track2');
+  const rT2 = assertRunsMatchDeclaredManifest(track2Runs, uT2.byId, 'g1', 'G1.track2');
   if (!rT2.ok) return {gate: 'G1', status: 'INVALID_DESIGN', exitCode: 2, error: rT2.code, message: rT2.message, pass: false};
   const uReg = assertUniqueChapters(regChapters, 'G1.regression7');
   if (!uReg.ok) return {gate: 'G1', status: 'INVALID_DESIGN', exitCode: 2, error: uReg.code, message: uReg.message, pass: false};
-  const rReg = assertRunsOnlyUseDeclaredChapters(regRuns, uReg.idSet, 'G1.regression7');
+  const rReg = assertRunsMatchDeclaredManifest(regRuns, uReg.byId, 'g1', 'G1.regression7');
   if (!rReg.ok) return {gate: 'G1', status: 'INVALID_DESIGN', exitCode: 2, error: rReg.code, message: rReg.message, pass: false};
 
   const nChTrack2 = track2Chapters.length;
@@ -604,28 +828,27 @@ export function evaluateG1(g1Data, {seed = DEFAULT_BOOTSTRAP_SEED, iterations = 
   }
 
   const t2Summary = summarizeConfusionAcrossRuns(track2Runs);
-  for (const r of t2Summary.perRun) {
-    if (r.tp + r.fn < th.minTrack2Positives) {
-      return {
-        gate: 'G1',
-        track: 'regression_calibration',
-        isIndependentGeneralization: false,
-        status: 'UNDERPOWERED',
-        sampleTriplet: {
-          track2: {nCh: nChTrack2, nPos: r.tp + r.fn, kRep: kRepTrack2},
-          regression7: {nCh: nChReg, kRep: kRepReg},
-        },
-        gaps: [`Track2 run ${r.runIndex} evaluated positives=${r.tp + r.fn} < ${th.minTrack2Positives}`],
-        pass: false,
-      };
-    }
-  }
   const t2RecallSeries = summarizeSeries(t2Summary.perRun.map(r => r.recall));
   const t2Clusters = aggregateRunsByChapter(track2Runs, c => ({
     numerator: c.tp || 0,
     denominator: (c.tp || 0) + (c.fn || 0),
   }));
   const t2RecallBootstrap = chapterClusterBootstrapCI(t2Clusters, {iterations, seed});
+
+  if (t2RecallBootstrap.nClusters < th.minTrack2Chapters) {
+    return {
+      gate: 'G1',
+      track: 'regression_calibration',
+      isIndependentGeneralization: false,
+      status: 'UNDERPOWERED',
+      sampleTriplet: {
+        track2: {nCh: t2RecallBootstrap.nClusters, nPos: nPosTrack2, kRep: kRepTrack2},
+        regression7: {nCh: nChReg, kRep: kRepReg},
+      },
+      gaps: [`Track2 effective positive clusters=${t2RecallBootstrap.nClusters} < ${th.minTrack2Chapters}`],
+      pass: false,
+    };
+  }
 
   const regSummary = summarizeConfusionAcrossRuns(regRuns);
   const regRecallSeries = summarizeSeries(regSummary.perRun.map(r => r.recall));
@@ -655,7 +878,7 @@ export function evaluateG1(g1Data, {seed = DEFAULT_BOOTSTRAP_SEED, iterations = 
     status: failures.length === 0 ? 'PASS' : 'FAIL',
     pass: failures.length === 0,
     sampleTriplet: {
-      track2: {nCh: nChTrack2, nPos: nPosTrack2, kRep: kRepTrack2},
+      track2: {nCh: nChTrack2, effectiveClusters: t2RecallBootstrap.nClusters, nPos: nPosTrack2, kRep: kRepTrack2},
       regression7: {nCh: nChReg, kRep: kRepReg},
     },
     track2: {
@@ -688,7 +911,7 @@ function evaluateG2Core(
   if (!uCheck.ok) {
     return {gate: gateName, track, status: 'INVALID_DESIGN', exitCode: 2, error: uCheck.code, message: uCheck.message, pass: false};
   }
-  const rCheck = assertRunsOnlyUseDeclaredChapters(runs, uCheck.idSet, gateName);
+  const rCheck = assertRunsMatchDeclaredManifest(runs, uCheck.byId, 'g2', gateName);
   if (!rCheck.ok) {
     return {gate: gateName, track, status: 'INVALID_DESIGN', exitCode: 2, error: rCheck.code, message: rCheck.message, pass: false};
   }
@@ -710,20 +933,6 @@ function evaluateG2Core(
         pass: false,
         offendingChapters: capViolations.map(c => ({chapterId: c.chapterId, negatives: c.negatives})),
       };
-    }
-    for (const run of runs) {
-      const runCapViolations = (run.chapters || []).filter(c => (c.fp || 0) + (c.tn || 0) > maxCasesPerChapter);
-      if (runCapViolations.length > 0) {
-        return {
-          gate: gateName,
-          track,
-          status: 'INVALID_DESIGN',
-          exitCode: 2,
-          error: 'R3_P0_6_G2B_CHAPTER_CASE_CAP_EXCEEDED',
-          pass: false,
-          offendingChapters: runCapViolations.map(c => ({chapterId: c.chapterId, evaluatedNegatives: (c.fp || 0) + (c.tn || 0)})),
-        };
-      }
     }
   }
 
@@ -750,22 +959,6 @@ function evaluateG2Core(
   }
 
   const summary = summarizeConfusionAcrossRuns(runs);
-  for (const r of summary.perRun) {
-    if (r.fp + r.tn < thresholds.minNegatives) {
-      return {
-        gate: gateName,
-        track,
-        isIndependentGeneralization: gateName === 'G2-B',
-        g2aPassDoesNotImplyG2bPass: true,
-        doNotExtrapolatePrecisionToProduction: true,
-        status: 'UNDERPOWERED',
-        sampleTriplet: {nCh, nNeg: r.fp + r.tn, kRep, genres},
-        gaps: [`run ${r.runIndex} evaluated negatives=${r.fp + r.tn} < ${thresholds.minNegatives}`],
-        pass: false,
-      };
-    }
-  }
-
   const fprSeries = summarizeSeries(summary.perRun.map(r => r.fpr));
   const precisionSeries = summarizeSeries(summary.perRun.map(r => r.precision));
   const maxClearFp = Math.max(...summary.perRun.map(r => r.clearTierFp));
@@ -775,6 +968,20 @@ function evaluateG2Core(
     denominator: (c.fp || 0) + (c.tn || 0),
   }));
   const fprBootstrap = chapterClusterBootstrapCI(fprClusters, {iterations, seed});
+
+  if (fprBootstrap.nClusters < thresholds.minChapters) {
+    return {
+      gate: gateName,
+      track,
+      isIndependentGeneralization: gateName === 'G2-B',
+      g2aPassDoesNotImplyG2bPass: true,
+      doNotExtrapolatePrecisionToProduction: true,
+      status: 'UNDERPOWERED',
+      sampleTriplet: {nCh: fprBootstrap.nClusters, nNeg, kRep, genres},
+      gaps: [`effective negative clusters=${fprBootstrap.nClusters} < ${thresholds.minChapters}`],
+      pass: false,
+    };
+  }
 
   const precisionClusters = aggregateRunsByChapter(runs, c => ({
     numerator: c.tp || 0,
@@ -804,7 +1011,7 @@ function evaluateG2Core(
     doNotExtrapolatePrecisionToProduction: true,
     status: failures.length === 0 ? 'PASS' : 'FAIL',
     pass: failures.length === 0,
-    sampleTriplet: {nCh, nNeg, kRep, genres},
+    sampleTriplet: {nCh, effectiveClusters: fprBootstrap.nClusters, nNeg, kRep, genres},
     rawTotalsAcrossRuns: summary.rawTotalsAcrossRuns,
     perRun: summary.perRun,
     clearTierFpMaxPerRun: maxClearFp,
@@ -826,11 +1033,12 @@ export function evaluateG2A(g2aData, opts = {}) {
 
 /**
  * Evaluate G2-B (Independent Holdout Non-Blocking Generalization).
- * Runs hard zero-overlap & retired-blacklist assertions across BOTH declared chapters and all run chapters.
+ * Runs hard cross-set zero-overlap, retired blacklist, AND internal provenance/uniqueness checks FIRST.
  */
 export function evaluateG2B(g2bData, {referenceChapters = [], seed = DEFAULT_BOOTSTRAP_SEED, iterations = BOOTSTRAP_ITERATIONS} = {}) {
+  const declaredChapters = g2bData?.chapters || [];
   const allG2bChapters = [
-    ...(g2bData?.chapters || []),
+    ...declaredChapters,
     ...(g2bData?.runs || []).flatMap(r => r?.chapters || []),
   ];
   const leakage = assertZeroLeakage(referenceChapters, allG2bChapters, {holdoutName: 'G2-B'});
@@ -843,6 +1051,19 @@ export function evaluateG2B(g2bData, {referenceChapters = [], seed = DEFAULT_BOO
       exitCode: 2,
       error: leakage.error,
       leakageViolations: leakage.violations,
+      pass: false,
+    };
+  }
+  const provenance = assertHoldoutInternalProvenanceAndUniqueness(declaredChapters, {holdoutName: 'G2-B'});
+  if (!provenance.ok) {
+    return {
+      gate: 'G2-B',
+      track: 'independent_holdout',
+      isIndependentGeneralization: true,
+      status: 'INVALID_DESIGN',
+      exitCode: 2,
+      error: provenance.error,
+      provenanceViolations: provenance.violations,
       pass: false,
     };
   }
@@ -864,7 +1085,7 @@ export function evaluateG3(g3Data, {seed = DEFAULT_BOOTSTRAP_SEED, iterations = 
 
   const uCheck = assertUniqueChapters(chapters, 'G3');
   if (!uCheck.ok) return {gate: 'G3', status: 'INVALID_DESIGN', exitCode: 2, error: uCheck.code, message: uCheck.message, pass: false};
-  const rCheck = assertRunsOnlyUseDeclaredChapters(runs, uCheck.idSet, 'G3');
+  const rCheck = assertRunsMatchDeclaredManifest(runs, uCheck.byId, 'g3', 'G3');
   if (!rCheck.ok) return {gate: 'G3', status: 'INVALID_DESIGN', exitCode: 2, error: rCheck.code, message: rCheck.message, pass: false};
 
   const nCh = chapters.length;
@@ -919,15 +1140,6 @@ export function evaluateG3(g3Data, {seed = DEFAULT_BOOTSTRAP_SEED, iterations = 
       rNoIssue += ni;
       rTotal += tot;
     }
-    if (rTotal < th.minCases) {
-      return {
-        gate: 'G3',
-        status: 'UNDERPOWERED',
-        sampleTriplet: {nCh, nCases: rTotal, kRep},
-        gaps: [`run ${idx + 1} evaluated paragraphs=${rTotal} < ${th.minCases}`],
-        pass: false,
-      };
-    }
     totalBlockingFp += rBlkFp;
     totalNonBlockingTn += rNonBlkTn;
     totalNoIssue += rNoIssue;
@@ -952,6 +1164,16 @@ export function evaluateG3(g3Data, {seed = DEFAULT_BOOTSTRAP_SEED, iterations = 
   }));
   const noIssueBootstrap = chapterClusterBootstrapCI(noIssueClusters, {iterations, seed});
 
+  if (noIssueBootstrap.nClusters < th.minChapters) {
+    return {
+      gate: 'G3',
+      status: 'UNDERPOWERED',
+      sampleTriplet: {nCh: noIssueBootstrap.nClusters, nCases, kRep},
+      gaps: [`effective clean-paragraph clusters=${noIssueBootstrap.nClusters} < ${th.minChapters}`],
+      pass: false,
+    };
+  }
+
   const nonBlockingClusters = aggregateRunsByChapter(runs, c => ({
     numerator: c.nonBlockingTn || 0,
     denominator: (c.blockingFp || 0) + (c.nonBlockingTn || 0),
@@ -970,7 +1192,7 @@ export function evaluateG3(g3Data, {seed = DEFAULT_BOOTSTRAP_SEED, iterations = 
     gate: 'G3',
     status: failures.length === 0 ? 'PASS' : 'FAIL',
     pass: failures.length === 0,
-    sampleTriplet: {nCh, nCases, kRep},
+    sampleTriplet: {nCh, effectiveClusters: noIssueBootstrap.nClusters, nCases, kRep},
     rawTotalsAcrossRuns: {tn: totalNonBlockingTn, fp: totalBlockingFp, noIssue: totalNoIssue, total: totalEvaluated},
     perRun,
     nonBlockingRate: round6(nonBlockingRate),
@@ -983,17 +1205,115 @@ export function evaluateG3(g3Data, {seed = DEFAULT_BOOTSTRAP_SEED, iterations = 
 
 /**
  * Evaluate G4 (Ordered 4-Class Severity Stability via Quadratic Weighted Kappa >= 0.85 & Zero SUGGESTION Leak).
+ *
+ * Blocking 4 hardening:
+ *  - Every evaluated probe MUST carry `caseId` & `sourceChapterId` (unique `caseId` per run, consistent truth across runs).
+ *  - Independent source chapter count N_ch is derived from actual observed `sourceChapterId`s in `runs[].pairs`,
+ *    and MUST reconcile with any declared `sourceChapters` list (blocks "declare 8 chapters, test 1 chapter").
+ *  - Ground-truth labels MUST cover all 4 ordered S1 classes (`BLOCKER`, `MAJOR`, `MINOR`, `SUGGESTION`).
+ *  - Degenerate marginals (`quadraticWeightedKappa === null`) NEVER pass G4.
  */
 export function evaluateG4(g4Data) {
   const th = FROZEN_THRESHOLDS.G4;
-  const sourceChapters = [...new Set((g4Data?.sourceChapters || []).filter(isNonEmptyString).map(normalizeId))];
-  const nCases = g4Data?.nCases ?? (g4Data?.runs?.[0]?.pairs?.length ?? 0);
+  const declaredSourceChapters = [...new Set((g4Data?.sourceChapters || []).filter(isNonEmptyString).map(normalizeId))].sort();
   const runs = g4Data?.runs || [];
   const kRep = runs.length;
 
+  // When runs are empty (e.g., readiness audit with K=0), report exact UNDERPOWERED gaps cleanly.
+  if (kRep === 0) {
+    const nCases = g4Data?.nCases ?? 0;
+    const gaps = [];
+    if (declaredSourceChapters.length < th.minSourceChapters) {
+      gaps.push(`independentSourceChapters=${declaredSourceChapters.length} < ${th.minSourceChapters} (need +${th.minSourceChapters - declaredSourceChapters.length})`);
+    }
+    if (nCases < th.minCases) gaps.push(`N_case=${nCases} < ${th.minCases}`);
+    gaps.push(`K_rep=0 < ${th.minRepeats}`);
+    return {
+      gate: 'G4',
+      status: 'UNDERPOWERED',
+      sampleTriplet: {nSourceChapters: declaredSourceChapters.length, nCases, kRep: 0},
+      gaps,
+      pass: false,
+    };
+  }
+
+  // Validate per-case traceability, uniqueness, and cross-run ground-truth consistency
+  let baselineProbeKey = null;
+  const observedSourceSet = new Set();
+  const observedTruthClasses = new Set();
+
+  for (let idx = 0; idx < runs.length; idx++) {
+    const pairs = runs[idx]?.pairs;
+    if (!Array.isArray(pairs)) {
+      return {gate: 'G4', status: 'INVALID_DESIGN', exitCode: 2, error: 'R3_P0_6_G4_CASE_TRACEABILITY_MISSING', pass: false};
+    }
+    const seenCaseIds = new Set();
+    const runProbeManifest = [];
+    for (const p of pairs) {
+      if (!isNonEmptyString(p?.caseId) || !isNonEmptyString(p?.sourceChapterId)) {
+        return {
+          gate: 'G4',
+          status: 'INVALID_DESIGN',
+          exitCode: 2,
+          error: 'R3_P0_6_G4_CASE_TRACEABILITY_MISSING',
+          message: `G4 第 ${idx + 1} 轮存在缺少 caseId 或 sourceChapterId 的探针案例。`,
+          pass: false,
+        };
+      }
+      const normCase = normalizeId(p.caseId);
+      const normSrc = normalizeId(p.sourceChapterId);
+      if (seenCaseIds.has(normCase)) {
+        return {
+          gate: 'G4',
+          status: 'INVALID_DESIGN',
+          exitCode: 2,
+          error: 'R3_P0_6_G4_DUPLICATE_CASE_ID',
+          message: `G4 第 ${idx + 1} 轮存在重复 caseId：${p.caseId}`,
+          pass: false,
+        };
+      }
+      seenCaseIds.add(normCase);
+      observedSourceSet.add(normSrc);
+      const gt = p.truth ?? p.gt;
+      if (ORDERED_SEVERITIES.includes(gt)) {
+        observedTruthClasses.add(gt);
+      }
+      runProbeManifest.push({caseId: normCase, sourceChapterId: normSrc, truth: gt});
+    }
+    runProbeManifest.sort((a, b) => a.caseId.localeCompare(b.caseId, 'en'));
+    const sig = canonicalJson(runProbeManifest);
+    if (baselineProbeKey === null) {
+      baselineProbeKey = sig;
+    } else if (sig !== baselineProbeKey) {
+      return {
+        gate: 'G4',
+        status: 'INVALID_DESIGN',
+        exitCode: 2,
+        error: 'R3_P0_6_G4_RUN_PROBES_MISMATCH',
+        message: `G4 第 ${idx + 1} 轮探针集合（caseId/sourceChapterId/truth）与第 1 轮不一致。`,
+        pass: false,
+      };
+    }
+  }
+
+  const observedSources = [...observedSourceSet].sort();
+  if (declaredSourceChapters.length > 0 && canonicalJson(declaredSourceChapters) !== canonicalJson(observedSources)) {
+    return {
+      gate: 'G4',
+      status: 'INVALID_DESIGN',
+      exitCode: 2,
+      error: 'R3_P0_6_G4_SOURCE_CHAPTER_MISMATCH',
+      declaredSourceChapters,
+      observedSourceChapters: observedSources,
+      message: `G4 声明来源章集合（${declaredSourceChapters.length} 章）与实际案例 sourceChapterId 集合（${observedSources.length} 章）不一致。`,
+      pass: false,
+    };
+  }
+
+  const nCases = runs[0].pairs.length;
   const gaps = [];
-  if (sourceChapters.length < th.minSourceChapters) {
-    gaps.push(`independentSourceChapters=${sourceChapters.length} < ${th.minSourceChapters} (need +${th.minSourceChapters - sourceChapters.length})`);
+  if (observedSources.length < th.minSourceChapters) {
+    gaps.push(`independentSourceChapters=${observedSources.length} < ${th.minSourceChapters} (need +${th.minSourceChapters - observedSources.length})`);
   }
   if (nCases < th.minCases) gaps.push(`N_case=${nCases} < ${th.minCases}`);
   if (kRep < th.minRepeats) gaps.push(`K_rep=${kRep} < ${th.minRepeats}`);
@@ -1002,8 +1322,22 @@ export function evaluateG4(g4Data) {
     return {
       gate: 'G4',
       status: 'UNDERPOWERED',
-      sampleTriplet: {nSourceChapters: sourceChapters.length, nCases, kRep},
+      sampleTriplet: {nSourceChapters: observedSources.length, nCases, kRep},
       gaps,
+      pass: false,
+    };
+  }
+
+  // Must cover all 4 S1 ordered classes in ground truth
+  const missingClasses = ORDERED_SEVERITIES.filter(c => !observedTruthClasses.has(c));
+  if (missingClasses.length > 0) {
+    return {
+      gate: 'G4',
+      status: 'INVALID_DESIGN',
+      exitCode: 2,
+      error: 'R3_P0_6_G4_INCOMPLETE_SEVERITY_CLASSES',
+      missingClasses,
+      message: `G4 四级探针真值缺少有序严重度类别：${missingClasses.join(', ')}（不得以单类或残缺类别代替四级校准）。`,
       pass: false,
     };
   }
@@ -1014,18 +1348,29 @@ export function evaluateG4(g4Data) {
 
   for (let idx = 0; idx < runs.length; idx++) {
     const run = runs[idx];
-    const pairs = run.pairs || [];
-    if (pairs.length < th.minCases) {
+    const pairs = run.pairs;
+    const kappa = computeOrderedKappa(pairs);
+    if (kappa.degenerateMarginals || kappa.quadraticWeightedKappa === null) {
       return {
         gate: 'G4',
-        status: 'UNDERPOWERED',
-        sampleTriplet: {nSourceChapters: sourceChapters.length, nCases: pairs.length, kRep},
-        gaps: [`run ${idx + 1} pairs=${pairs.length} < ${th.minCases}`],
+        status: 'INVALID_DESIGN',
+        exitCode: 2,
+        error: 'R3_P0_6_G4_DEGENERATE_KAPPA_UNDEFINED',
+        message: `G4 第 ${idx + 1} 轮出现退化边际分布（Kappa 分母为零，无四级区分度），严禁判定为通过。`,
         pass: false,
       };
     }
-    const kappa = computeOrderedKappa(pairs);
-    const leaks = run.suggestionLoopLeaks || 0;
+    const leaks = run.suggestionLoopLeaks ?? 0;
+    if (!isNonNegInt(leaks)) {
+      return {
+        gate: 'G4',
+        status: 'INVALID_DESIGN',
+        exitCode: 2,
+        error: 'R3_P0_6_INVALID_OBSERVATION_COUNTS',
+        message: `G4 第 ${idx + 1} 轮 suggestionLoopLeaks 必须为非负整数。`,
+        pass: false,
+      };
+    }
     suggestionLoopLeaks += leaks;
     allPairs.push(...pairs);
     perRun.push({
@@ -1033,16 +1378,27 @@ export function evaluateG4(g4Data) {
       n: kappa.n,
       quadraticWeightedKappa: kappa.quadraticWeightedKappa,
       unweightedKappa: kappa.unweightedKappa,
+      kappaStatus: kappa.kappaStatus,
       agreementRate: kappa.agreementRate,
       suggestionLoopLeaks: leaks,
     });
   }
 
   const pooled = computeOrderedKappa(allPairs);
-  const minRunKappaW = Math.min(...perRun.map(r => r.quadraticWeightedKappa ?? -Infinity));
+  if (pooled.degenerateMarginals || pooled.quadraticWeightedKappa === null) {
+    return {
+      gate: 'G4',
+      status: 'INVALID_DESIGN',
+      exitCode: 2,
+      error: 'R3_P0_6_G4_DEGENERATE_KAPPA_UNDEFINED',
+      message: 'G4 汇总边际退化（Kappa 未定义），严禁判定为通过。',
+      pass: false,
+    };
+  }
+  const minRunKappaW = Math.min(...perRun.map(r => r.quadraticWeightedKappa));
 
   const failures = [];
-  if (pooled.quadraticWeightedKappa === null || pooled.quadraticWeightedKappa < th.minQuadraticKappa) {
+  if (pooled.quadraticWeightedKappa < th.minQuadraticKappa) {
     failures.push(`pooled kappa_w=${pooled.quadraticWeightedKappa} < ${th.minQuadraticKappa}`);
   }
   if (minRunKappaW < th.minQuadraticKappa) {
@@ -1056,7 +1412,7 @@ export function evaluateG4(g4Data) {
     gate: 'G4',
     status: failures.length === 0 ? 'PASS' : 'FAIL',
     pass: failures.length === 0,
-    sampleTriplet: {nSourceChapters: sourceChapters.length, nCases, kRep},
+    sampleTriplet: {nSourceChapters: observedSources.length, nCases, kRep},
     perRun,
     pooled: {
       n: pooled.n,
@@ -1066,6 +1422,7 @@ export function evaluateG4(g4Data) {
       agreementRate: pooled.agreementRate,
       quadraticWeightedKappa: pooled.quadraticWeightedKappa,
       unweightedKappa: pooled.unweightedKappa,
+      kappaStatus: pooled.kappaStatus,
     },
     suggestionLoopLeaks,
     failures,
@@ -1080,6 +1437,7 @@ export function evaluateG5(g5Data) {
   const deadlockCases = g5Data?.deadlockCases || [];
   const legalTropeCases = g5Data?.legalTropeCases || [];
   const deadlockChapters = [...new Set(deadlockCases.map(c => normalizeId(c.chapterId)).filter(Boolean))];
+  const compatEvidenceRef = g5Data?.compatEvidenceRef ?? null;
 
   const gaps = [];
   if (deadlockChapters.length < th.minDeadlockChapters) {
@@ -1094,6 +1452,7 @@ export function evaluateG5(g5Data) {
       gate: 'G5',
       status: 'UNDERPOWERED',
       sampleTriplet: {deadlockChapters: deadlockChapters.length, deadlockCases: deadlockCases.length, legalTropeCases: legalTropeCases.length, kRep: 1},
+      compatEvidenceRef,
       gaps,
       pass: false,
     };
@@ -1129,6 +1488,7 @@ export function evaluateG5(g5Data) {
     legalTropeBlockRate: round6(legalBlockRate),
     s1CompatPassed,
     engFixP1Passed,
+    compatEvidenceRef,
     failures,
   };
 }
@@ -1156,11 +1516,25 @@ export function evaluateG6(g6Data, {referenceChapters = [], seed = DEFAULT_BOOTS
     };
   }
 
+  const provenance = assertHoldoutInternalProvenanceAndUniqueness(chapters, {holdoutName: 'G6'});
+  if (!provenance.ok) {
+    return {
+      gate: 'G6',
+      track: 'independent_cross_genre_holdout',
+      framing: 'limited_budget_engineering_screen_not_production_recall_proof',
+      status: 'INVALID_DESIGN',
+      exitCode: 2,
+      error: provenance.error,
+      provenanceViolations: provenance.violations,
+      pass: false,
+    };
+  }
+
   const uCheck = assertUniqueChapters(chapters, 'G6');
   if (!uCheck.ok) {
     return {gate: 'G6', status: 'INVALID_DESIGN', exitCode: 2, error: uCheck.code, message: uCheck.message, pass: false};
   }
-  const rCheck = assertRunsOnlyUseDeclaredChapters(runs, uCheck.idSet, 'G6');
+  const rCheck = assertRunsMatchDeclaredManifest(runs, uCheck.byId, 'g6', 'G6');
   if (!rCheck.ok) {
     return {gate: 'G6', status: 'INVALID_DESIGN', exitCode: 2, error: rCheck.code, message: rCheck.message, pass: false};
   }
@@ -1190,6 +1564,10 @@ export function evaluateG6(g6Data, {referenceChapters = [], seed = DEFAULT_BOOTS
   const nCh = chapters.length;
   const nPos = chapters.reduce((acc, c) => acc + (c.positives || 0), 0);
   const nNeg = chapters.reduce((acc, c) => acc + (c.negatives || 0), 0);
+  const budgetStatus =
+    genres.length > th.maxBudgetGenres || nCh > th.maxBudgetChapters
+      ? 'EXCEEDS_FROZEN_BUDGET_REQUIRES_AUTHOR_APPROVAL'
+      : 'WITHIN_FROZEN_BUDGET';
 
   const gaps = [];
   if (genres.length < th.minGenres) gaps.push(`genres=${genres.length} < ${th.minGenres}`);
@@ -1206,6 +1584,7 @@ export function evaluateG6(g6Data, {referenceChapters = [], seed = DEFAULT_BOOTS
       gate: 'G6',
       track: 'independent_cross_genre_holdout',
       framing: 'limited_budget_engineering_screen_not_production_recall_proof',
+      budgetStatus,
       status: 'UNDERPOWERED',
       sampleTriplet: {nCh, nPos, nNeg, kRep, genres},
       gaps,
@@ -1236,21 +1615,6 @@ export function evaluateG6(g6Data, {referenceChapters = [], seed = DEFAULT_BOOTS
     }
   }
 
-  if (tp + fn < th.minPositives || fp + tn < th.minNegatives) {
-    return {
-      gate: 'G6',
-      track: 'independent_cross_genre_holdout',
-      framing: 'limited_budget_engineering_screen_not_production_recall_proof',
-      status: 'UNDERPOWERED',
-      sampleTriplet: {nCh, nPos: tp + fn, nNeg: fp + tn, kRep, genres},
-      gaps: [
-        ...(tp + fn < th.minPositives ? [`evaluated positives=${tp + fn} < ${th.minPositives}`] : []),
-        ...(fp + tn < th.minNegatives ? [`evaluated negatives=${fp + tn} < ${th.minNegatives}`] : []),
-      ],
-      pass: false,
-    };
-  }
-
   const recallClusters = runChapters.map(c => ({
     chapterId: c.chapterId,
     numerator: c.tp || 0,
@@ -1264,6 +1628,30 @@ export function evaluateG6(g6Data, {referenceChapters = [], seed = DEFAULT_BOOTS
     denominator: (c.fp || 0) + (c.tn || 0),
   }));
   const fprBootstrap = chapterClusterBootstrapCI(fprClusters, {iterations, seed: seed + 1});
+
+  if (recallBootstrap.nClusters < th.minChapters || fprBootstrap.nClusters < th.minChapters) {
+    return {
+      gate: 'G6',
+      track: 'independent_cross_genre_holdout',
+      framing: 'limited_budget_engineering_screen_not_production_recall_proof',
+      budgetStatus,
+      status: 'UNDERPOWERED',
+      sampleTriplet: {
+        nCh,
+        effectiveRecallClusters: recallBootstrap.nClusters,
+        effectiveFprClusters: fprBootstrap.nClusters,
+        nPos,
+        nNeg,
+        kRep,
+        genres,
+      },
+      gaps: [
+        ...(recallBootstrap.nClusters < th.minChapters ? [`effective recall clusters=${recallBootstrap.nClusters} < ${th.minChapters}`] : []),
+        ...(fprBootstrap.nClusters < th.minChapters ? [`effective FPR clusters=${fprBootstrap.nClusters} < ${th.minChapters}`] : []),
+      ],
+      pass: false,
+    };
+  }
 
   const recallPoint = recallBootstrap.point;
   const recallCiLower = recallBootstrap.ci95[0];
@@ -1290,9 +1678,18 @@ export function evaluateG6(g6Data, {referenceChapters = [], seed = DEFAULT_BOOTS
     gate: 'G6',
     track: 'independent_cross_genre_holdout',
     framing: 'limited_budget_engineering_screen_not_production_recall_proof',
+    budgetStatus,
     status: failures.length === 0 ? 'PASS' : 'FAIL',
     pass: failures.length === 0,
-    sampleTriplet: {nCh, nPos, nNeg, kRep, genres},
+    sampleTriplet: {
+      nCh,
+      effectiveRecallClusters: recallBootstrap.nClusters,
+      effectiveFprClusters: fprBootstrap.nClusters,
+      nPos,
+      nNeg,
+      kRep,
+      genres,
+    },
     rawCounts: {tp, fp, fn, tn, clearTierFp, blockerMisses},
     recallClusterBootstrap95CI: recallBootstrap,
     fprClusterBootstrap95CI: fprBootstrap,
@@ -1304,6 +1701,7 @@ export function evaluateG6(g6Data, {referenceChapters = [], seed = DEFAULT_BOOTS
 /**
  * Evaluate a single scheme across all 7 separated gates (G1, G2-A, G2-B, G3, G4, G5, G6).
  * Strictly forbids merged `G2` key (`R3_P0_6_MERGED_G2_FORBIDDEN`).
+ * Suitable for single-scheme diagnostics without issuing a formal A/B/C winner.
  */
 export function evaluateSchemeG1ToG6(
   schemeName,
@@ -1393,16 +1791,126 @@ export function evaluateSchemeG1ToG6(
   };
 }
 
+function normalizeChapterManifestForEquivalence(chapters) {
+  return (chapters || [])
+    .map(c => ({
+      chapterId: normalizeId(c?.chapterId),
+      sourceChapterId: isNonEmptyString(c?.sourceChapterId) ? normalizeId(c.sourceChapterId) : null,
+      contentSha256: isNonEmptyString(c?.contentSha256) ? c.contentSha256.trim().toLowerCase() : null,
+      genre: isNonEmptyString(c?.genre) ? c.genre.trim() : null,
+      positives: c?.positives ?? null,
+      negatives: c?.negatives ?? null,
+      paragraphs: c?.paragraphs ?? null,
+    }))
+    .sort((a, b) => a.chapterId.localeCompare(b.chapterId, 'en'));
+}
+
+/**
+ * Blocking 2: Extract canonical evaluation dataset signature for a scheme so A, B, and C are guaranteed
+ * to be adjudicated on the EXACT SAME frozen chapters, source IDs, content hashes, case keys, and truth labels.
+ */
+export function extractSchemeDatasetSignature(schemeData) {
+  const g4Run0Pairs = Array.isArray(schemeData?.G4?.runs?.[0]?.pairs)
+    ? schemeData.G4.runs[0].pairs
+        .map(p => ({
+          caseId: normalizeId(p?.caseId),
+          sourceChapterId: normalizeId(p?.sourceChapterId),
+          truth: p?.truth ?? p?.gt ?? null,
+        }))
+        .sort((a, b) => a.caseId.localeCompare(b.caseId, 'en'))
+    : null;
+
+  return {
+    G1_track2: normalizeChapterManifestForEquivalence(schemeData?.G1?.track2?.chapters),
+    G1_regression7: normalizeChapterManifestForEquivalence(schemeData?.G1?.regression7?.chapters),
+    G2A: normalizeChapterManifestForEquivalence(schemeData?.G2A?.chapters),
+    G2B: normalizeChapterManifestForEquivalence(schemeData?.G2B?.chapters),
+    G3: normalizeChapterManifestForEquivalence(schemeData?.G3?.chapters),
+    G4: {
+      sourceChapters: [...new Set((schemeData?.G4?.sourceChapters || []).filter(isNonEmptyString).map(normalizeId))].sort(),
+      nCases: schemeData?.G4?.nCases ?? (g4Run0Pairs ? g4Run0Pairs.length : 0),
+      probes: g4Run0Pairs,
+    },
+    G5: {
+      deadlockChapters: (schemeData?.G5?.deadlockCases || []).map(c => normalizeId(c?.chapterId)).sort(),
+      legalTropeIds: (schemeData?.G5?.legalTropeCases || []).map(c => normalizeId(c?.caseId)).sort(),
+    },
+    G6: normalizeChapterManifestForEquivalence(schemeData?.G6?.chapters),
+  };
+}
+
+function assertFairABCEquivalence(schemesPayload) {
+  if (!isPlainObject(schemesPayload)) {
+    return {
+      ok: false,
+      code: 'R3_P0_6_INCOMPLETE_ABC_SCHEMES',
+      message: '正式裁决必须提供完整的 A / B / C 三方案数据。',
+    };
+  }
+  const presentKeys = Object.keys(schemesPayload).sort();
+  const missing = REQUIRED_ADJUDICATION_SCHEMES.filter(k => !isPlainObject(schemesPayload[k]));
+  const extra = presentKeys.filter(k => !REQUIRED_ADJUDICATION_SCHEMES.includes(k));
+  if (missing.length > 0 || extra.length > 0) {
+    return {
+      ok: false,
+      code: 'R3_P0_6_INCOMPLETE_ABC_SCHEMES',
+      missingSchemes: missing,
+      unexpectedSchemes: extra,
+      message: `正式 A/B/C 同台裁决要求三方案齐备（缺失：${missing.join(', ') || '无'}；多余：${extra.join(', ') || '无'}）；单方案诊断请调用 evaluateSchemeG1ToG6()。`,
+    };
+  }
+
+  const sigA = extractSchemeDatasetSignature(schemesPayload.A);
+  const sigB = extractSchemeDatasetSignature(schemesPayload.B);
+  const sigC = extractSchemeDatasetSignature(schemesPayload.C);
+
+  const mismatchedGates = [];
+  for (const gateKey of Object.keys(sigA)) {
+    const aStr = canonicalJson(sigA[gateKey]);
+    if (canonicalJson(sigB[gateKey]) !== aStr || canonicalJson(sigC[gateKey]) !== aStr) {
+      mismatchedGates.push(gateKey);
+    }
+  }
+  if (mismatchedGates.length > 0) {
+    return {
+      ok: false,
+      code: 'R3_P0_6_UNEQUAL_EVALUATION_DATASET',
+      mismatchedGates,
+      message: `A / B / C 三方案在以下门禁使用了不等价的评测集（章节 ID、来源章、内容哈希或真值标注不一致）：${mismatchedGates.join(', ')}。`,
+    };
+  }
+  return {ok: true};
+}
+
 /**
  * Side-by-side Go / No-Go adjudication across Schemes A, B, and C (frozen `08` §1.1 & §3).
+ *
+ * Blocking 2: Requires complete `{A, B, C}` AND exact canonical dataset equivalence across all 3 schemes.
  */
 export function adjudicateSchemes(
   schemesPayload,
   {referenceChapters = [], seed = DEFAULT_BOOTSTRAP_SEED, iterations = BOOTSTRAP_ITERATIONS} = {}
 ) {
-  const schemeNames = Object.keys(schemesPayload || {});
+  const fairness = assertFairABCEquivalence(schemesPayload);
+  if (!fairness.ok) {
+    return {
+      schemaVersion: P0_6_STATS_SCHEMA,
+      ok: false,
+      exitCode: 2,
+      verdict: 'INVALID_DESIGN',
+      error: fairness.code,
+      message: fairness.message,
+      ...(fairness.missingSchemes ? {missingSchemes: fairness.missingSchemes} : {}),
+      ...(fairness.mismatchedGates ? {mismatchedGates: fairness.mismatchedGates} : {}),
+      winner: null,
+      allowProductionMerge: false,
+      requiresGpt6AcceptanceAndAuthorApproval: true,
+      schemes: {},
+    };
+  }
+
   const evaluated = {};
-  for (const name of schemeNames) {
+  for (const name of REQUIRED_ADJUDICATION_SCHEMES) {
     evaluated[name] = evaluateSchemeG1ToG6(name, schemesPayload[name], {
       referenceChapters,
       seed,

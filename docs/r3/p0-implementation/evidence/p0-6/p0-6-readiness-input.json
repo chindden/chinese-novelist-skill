@@ -104,7 +104,12 @@
           {"caseId": "CAL-62", "blocking": null}
         ],
         "s1CompatPassed": true,
-        "engFixP1Passed": true
+        "engFixP1Passed": true,
+        "compatEvidenceRef": {
+          "s1CompatTest": "scripts/tests/r3_s1_severity_compat.test.mjs",
+          "engFixP1Test": "scripts/tests/r3_fingerprint_failclosed.test.mjs",
+          "or6RouterTest": "scripts/tests/r3_p0_prototypes.test.mjs"
+        }
       },
       "G6": {
         "chapters": [],
@@ -187,7 +192,12 @@
           {"caseId": "CAL-62", "blocking": null}
         ],
         "s1CompatPassed": true,
-        "engFixP1Passed": true
+        "engFixP1Passed": true,
+        "compatEvidenceRef": {
+          "s1CompatTest": "scripts/tests/r3_s1_severity_compat.test.mjs",
+          "engFixP1Test": "scripts/tests/r3_fingerprint_failclosed.test.mjs",
+          "or6RouterTest": "scripts/tests/r3_p0_prototypes.test.mjs"
+        }
       },
       "G6": {
         "chapters": [],
@@ -270,7 +280,12 @@
           {"caseId": "CAL-62", "blocking": null}
         ],
         "s1CompatPassed": true,
-        "engFixP1Passed": true
+        "engFixP1Passed": true,
+        "compatEvidenceRef": {
+          "s1CompatTest": "scripts/tests/r3_s1_severity_compat.test.mjs",
+          "engFixP1Test": "scripts/tests/r3_fingerprint_failclosed.test.mjs",
+          "or6RouterTest": "scripts/tests/r3_p0_prototypes.test.mjs"
+        }
       },
       "G6": {
         "chapters": [],

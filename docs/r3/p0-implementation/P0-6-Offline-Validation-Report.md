@@ -10,13 +10,15 @@
 ## 一、核心结论（严格遵循停机规则 1）
 
 1. **已完成部分（P0-6 阶段 1A：确定性统计、防泄漏与 Go/No-Go 裁决引擎）**：
-   - 已交付确定性统计与裁决脚本 [`scripts/p0_prototypes/eval_g1_g6_stats.mjs`](../../../scripts/p0_prototypes/eval_g1_g6_stats.mjs) 及完整数学/反作弊单元测试套件 [`scripts/tests/r3_p0_stats.test.mjs`](../../../scripts/tests/r3_p0_stats.test.mjs)（`TC-P0-6-1A`–`TC-P0-6-1G`）。
+   - 已交付确定性统计与裁决脚本 [`scripts/p0_prototypes/eval_g1_g6_stats.mjs`](../../../scripts/p0_prototypes/eval_g1_g6_stats.mjs) 及完整数学/反作弊单元测试套件 [`scripts/tests/r3_p0_stats.test.mjs`](../../../scripts/tests/r3_p0_stats.test.mjs)（`TC-P0-6-1A`–`TC-P0-6-1G`、`TC-P0-6-R2-1`–`TC-P0-6-R2-4`）。
    - 完整实现冻结协议要求的：
      - **`G2-A` 与 `G2-B` 强制分轨**：Schema 级硬拒绝任何合并 `G2` 字段（`R3_P0_6_MERGED_G2_FORBIDDEN`）；
-     - **零泄漏与退役黑名单硬断言**：按 `chapterId`、`sourceChapterId`、`contentSha256` 及退役清单（`NH-1..5`、`V22-H1..4`、`OLD-HOLD-1..4`、`DOC-1..6`、`Arm 0..2 Ch 1..3`、`器痕录`/`残器长生`/`降本增笑`/`潮汐证词`/`盐引旧账`）在 declared chapters 与 run chapters 双层拦截（`exitCode: 2`、`R3_P0_6_DATA_LEAKAGE_DETECTED`）；
-     - **防样本虚增与结构合规检查**：拒绝重复 `chapterId`（`R3_P0_6_DUPLICATE_CHAPTER_ID`）、强制 `G2-B` 单章 `<= 3` 案例（`R3_P0_6_G2B_CHAPTER_CASE_CAP_EXCEEDED`）、强制 `G3` 单章 `<= 2` 段落（`R3_P0_6_G3_CHAPTER_PARAGRAPH_CAP_EXCEEDED`）、强制 `G6` 一次性盲测 `K = 1`（`R3_P0_6_G6_MUST_BE_SINGLE_SHOT_K1`）；
+     - **跨集零泄漏 + 独立 Holdout 内部来源唯一性双层硬断言**：既按 `chapterId`、`sourceChapterId`、`contentSha256` 及退役黑名单（`NH-1..5`、`V22-H1..4`、`OLD-HOLD-1..4`、`DOC-1..6`、`Arm 0..2 Ch 1..3`、`器痕录`/`残器长生`/`降本增笑`/`潮汐证词`/`盐引旧账`）拦截历史泄漏（`R3_P0_6_DATA_LEAKAGE_DETECTED`），又对非空 `G2-B`/`G6` 独立 Holdout 强制校验可验证 `sourceChapterId` 与 64 位 hex `contentSha256` 存在且在内部唯一（`R3_P0_6_HOLDOUT_PROVENANCE_UNVERIFIED`、`R3_P0_6_HOLDOUT_DUPLICATE_SOURCE_CHAPTER`、`R3_P0_6_HOLDOUT_DUPLICATE_CONTENT_HASH`），彻底杜绝改名虚增 `$N_{\text{ch}}$`；
+     - **声明清册与每轮实测强一致性**：每轮 run 必须 100% 覆盖声明章节（`R3_P0_6_RUN_CHAPTER_COVERAGE_MISMATCH`），逐章校验非负整数计数、包含关系（`clearTierFp <= fp`、`blockerMisses <= fn`、`noIssue <= nonBlockingTn`）及与清册真值一致（`tp+fn === positives`、`fp+tn === negatives`、`blockingFp+nonBlockingTn === paragraphs`），并对账 Bootstrap 实际聚类数 `nClusters`；
+     - **公平 A/B/C 同台对照硬门禁**：正式 `adjudicateSchemes()` 强制要求 `{A, B, C}` 三方案齐备（`R3_P0_6_INCOMPLETE_ABC_SCHEMES`）且三方案在 G1–G6 的冻结章节清册、来源章、正文哈希、G4 案例主键与真值标注规范化等价（`R3_P0_6_UNEQUAL_EVALUATION_DATASET`），单方案诊断由 `evaluateSchemeG1ToG6()` 独立承担；
      - **章节级聚类非参数 Bootstrap 95% CI**：硬锁 `B = 2,000`（`R3_P0_6_BOOTSTRAP_ITERATIONS_LOCKED`），采用确定性 Mulberry32 PRNG 保证逐比特可复现，按独立章节整章有放回重抽样（`$K_{\text{rep}}$` 绝不放大聚类数 `$N_{\text{ch}}$`），输出点估计、章节级宏观均值及 95% CI，并显式标注 `doesNotCompensateForSmallNCh: true`；
-     - **有序四级 4×4 混淆矩阵与二次加权 Kappa**：严格使用 `['BLOCKER', 'MAJOR', 'MINOR', 'SUGGESTION']` 顺序计算 $\kappa_w$（主指标，`>= 0.85`）、未加权 Cohen's $\kappa$（辅指标）及 `SUGGESTION` 进必改闭环泄漏计数（`= 0%`）；
+     - **有序四级 4×4 混淆矩阵、退化 Kappa 拦截与案例可追溯性**：严格按 `['BLOCKER', 'MAJOR', 'MINOR', 'SUGGESTION']` 计算主指标 $\kappa_w$（`>= 0.85`）、辅指标未加权 Cohen's $\kappa$ 与 `SUGGESTION` 进必改闭环泄漏计数（`= 0%`）；退化边际分母为零时返回 `null` / `UNDEFINED_DEGENERATE_MARGINALS`（绝不硬赋 `1.0`），并强制校验每条探针的 `caseId`/`sourceChapterId` 追溯、4 级全覆盖及与声明来源章一致；
+     - **G6 预算上限提示与 G5 兼容测试锚点**：`evaluateG6()` 显式标记 `budgetStatus`（超出 `4–6` 题材或 `12–16` 章预算时标示 `EXCEEDS_FROZEN_BUDGET_REQUIRES_AUTHOR_APPROVAL`）；G5 兼容布尔值在就绪清册中指向真实可复跑单测（`r3_s1_severity_compat.test.mjs`、`r3_fingerprint_failclosed.test.mjs`、`r3_p0_prototypes.test.mjs`）；
      - **方案 B 淘汰硬规则与多方案胜出优先级**：方案 B 在 G1 或 G6 任一门禁出现 `1` 例 `BLOCKER` 漏检，或召回率落后方案 A/C 超过 `1.0 pp`（采用浮点安全 `round6` 比对），直接淘汰；多方案全过时严格按 **① G6 `BLOCKER` 零漏检 & 召回最高 → ② G2-B 3 轮均值 FPR 最低 & 方差最小 → ③ 审稿延迟最低** 排序，且输出强制保留 `allowProductionMerge: false`。
 
 2. **当前真实阻断状态（`BLOCKED_UNDERPOWERED`）**：

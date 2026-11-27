@@ -399,6 +399,11 @@
             "legalTropeCases": 2,
             "kRep": 1
           },
+          "compatEvidenceRef": {
+            "s1CompatTest": "scripts/tests/r3_s1_severity_compat.test.mjs",
+            "engFixP1Test": "scripts/tests/r3_fingerprint_failclosed.test.mjs",
+            "or6RouterTest": "scripts/tests/r3_p0_prototypes.test.mjs"
+          },
           "gaps": [
             "deadlockChapters=1 < 3 (need +2)"
           ],
@@ -408,6 +413,7 @@
           "gate": "G6",
           "track": "independent_cross_genre_holdout",
           "framing": "limited_budget_engineering_screen_not_production_recall_proof",
+          "budgetStatus": "WITHIN_FROZEN_BUDGET",
           "status": "UNDERPOWERED",
           "sampleTriplet": {
             "nCh": 0,
@@ -544,6 +550,11 @@
             "legalTropeCases": 2,
             "kRep": 1
           },
+          "compatEvidenceRef": {
+            "s1CompatTest": "scripts/tests/r3_s1_severity_compat.test.mjs",
+            "engFixP1Test": "scripts/tests/r3_fingerprint_failclosed.test.mjs",
+            "or6RouterTest": "scripts/tests/r3_p0_prototypes.test.mjs"
+          },
           "gaps": [
             "deadlockChapters=1 < 3 (need +2)"
           ],
@@ -553,6 +564,7 @@
           "gate": "G6",
           "track": "independent_cross_genre_holdout",
           "framing": "limited_budget_engineering_screen_not_production_recall_proof",
+          "budgetStatus": "WITHIN_FROZEN_BUDGET",
           "status": "UNDERPOWERED",
           "sampleTriplet": {
             "nCh": 0,
@@ -689,6 +701,11 @@
             "legalTropeCases": 2,
             "kRep": 1
           },
+          "compatEvidenceRef": {
+            "s1CompatTest": "scripts/tests/r3_s1_severity_compat.test.mjs",
+            "engFixP1Test": "scripts/tests/r3_fingerprint_failclosed.test.mjs",
+            "or6RouterTest": "scripts/tests/r3_p0_prototypes.test.mjs"
+          },
           "gaps": [
             "deadlockChapters=1 < 3 (need +2)"
           ],
@@ -698,6 +715,7 @@
           "gate": "G6",
           "track": "independent_cross_genre_holdout",
           "framing": "limited_budget_engineering_screen_not_production_recall_proof",
+          "budgetStatus": "WITHIN_FROZEN_BUDGET",
           "status": "UNDERPOWERED",
           "sampleTriplet": {
             "nCh": 0,
