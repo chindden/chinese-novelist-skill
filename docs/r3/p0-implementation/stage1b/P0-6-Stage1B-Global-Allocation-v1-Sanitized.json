@@ -3,7 +3,7 @@
   "dataBoundaryDeclaration": "0 bytes of raw novel prose, 0 local filesystem paths, 0 raw historical titles; full original exposure registry and inventory remain strictly inside Project A local Vault.",
   "version": "v1-historical",
   "previousVersionSha256": null,
-  "vaultAllocationV1Sha256": "1c4d8be40610dfea7d0d20b3e31afc4608f7e5253e22836b96e1d1fd7785df6f",
+  "vaultAllocationV1Sha256": "30350343fdd7c41d333202b22e4033983b3fe98334ff9b9c4cf8bd78524e56b4",
   "vaultArtifactAnchors": {
     "exposureRegistrySha256": "7744a07830c94c20f6a78f21cef3587e3bd247e3257258ab6848b7279a74b21e",
     "inventorySha256": "81587be43cd1e01b0d4756e8aab1b9b035a6f039ae781b649c1aedf0fd35157e",
@@ -474,7 +474,8 @@
           "FC-10"
         ]
       }
-    ]
+    ],
+    "prngDrawCount": 12
   },
   "nonHoldoutDedupCalibration": {
     "schemaVersion": "1.0",
@@ -570,7 +571,29 @@
     },
     "totalCoreNewChaptersRequired": 50,
     "reservePoolChaptersRequired": 4,
-    "totalNewChaptersIncludingReserve": 54
+    "totalNewChaptersIncludingReserve": 54,
+    "summaryArithmetic": {
+      "activeGapGates": [
+        "G2-B",
+        "G6",
+        "G3",
+        "G4",
+        "G5"
+      ],
+      "targetChaptersTotalExclG1G2A": 57,
+      "historicalGateUsesTotal": 7,
+      "distinctHistoricalSourceChaptersReused": 4,
+      "distinctHistoricalSourceChapterIds": [
+        "QHL-CH1",
+        "QHL-CH2",
+        "QHL-CH3",
+        "V22-H4"
+      ],
+      "coreGapChaptersCheck": "57 - 7 = 50",
+      "reserveFifoChapters": 4,
+      "reserveFifoCoverageScope": "Limited to 4 pre-registered (gate, canonicalGenre) cells: G2-B/仙侠, G2-B/都市, G6/悬疑, G6/历史; any shortfall in uncovered cells MUST remain BLOCKED with zero cross-genre/cross-gate borrowing.",
+      "totalNewChaptersIncludingReserve": 54
+    }
   },
   "changeEvents": [
     {
@@ -578,6 +601,71 @@
       "timestampUtc": "2026-11-27T16:13:11.828Z",
       "action": "INITIAL_HISTORICAL_INVENTORY_AND_ALLOCATION",
       "summary": "Audited 7 distinct accessible historical works (175 manuscript files; 5 internal exposed + 2 external public ref exposed; 0 unknown admitted). Computed exact true gaps: core=50 chapters (G2-B:20, G6:16, G3:7, G4:5, G5:2) + reserve=4 chapters = 54 chapters total."
+    },
+    {
+      "eventId": "CE-V1-002",
+      "timestampUtc": "2026-11-27T16:40:54.494Z",
+      "action": "WP1_REVIEW_FIXES_APPLIED",
+      "summary": "Added structured G5 CAL-11/49/62 source mappings & case-level anti-leakage SHA-256 anchors, clarified summaryArithmetic (57 target / 7 gate-uses across 4 distinct source chapters / 50 core gap), recorded exact 12-draw Mulberry32 count, and documented limited 4-chapter FIFO reserve scope. Pre-registered G4 selection and wp1-dedup-calibration.json untouched."
+    }
+  ],
+  "g5LegalTropeSourceMappings": [
+    {
+      "caseId": "CAL-11",
+      "roleInStage1B": "G5 historical legitimate-trope non-blocking control reference ONLY",
+      "sourceWorkId": "HIST-WORK-01",
+      "sourceChapterId": "QHL-CH3",
+      "historicalStratum": "S1_ORIG_MAJOR",
+      "historicalArm": "arm1-o3-atomic",
+      "sourceLocalId": "CH3-M4",
+      "quoteCharCount": 177,
+      "quoteRawSha256": "8005b62c47760ab356d73f11eca8a7e5c21303fbbc37d35261b74c30b9ea1f33",
+      "quoteNormalizedSha256": "949d3811724a2705c9bcfef2d3b538e672e91d8311dd4ea81d44bbe422e529fe",
+      "manuscriptBytes": 15405,
+      "manuscriptRawSha256": "2273124ea5b21c68167f99971bf4e81c287f91b6834b77f6d2dcd75aa38eaafe",
+      "manuscriptNormalizedSha256": "8f5cfd2a89e555fb46c30818c690ede37b8d8fa3753771ba27a7b963c0c7b77e",
+      "exposureAuditStatus": "exposed",
+      "holdoutG2BEligible": false,
+      "holdoutG6Eligible": false,
+      "antiLeakageRule": "Hard-blocked from G2-B and G6 by sourceWorkId (HIST-WORK-01), sourceChapterId (QHL-CH2/CH3), caseId (CAL-11/49/62), quoteRawSha256, quoteNormalizedSha256, manuscriptRawSha256, and manuscriptNormalizedSha256 in WP2 precheck & WP4 CUSTODY-PRECHECK (closes Issue #10 Comment 7212139223)."
+    },
+    {
+      "caseId": "CAL-49",
+      "roleInStage1B": "G5 historical legitimate-trope non-blocking control reference ONLY",
+      "sourceWorkId": "HIST-WORK-01",
+      "sourceChapterId": "QHL-CH2",
+      "historicalStratum": "S1_ORIG_MAJOR",
+      "historicalArm": "arm1-o3-atomic",
+      "sourceLocalId": "CH2-LOGIC-1",
+      "quoteCharCount": 112,
+      "quoteRawSha256": "4016ab09e52fb483e89ee5cc64030d4d94427a04ea3eb8ee090181cfce51f505",
+      "quoteNormalizedSha256": "441065443451520d432dd80de3d85ae800b2484bf02c80f1982f68133ad4ff1f",
+      "manuscriptBytes": 16540,
+      "manuscriptRawSha256": "218882169b071d10b9318866d7d1593675bf60505922b187ea4e05949a845747",
+      "manuscriptNormalizedSha256": "f034200522ff26701d4f6b33951efcc120329a38dbde196765c4bd242e8151bb",
+      "exposureAuditStatus": "exposed",
+      "holdoutG2BEligible": false,
+      "holdoutG6Eligible": false,
+      "antiLeakageRule": "Hard-blocked from G2-B and G6 by sourceWorkId (HIST-WORK-01), sourceChapterId (QHL-CH2/CH3), caseId (CAL-11/49/62), quoteRawSha256, quoteNormalizedSha256, manuscriptRawSha256, and manuscriptNormalizedSha256 in WP2 precheck & WP4 CUSTODY-PRECHECK (closes Issue #10 Comment 7212139223)."
+    },
+    {
+      "caseId": "CAL-62",
+      "roleInStage1B": "G5 historical legitimate-trope non-blocking control reference ONLY",
+      "sourceWorkId": "HIST-WORK-01",
+      "sourceChapterId": "QHL-CH2",
+      "historicalStratum": "S1_ORIG_MAJOR",
+      "historicalArm": "arm0-telemetry-baseline",
+      "sourceLocalId": "CRAFT-1",
+      "quoteCharCount": 183,
+      "quoteRawSha256": "65aebf8984ffaded802b405423c6b8cf97c64ff182f46f72715d6da887e36214",
+      "quoteNormalizedSha256": "b3b67b2c5d0c1be90bf7caecbf4eb7a242cffceb2c552abf6944498102434251",
+      "manuscriptBytes": 15955,
+      "manuscriptRawSha256": "7bd0b32a20bfae85678169600a1cb243fbbaf2734350046fe08a22cca0d4e4aa",
+      "manuscriptNormalizedSha256": "e3237c80b8573308ceb12a57b8fa33744f6e7f8a4a176a018bc474fdb4c31084",
+      "exposureAuditStatus": "exposed",
+      "holdoutG2BEligible": false,
+      "holdoutG6Eligible": false,
+      "antiLeakageRule": "Hard-blocked from G2-B and G6 by sourceWorkId (HIST-WORK-01), sourceChapterId (QHL-CH2/CH3), caseId (CAL-11/49/62), quoteRawSha256, quoteNormalizedSha256, manuscriptRawSha256, and manuscriptNormalizedSha256 in WP2 precheck & WP4 CUSTODY-PRECHECK (closes Issue #10 Comment 7212139223)."
     }
   ]
 }

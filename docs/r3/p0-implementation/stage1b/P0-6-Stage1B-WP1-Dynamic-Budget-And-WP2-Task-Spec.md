@@ -25,40 +25,52 @@
   - `ELIGIBLE_ASSIGNED`：**`1`** 部（仅限 `HIST-WORK-05` 作为非 Holdout `G5` 已知死锁参考 `V22-H4`，严禁进入 `G2-B`/`G6`）；
   - `EXCLUDED_EXPOSED`：**`6`** 部（其中仅 `HIST-WORK-01` 的 `QHL-CH1..3` 按唯一白名单例外 `EXC-HIST-QHL-G3-G4` 复用于历史回归门禁 `G3`/`G4` 及既有 `G1`/`G2-A`/`G5` 合法桥段参考，严禁进入 `G2-B`/`G6`）；
   - `EXCLUDED_UNKNOWN`：`0`；`RESERVE`：`0`；`UNASSIGNED`：`0`。
-- **Vault 完整原件留存锚点（0 字节入仓，仅存 Project A 本地 Vault）**：
+- **Vault 完整原件留存锚点（0 字节入仓，仅存 Project A 本地 Vault；由 Neon 本地校验留痕，GPT-6 未从 GitHub 直接读取原件）**：
   - `00-historical-exposure-registry.json` SHA-256：`7744a07830c94c20f6a78f21cef3587e3bd247e3257258ab6848b7279a74b21e`
   - `00b-historical-subagent-inventory.json` SHA-256：`81587be43cd1e01b0d4756e8aab1b9b035a6f039ae781b649c1aedf0fd35157e`
-  - `00c-global-asset-allocation-v1-historical.json` SHA-256：`1c4d8be40610dfea7d0d20b3e31afc4608f7e5253e22836b96e1d1fd7785df6f`
+  - `00c-global-asset-allocation-v1-historical.json` SHA-256：`30350343fdd7c41d333202b22e4033983b3fe98334ff9b9c4cf8bd78524e56b4`
   - `g4-hist-selected-9.json` SHA-256：`9cb97d98eaa91333b4dd9e6423888360e7fa9cf3298d01d1079bb74a7bb42c19`
   - `g4-hist-unselected-11.json` SHA-256：`976c4f89026031cea6b7b015821f8fdaf0bc92a2ebe0c3d298d9a4120ec3ad09`
   - `wp1-dedup-calibration.json` SHA-256：`031c169218ac686c74be44698f48df47e0477764bb450f2d1847710176429a10`
 
 ### 1.2 非 Holdout 近似重复阈值实证校准（NFKC 规范化字符 5-gram Jaccard）
 
-在 5 部历史非 Holdout 作品（14 份代表章）上实测得到：
+以下数值严格逐位取自已锚定的唯一校准原件 `wp1-dedup-calibration.json`（SHA-256：`031c169218ac686c74be44698f48df47e0477764bb450f2d1847710176429a10`，与 `P0-6-Stage1B-Global-Allocation-v1-Sanitized.json` 完全一致；共 14 份代表章 $\binom{14}{2}=91$ 对）：
 
 | 对比组 | 对数 | Jaccard5 最小值 | Jaccard5 最大值 | 校准结论 |
 |---|---:|---:|---:|---|
-| 同章修订稿（v1 vs 终稿） | `1` | `0.575902` | `0.575902` | 典型改写/修订 |
-| 同作品同章不同实验 Arm 独立重写 | `5` | `0.017150` | `0.022638` | 同大纲重写下界 `0.0172` |
-| 同作品不同章 | `24` | `0.001269` | `0.007418` | 同世界观共享专名背景 |
-| **不同作品同题材**（`仙侠` vs `仙侠`） | `18` | `0.000000` | **`0.001491`** | 跨作品同题材噪声上限 |
-| 不同作品不同题材 | `43` | `0.000000` | `0.000604` | 跨题材背景噪声 |
+| 同章修订稿（v1 vs 终稿） | `1` | `0.575913` | `0.575913` | 典型改写/修订 |
+| 同作品同章不同实验 Arm 独立重写 | `5` | `0.017199` | `0.022583` | 同大纲重写下界 `0.0172` |
+| 同作品不同章 | `15` | `0.001257` | `0.007126` | 同世界观共享专名背景 |
+| **不同作品同题材**（`仙侠` vs `仙侠`） | `18` | `0.000000` | **`0.001457`** | 跨作品同题材噪声上限 |
+| 不同作品不同题材 | `52` | `0.000000` | `0.000604` | 跨题材背景噪声 |
 
 - **锁定 WP2 预检分级阈值（严格遵守分工协议 `v1.0` WP2）**：
   - **确定性硬失败（自动退回）**：`rawContentSha256` 精确相同、或 `normalizedContentSha256` 精确相同、或 `sourceWorkId` 冲突；
-  - **近似重复预警（`HOLD / MANUAL_REVIEW_REQUIRED`，绝不自动拒收）**：字符 5-gram Jaccard $\ge 0.015$（为跨作品同题材噪声上限的 `10×`，同时可捕获同大纲重写 `0.0172`）**或**规范化最长公共子串 $\ge 25$ 汉字；仅经人工复核确认为改写/复制后才转入退回闭环，否则书面记录行业常规表达放行依据。
+  - **近似重复预警（`HOLD / MANUAL_REVIEW_REQUIRED`，绝不自动拒收）**：字符 5-gram Jaccard $\ge 0.015$（约为跨作品同题材噪声上限 `0.001457` 的 `10×`，同时可捕获同大纲重写 `0.017199–0.022583`）**或**规范化最长公共子串 $\ge 25$ 汉字；仅经人工复核确认为改写/复制后才转入退回闭环，否则书面记录行业常规表达放行依据。
 
 ### 1.3 `G3-Plan A` 与 `G4-Plan A` 历史复用核验结果
 
 - **`G3-Plan A`**：历史 `S4_CLEAN_CONTROL` 全部 `9` 条引文两两字符 5-gram Jaccard 均为 `0.0000`。为严格满足每历史源章仅取 `1` 冻结代表稿（`v0.2.5` §7.3 `10` 单元），锁定 `QHL-CH1`（`CAL-07`，167 字）、`QHL-CH2`（`CAL-46`，229 字）、`QHL-CH3`（`CAL-17`，246 字），贡献 `3` 独立来源章 / `3` 条清白段，仅需补充 **`7`** 个全新独立来源章 × `2` 段 = `14` 新段（总 `10` 章 / `17` 段 `>= 15`）。
 - **`G4-Plan A`（`Mulberry32(20261128)` 连续 PRNG 流 + Fisher–Yates 确定性预注册）**：
   - 历史池 `20` 条真实案分布：`QHL-CH1`（`0M / 1m / 2S`）、`QHL-CH2`（`5M / 3m / 1S`）、`QHL-CH3`（`3M / 2m / 3S`），零篡改任何 `historicalOriginalTruth`；
-  - 预注册入选 **`9` 案**（详见 `P0-6-Stage1B-Global-Allocation-v1-Sanitized.json` 完整 PRNG 抽取轨迹）：
+  - 完整连续 PRNG 抽取共 **`12` 次**（`drawIndex = 1..12`：`QHL-CH1` 1 次 + `QHL-CH2` 6 次 + `QHL-CH3` 5 次），预注册入选 **`9` 案**（详见 `P0-6-Stage1B-Global-Allocation-v1-Sanitized.json` 完整 12 步轨迹）：
     - `QHL-CH1`：`FC-03` (`MINOR`)、`FC-02` (`SUGGESTION`)、`FC-14` (`SUGGESTION`)；
     - `QHL-CH2`：`FC-11` (`MAJOR`)、`FC-23` (`MINOR`)、`FC-16` (`SUGGESTION`)；
     - `QHL-CH3`：`FC-19` (`MAJOR`)、`FC-18` (`MINOR`)、`FC-20` (`SUGGESTION`)；
   - 历史 9 案类别分布为 **`0 BLOCKER + 2 MAJOR + 3 MINOR + 4 SUGGESTION`**；因此 WP2 仅需补充 **`5` 个独立来源章 × `3` 案 = `15` 新案**（精准配置为 **`6 BLOCKER + 4 MAJOR + 3 MINOR + 2 SUGGESTION`**），合并构成精确 **`24` 案（`6B + 6M + 6m + 6S`） / `8` 独立源章**。
+
+### 1.4 `G5` 历史合法桥段（`CAL-11` / `CAL-49` / `CAL-62`）结构化真实来源映射与案例级防泄漏锚点
+
+为响应 `v0.2.5` §3.1 及 Issue `#10` Comment `7212139223` 要求，在启动 WP2 前结构化补齐 `CAL-11` / `CAL-49` / `CAL-62` 的真实来源章映射与双哈希防泄漏锚点（同步写入 `P0-6-Stage1B-Global-Allocation-v1-Sanitized.json` `g5LegalTropeSourceMappings[]`，0 字节原文）：
+
+| `caseId` | `sourceWorkId` | `sourceChapterId` | 历史 Arm / 本地 ID | 引文规范化 SHA-256（防泄漏锚点） | 源稿原文 SHA-256（防泄漏锚点） | Holdout (`G2-B`/`G6`) 资格 |
+|---|---|---|---|---|---|---|
+| **`CAL-11`** | `HIST-WORK-01` | `QHL-CH3` | `arm1-o3-atomic` / `CH3-M4` | `949d3811724a2705c9bcfef2d3b538e672e91d8311dd4ea81d44bbe422e529fe` | `2273124ea5b21c68167f99971bf4e81c287f91b6834b77f6d2dcd75aa38eaafe` | **硬禁入 (`false`)** |
+| **`CAL-49`** | `HIST-WORK-01` | `QHL-CH2` | `arm1-o3-atomic` / `CH2-LOGIC-1` | `441065443451520d432dd80de3d85ae800b2484bf02c80f1982f68133ad4ff1f` | `218882169b071d10b9318866d7d1593675bf60505922b187ea4e05949a845747` | **硬禁入 (`false`)** |
+| **`CAL-62`** | `HIST-WORK-01` | `QHL-CH2` | `arm0-telemetry-baseline` / `CRAFT-1` | `b3b67b2c5d0c1be90bf7caecbf4eb7a242cffceb2c552abf6944498102434251` | `7bd0b32a20bfae85678169600a1cb243fbbaf2734350046fe08a22cca0d4e4aa` | **硬禁入 (`false`)** |
+
+- **防泄漏硬执行规则**：WP2 机械预检与 WP4 `CUSTODY-PRECHECK` 强制将 `g5LegalTropeSourceMappings[]` 全部字段（`caseId`、`sourceWorkId`、`sourceChapterId`、`quoteRawSha256`、`quoteNormalizedSha256`、`manuscriptRawSha256`、`manuscriptNormalizedSha256`）纳入 `G2-B`/`G6` 禁入黑名单校验，杜绝历史合法桥段泄漏至 Holdout。
 
 ---
 
@@ -74,10 +86,10 @@
 | **G6（`D2-A`）** | `16` | `0` | **`16`** | `4` 规范题材 × `4` 章（与 G2-B 6 维互斥）；`32` 正例（`10B+22M`）+ `48` 非阻断（`24C+24B`） |
 | **G3（`Plan A`）** | `10` | `3` | **`7`** | 补 `7` 独立源章 × `2` 清白段 = `14` 新段（合历史 `3` 段 = `17` 段 `>= 15`） |
 | **G4（`Plan A`）** | `8` | `3` | **`5`** | 补 `5` 独立源章 × `3` 案 = `15` 新案（`6B+4M+3m+2S`，合历史 9 案 = `6/6/6/6`） |
-| **G5（最低冻结要求）** | `3` 死锁 | `1`（`V22-H4`） | **`2`** | 补 `2` 独立大纲死锁章（`S1B-G5-DL-02/03`）+ 复用 `CAL-49/62/11` 合法桥段 |
-| **核心缺口小计** | **`66`** *(不含 G1/G2-A 复用)* | **`7`** *(按独立源章去重：`QHL-CH1..3` 共享计 3 + `V22-H4` 计 1)* | **`50` 章** | 较零历史复用 `Plan B`（56 章）实际节省 **`6` 章** |
-| **预注册 FIFO 备用池** | `4` | `0` | **`4`** | `4` 规范题材各 `1` 章（2 章按 G2-B 配额 + 2 章按 G6 配额），按原始 `creatorIntendedLabel` 索引 |
-| **WP2 总补创规模** | — | — | **`54` 章** | **核心 `50` 章 + FIFO 备用 `4` 章** |
+| **G5（最低冻结要求）** | `3` 死锁 | `1`（`V22-H4`） | **`2`** | 补 `2` 独立大纲死锁章（`S1B-G5-DL-02/03`）+ 复用 `CAL-49/62/11` 合法桥段（结构化映射见 §1.4） |
+| **核心缺口小计（不含已齐 G1/G2-A）** | **`57`** *(`20+16+10+8+3`)* | **`7` 次门禁使用** *(`4` 个不同历史源章：`QHL-CH1..3` 被 G3/G4 各用 1 次 + `V22-H4`)* | **`50` 章** *(`57 - 7 = 50`)* | 较全量新建 `Plan B`（56 章）实际节省 **`6` 章** |
+| **预注册 FIFO 备用池（有限覆盖）** | `4` | `0` | **`4`** | 仅覆盖 4 个预注册 `(门禁, 题材)` 单元（见 §3.1 C 有限覆盖声明），按原始 `creatorIntendedLabel` 索引 |
+| **WP2 总补创规模** | — | — | **`54` 章** | **核心 `50` 章 + 有限 FIFO 备用 `4` 章** |
 
 ### 2.2 动态调用量预算单（对应已审批 `D1-B` + `D2-A [G6=16]` + `Plan A`）
 
@@ -148,6 +160,8 @@
 | | **RESERVE_FIFO** | `S1B-W-RSV-02` / `S1B-RSV-02` | `都市` | `G2-B` 模板：`1B + 3M` 正例 + `1C + 2B` 非阻断（FIFO 顺位 2） |
 | | **RESERVE_FIFO** | `S1B-W-RSV-03` / `S1B-RSV-03` | `悬疑` | `G6` 模板：`1B + 1M` 正例 + `2C + 1B` 非阻断（FIFO 顺位 3） |
 | | **RESERVE_FIFO** | `S1B-W-RSV-04` / `S1B-RSV-04` | `历史` | `G6` 模板：`1B + 1M` 正例 + `1C + 2B` 非阻断（FIFO 顺位 4） |
+
+> **4 章 FIFO 备用池有限覆盖边界声明**：上述 `4` 个预注册备用章仅覆盖对应的 `4` 个预注册 `(门禁, 规范题材)` 单元（`G2-B/仙侠`、`G2-B/都市`、`G6/悬疑`、`G6/历史`），并非完整 `2×4=8` 格备用矩阵。若其他未覆盖单元（如 `G2-B/悬疑`、`G2-B/历史`、`G6/仙侠`、`G6/都市`）在 WP3 定案后出现配额缺口且无合格同门禁、同题材、同原始 `creatorIntendedLabel` 备用可补，**`CUSTODY-PRECHECK` 必须保持 `BLOCKED`，严禁跨题材、跨门禁挪用或静默放宽配额**（需经作者单独授权补创对应单元缺口后方可解除阻断）。
 
 ### 3.2 每章必需输入骨架与标准单文件批次交付 Schema
 
