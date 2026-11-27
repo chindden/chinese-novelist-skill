@@ -19,11 +19,27 @@
       "D5": "D5-A (Keep GitHub Issue #10 OPEN)"
     },
     "pendingAuthorApprovals": {
-      "wp1DynamicBudgetApproval": "PENDING",
       "v2FinalAllocationApproval": "PENDING",
       "positiveCohortApprovalRef": "PENDING (to be bound after WP3 DQ-1..4)",
       "t1SealApproval": "PENDING",
       "t2KeyReleaseApproval": "PENDING"
+    },
+    "authorApprovals": {
+      "wp1DynamicBudgetApproval": {
+        "status": "APPROVED",
+        "approvedOn": "2026-11-28",
+        "scope": {
+          "coreChapters": 50,
+          "fifoReserveChapters": 4,
+          "totalChapters": 54
+        },
+        "approvalEvidence": {
+          "issueNumber": 10,
+          "commentId": 7223902377,
+          "url": "https://github.com/chindden/chinese-novelist-skill/issues/10#issuecomment-7223902377",
+          "authorReply": "同意"
+        }
+      }
     }
   }
 }
