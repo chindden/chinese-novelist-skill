@@ -22,6 +22,7 @@ import {projectRoot, readPlan, safeFile, sha256} from '../v3_common.mjs';
 import {verifySnapshot} from '../r3_snapshots.mjs';
 import {
   buildPlanningSlice,
+  canonicalJson,
   computeReviewFingerprint,
   prepareR3Review,
   R3_REVIEW_PROTOCOL_VERSION,
@@ -32,6 +33,47 @@ const isPlainObject = x => Boolean(x) && typeof x === 'object' && !Array.isArray
 const isNonEmptyString = x => typeof x === 'string' && x.trim().length > 0;
 
 export const CONTEXT_WINDOW_RADIUS_CHARS = 300;
+
+/**
+ * Deep clone JSON-compatible review structures so downstream adapters never share mutable references
+ * with frozen evidence snapshots or shared base packs.
+ */
+export function deepClone(value) {
+  return structuredClone(value);
+}
+
+/**
+ * Recursively freeze objects and arrays to protect immutable evidence snapshots and base packs.
+ */
+export function deepFreeze(value, seen = new WeakSet()) {
+  if (value === null || typeof value !== 'object' || seen.has(value)) {
+    return value;
+  }
+  seen.add(value);
+  if (Array.isArray(value)) {
+    for (const item of value) {
+      deepFreeze(item, seen);
+    }
+  } else {
+    for (const key of Object.keys(value)) {
+      deepFreeze(value[key], seen);
+    }
+  }
+  return Object.freeze(value);
+}
+
+/**
+ * Verify that an assembled `planningCoreSlice` hashes to the exact canonical SHA-256 bound in `reviewFingerprint`.
+ * Closes any TOCTOU window between `computeReviewFingerprint()` and `buildPlanningSlice()`.
+ */
+export function verifyPlanningSliceMatchesFingerprint(planningCoreSlice, expectedSha256) {
+  const actualSha256 = sha256(Buffer.from(canonicalJson(planningCoreSlice), 'utf8'));
+  return {
+    ok: typeof expectedSha256 === 'string' && actualSha256 === expectedSha256,
+    expectedSha256: expectedSha256 ?? null,
+    actualSha256,
+  };
+}
 
 export const PROTOTYPE_TEMPLATE_FILES = Object.freeze({
   A: 'scheme-a-single-stage.md',
@@ -280,10 +322,27 @@ export function compileSharedReviewBasePack(
   if (!chapterEntry) {
     return {ok: false, exitCode: 2, error: 'R3_FP_CHAPTER_NOT_IN_PLAN'};
   }
-  // B6: Direct reuse of P0-4 pure read-only buildPlanningSlice() — zero field drift!
+  // B6 + TOCTOU guard: Direct reuse of P0-4 pure read-only buildPlanningSlice() AND verify canonical SHA-256 matches fingerprint!
   const planningCoreSlice = buildPlanningSlice(root, plan, chapterEntry, chapterNumber);
+  const liveSliceCheck = verifyPlanningSliceMatchesFingerprint(
+    planningCoreSlice,
+    liveFp.components.planningSliceSha256
+  );
+  const recSliceCheck = verifyPlanningSliceMatchesFingerprint(
+    planningCoreSlice,
+    rec.fingerprintComponents?.planningSliceSha256
+  );
+  if (!liveSliceCheck.ok || !recSliceCheck.ok) {
+    return {
+      ok: false,
+      exitCode: 2,
+      error: 'R3_PLANNING_SLICE_HASH_MISMATCH',
+      expectedPlanningSliceSha256: rec.fingerprintComponents?.planningSliceSha256 ?? liveFp.components.planningSliceSha256,
+      actualPlanningSliceSha256: liveSliceCheck.actualSha256,
+    };
+  }
 
-  return {
+  return deepFreeze({
     ok: true,
     exitCode: 0,
     protocolVersion: R3_REVIEW_PROTOCOL_VERSION,
@@ -291,29 +350,31 @@ export function compileSharedReviewBasePack(
     chapter: chapterNumber,
     revision: rec.revision,
     reviewFingerprint: rec.reviewFingerprint,
-    fingerprintComponents: rec.fingerprintComponents,
-    manuscriptHashes: rec.manuscriptHashes,
+    fingerprintComponents: deepClone(rec.fingerprintComponents),
+    planningCoreSliceSha256: liveSliceCheck.actualSha256,
+    manuscriptHashes: deepClone(rec.manuscriptHashes),
     manuscriptPath: packet.manuscriptPath,
     manuscriptText,
-    needsSemanticAudit: packet.needsSemanticAudit,
-    planningCoreSlice,
-    hardConstraints: {
+    needsSemanticAudit: deepClone(packet.needsSemanticAudit),
+    planningCoreSlice: deepClone(planningCoreSlice),
+    hardConstraints: deepClone({
       global: plan.hardConstraints ?? null,
       chapter: chapterEntry.hardConstraints ?? null,
-    },
+    }),
     ledgerSlice: extractLedgerSummaryUpto(root, chapterNumber),
-    snapshot: rec.snapshot,
+    snapshot: deepClone(rec.snapshot),
     inputPath: rec.inputPath,
-  };
+  });
 }
 
 /**
  * Construct Scheme B Pass 2 lightweight input package.
  *
- * STRICT CONTEXT ISOLATION CONTRACT (PRD TC-P0-5-2 & B3 & B6):
+ * STRICT CONTEXT ISOLATION CONTRACT (PRD TC-P0-5-2 & B3 & B4 & B6):
  *  - MUST NOT include full chapter `manuscriptText`.
  *  - Radius strictly locked to 300 chars; locates quotes using `paragraphIndex` (Fail-Closed on ambiguity).
- *  - Includes exact P0-4 `planningCoreSlice` + candidates with +-300-char excerpts + Pass 1 evidence.
+ *  - All nested evidence & planning fields are deep-cloned so Pass 2 adapter mutations CANNOT pollute
+ *    Pass 1 evidence snapshots or the shared base pack.
  */
 export function buildSchemeBPass2Input(basePack, pass1Report, {radius = CONTEXT_WINDOW_RADIUS_CHARS} = {}) {
   if (!basePack?.ok || typeof basePack.manuscriptText !== 'string') {
@@ -354,13 +415,13 @@ export function buildSchemeBPass2Input(basePack, pass1Report, {radius = CONTEXT_
     chapter: basePack.chapter,
     revision: basePack.revision,
     reviewFingerprint: basePack.reviewFingerprint,
-    manuscriptHashes: basePack.manuscriptHashes,
-    planningCoreSlice: basePack.planningCoreSlice,
-    hardConstraints: basePack.hardConstraints,
-    dimensionAuditSlots: pass1Report.dimensionAuditSlots,
-    semanticAuditResolutions: pass1Report.semanticAuditResolutions,
-    preserveStrengths: pass1Report.preserveStrengths ?? [],
-    candidatesWithContext,
+    manuscriptHashes: deepClone(basePack.manuscriptHashes),
+    planningCoreSlice: deepClone(basePack.planningCoreSlice),
+    hardConstraints: deepClone(basePack.hardConstraints),
+    dimensionAuditSlots: deepClone(pass1Report.dimensionAuditSlots),
+    semanticAuditResolutions: deepClone(pass1Report.semanticAuditResolutions),
+    preserveStrengths: deepClone(pass1Report.preserveStrengths ?? []),
+    candidatesWithContext: deepClone(candidatesWithContext),
   };
 }
 
@@ -402,6 +463,7 @@ export function shouldTriggerSchemeCStage2(stage1Report) {
 /**
  * Construct Scheme C Stage 2 lightweight triage input (ONLY flagged issues, advisories, non-pass NSA,
  * and `nonBlockingIssuesCarried`, with radius strictly locked to 300 chars and exact P0-4 `planningCoreSlice`).
+ * All nested objects/arrays are deep-cloned so Stage 2 adapter mutations CANNOT pollute Stage 1 snapshots or basePack.
  */
 export function buildSchemeCStage2Input(basePack, stage1Report, {radius = CONTEXT_WINDOW_RADIUS_CHARS} = {}) {
   if (!basePack?.ok || typeof basePack.manuscriptText !== 'string') {
@@ -414,7 +476,7 @@ export function buildSchemeCStage2Input(basePack, stage1Report, {radius = CONTEX
   const flaggedIssuesWithContext = issues
     .filter(i => i?.severity === 'BLOCKER' || i?.severity === 'MAJOR')
     .map(i => ({
-      ...i,
+      ...deepClone(i),
       contextWindow: buildLocalContextExcerpt(basePack.manuscriptText, i.quote, {
         radius,
         paragraphIndex: i.paragraphIndex ?? null,
@@ -433,10 +495,13 @@ export function buildSchemeCStage2Input(basePack, stage1Report, {radius = CONTEX
           paragraphIndex: clue.paragraphIndex ?? null,
         });
       }
-      return {...r, clue: clue ?? null, contextWindow};
+      return {...deepClone(r), clue: clue ? deepClone(clue) : null, contextWindow};
     });
 
   const template = loadPrototypeTemplate('C_STAGE2');
+  const nonBlockingIssuesCarried = issues
+    .filter(i => i?.severity === 'MINOR' || i?.severity === 'SUGGESTION')
+    .map(i => deepClone(i));
 
   return {
     scheme: 'C',
@@ -448,16 +513,16 @@ export function buildSchemeCStage2Input(basePack, stage1Report, {radius = CONTEX
     chapter: basePack.chapter,
     revision: basePack.revision,
     reviewFingerprint: basePack.reviewFingerprint,
-    manuscriptHashes: basePack.manuscriptHashes,
-    planningCoreSlice: basePack.planningCoreSlice,
-    hardConstraints: basePack.hardConstraints,
+    manuscriptHashes: deepClone(basePack.manuscriptHashes),
+    planningCoreSlice: deepClone(basePack.planningCoreSlice),
+    hardConstraints: deepClone(basePack.hardConstraints),
     stage1Decision: stage1Report.decision,
-    dimensionAuditSlots: stage1Report.dimensionAuditSlots,
-    semanticAuditResolutions: stage1Report.semanticAuditResolutions,
-    nonBlockingIssuesCarried: issues.filter(i => i?.severity === 'MINOR' || i?.severity === 'SUGGESTION'),
+    dimensionAuditSlots: deepClone(stage1Report.dimensionAuditSlots),
+    semanticAuditResolutions: deepClone(stage1Report.semanticAuditResolutions),
+    nonBlockingIssuesCarried,
     flaggedIssuesWithContext,
-    planningConflictAdvisories: stage1Report.planningConflictAdvisories ?? [],
+    planningConflictAdvisories: deepClone(stage1Report.planningConflictAdvisories ?? []),
     nonPassNsaWithContext,
-    preserveStrengths: stage1Report.preserveStrengths ?? [],
+    preserveStrengths: deepClone(stage1Report.preserveStrengths ?? []),
   };
 }

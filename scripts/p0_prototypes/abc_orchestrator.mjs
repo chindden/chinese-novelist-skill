@@ -16,12 +16,16 @@
 import {
   R3_DISCOVERY_REPORT_SCHEMA,
   R3_FINAL_REPORT_SCHEMA,
+  canonicalJson,
   validateR3ReviewReport,
 } from '../r3_review_kernel.mjs';
 import {
   CONTEXT_WINDOW_RADIUS_CHARS,
+  deepClone,
+  deepFreeze,
   loadPrototypeTemplate,
   compileSharedReviewBasePack,
+  verifyPlanningSliceMatchesFingerprint,
   buildSchemeBPass2Input,
   shouldTriggerSchemeCStage2,
   buildSchemeCStage2Input,
@@ -43,14 +47,29 @@ function buildFullStageInput(scheme, stage, protocolMode, templateKey, basePack)
     chapter: basePack.chapter,
     revision: basePack.revision,
     reviewFingerprint: basePack.reviewFingerprint,
-    manuscriptHashes: basePack.manuscriptHashes,
+    manuscriptHashes: deepClone(basePack.manuscriptHashes),
     manuscriptPath: basePack.manuscriptPath,
     manuscriptText: basePack.manuscriptText,
-    planningCoreSlice: basePack.planningCoreSlice,
-    hardConstraints: basePack.hardConstraints,
-    ledgerSlice: basePack.ledgerSlice,
-    needsSemanticAudit: basePack.needsSemanticAudit,
+    planningCoreSlice: deepClone(basePack.planningCoreSlice),
+    hardConstraints: deepClone(basePack.hardConstraints),
+    ledgerSlice: deepClone(basePack.ledgerSlice),
+    needsSemanticAudit: deepClone(basePack.needsSemanticAudit),
   };
+}
+
+function checkSharedBasePackIntegrity(shared) {
+  const expectedSha = shared?.fingerprintComponents?.planningSliceSha256;
+  if (!expectedSha) return null;
+  const check = verifyPlanningSliceMatchesFingerprint(shared.planningCoreSlice, expectedSha);
+  if (!check.ok) {
+    return {
+      code: 'R3_PLANNING_SLICE_HASH_MISMATCH',
+      message: `共享底座 planningCoreSlice 哈希与五元组 planningSliceSha256 不一致（expected=${check.expectedSha256}, actual=${check.actualSha256}）。`,
+      expectedPlanningSliceSha256: check.expectedSha256,
+      actualPlanningSliceSha256: check.actualSha256,
+    };
+  }
+  return null;
 }
 
 function assertExpectedProtocolMode(report, expectedMode) {
@@ -64,12 +83,36 @@ function assertExpectedProtocolMode(report, expectedMode) {
 }
 
 /**
- * B1: Enforce reviewer independence (distinct runId AND distinct contextId) between two review stages.
+ * B1: Enforce two-stage reviewer identity independence AND honestly record proof level:
+ *  - When host runtime supplies `runtimeStageContexts: {stage1: {runId, contextId}, stage2: {runId, contextId}}`:
+ *    cross-checks that both report identities match the host-injected independent runtime contexts
+ *    (`proofLevel: 'runtime_metadata_cross_checked'`), failing closed on spoofing/mismatch.
+ *  - When no host runtime metadata is supplied (offline prototype/mock runs):
+ *    still fails closed if `runId` or `contextId` are reused, and explicitly marks
+ *    `proofLevel: 'protocol_metadata_only_unverified_runtime'` so protocol metadata is never
+ *    misrepresented as verified physical multi-agent session isolation.
  */
-function checkStage2ReviewerIndependence(stage1Report, stage2Report, stage1Label, stage2Label) {
-  const r1 = stage1Report?.reviewer;
-  const r2 = stage2Report?.reviewer;
-  if (!isPlainObject(r1) || !isPlainObject(r2)) return [];
+function checkStage2ReviewerIndependence(
+  stage1Reviewer,
+  stage2Reviewer,
+  stage1Label,
+  stage2Label,
+  runtimeStageContexts = null
+) {
+  const r1 = stage1Reviewer;
+  const r2 = stage2Reviewer;
+  if (!isPlainObject(r1) || !isPlainObject(r2)) {
+    return {
+      errors: [],
+      verification: {
+        independent: false,
+        proofLevel: 'invalid_reviewer_metadata',
+        runtimeInjected: false,
+        note: '缺少有效的 reviewer 元数据，无法验证上下文独立性。',
+      },
+    };
+  }
+
   const errs = [];
   if (r1.runId === r2.runId || r1.contextId === r2.contextId) {
     errs.push({
@@ -79,37 +122,117 @@ function checkStage2ReviewerIndependence(stage1Report, stage2Report, stage1Label
       stage2Reviewer: {runId: r2.runId, contextId: r2.contextId},
     });
   }
-  return errs;
+
+  if (runtimeStageContexts !== null && runtimeStageContexts !== undefined) {
+    const rt1 = runtimeStageContexts?.stage1;
+    const rt2 = runtimeStageContexts?.stage2;
+    const rtValid =
+      isPlainObject(rt1) &&
+      isPlainObject(rt2) &&
+      isNonEmptyString(rt1.runId) &&
+      isNonEmptyString(rt1.contextId) &&
+      isNonEmptyString(rt2.runId) &&
+      isNonEmptyString(rt2.contextId);
+    if (!rtValid || rt1.runId === rt2.runId || rt1.contextId === rt2.contextId) {
+      errs.push({
+        code: 'R3_STAGE2_CONTEXT_NOT_INDEPENDENT',
+        message: `宿主运行时注入的 ${stage1Label}/${stage2Label} 上下文元数据缺失或未隔离。`,
+      });
+    } else {
+      if (r1.runId !== rt1.runId || r1.contextId !== rt1.contextId) {
+        errs.push({
+          code: 'R3_STAGE_REVIEWER_RUNTIME_MISMATCH',
+          stage: stage1Label,
+          message: `${stage1Label} 报告中的 reviewer 身份与宿主运行时注入的上下文不一致，禁止模型自行伪造身份。`,
+          expected: {runId: rt1.runId, contextId: rt1.contextId},
+          actual: {runId: r1.runId, contextId: r1.contextId},
+        });
+      }
+      if (r2.runId !== rt2.runId || r2.contextId !== rt2.contextId) {
+        errs.push({
+          code: 'R3_STAGE_REVIEWER_RUNTIME_MISMATCH',
+          stage: stage2Label,
+          message: `${stage2Label} 报告中的 reviewer 身份与宿主运行时注入的上下文不一致，禁止模型自行伪造身份。`,
+          expected: {runId: rt2.runId, contextId: rt2.contextId},
+          actual: {runId: r2.runId, contextId: r2.contextId},
+        });
+      }
+    }
+    return {
+      errors: errs,
+      verification: {
+        independent: errs.length === 0,
+        proofLevel: errs.length === 0 ? 'runtime_metadata_cross_checked' : 'runtime_cross_check_failed',
+        runtimeInjected: true,
+        note:
+          errs.length === 0
+            ? '已交叉核验两阶段报告身份与宿主运行时注入的独立上下文元数据一致。'
+            : '两阶段报告身份与宿主运行时上下文核验未通过。',
+      },
+    };
+  }
+
+  return {
+    errors: errs,
+    verification: {
+      independent: errs.length === 0,
+      proofLevel: errs.length === 0 ? 'protocol_metadata_only_unverified_runtime' : 'protocol_metadata_conflict',
+      runtimeInjected: false,
+      note:
+        errs.length === 0
+          ? '协议元数据不同，真实 Agent/会话上下文独立性未验证（未提供宿主可信运行时上下文元数据）。'
+          : '两阶段报告复用了相同的 runId 或 contextId。',
+    },
+  };
 }
 
 /**
- * B4: Verify Scheme B Pass 2 preserves Pass 1's 6-dim `dimensionAuditSlots` and `semanticAuditResolutions` verbatim.
- * Pass 2 may attach supplemental commentary in a separate field (e.g., `calibrationAuditNotes`), never silently mutating Pass 1 evidence.
+ * B4: Verify Scheme B Pass 2 preserves Pass 1's 6-dim `dimensionAuditSlots` and `semanticAuditResolutions`
+ * VERBATIM against the immutable `pass1EvidenceSnapshot` using full canonical deep equality.
+ * Pass 2 may attach supplemental commentary in a separate top-level field (e.g., `calibrationAuditNotes`),
+ * never mutating any field (top-level or nested) of Pass 1's evidence objects.
  */
-function checkSchemeBPass1EvidencePreserved(pass1Report, finalReport) {
+function checkSchemeBPass1EvidencePreserved(pass1Snapshot, finalReport) {
   const errs = [];
-  const p1Slots = new Map((pass1Report?.dimensionAuditSlots || []).map(s => [s.dimension, s]));
-  const p2Slots = new Map((finalReport?.dimensionAuditSlots || []).map(s => [s.dimension, s]));
+  const p1SlotsArr = Array.isArray(pass1Snapshot?.dimensionAuditSlots) ? pass1Snapshot.dimensionAuditSlots : [];
+  const p2SlotsArr = Array.isArray(finalReport?.dimensionAuditSlots) ? finalReport.dimensionAuditSlots : [];
+
+  if (p2SlotsArr.length !== p1SlotsArr.length) {
+    errs.push({
+      code: 'R3_SCHEME_B_PASS1_SLOTS_ALTERED',
+      message: `方案 B Pass 2 改变了 Pass 1 取证槽数量（期望 ${p1SlotsArr.length}，实际 ${p2SlotsArr.length}）。`,
+    });
+  }
+  const p1Slots = new Map(p1SlotsArr.map(s => [s.dimension, s]));
+  const p2Slots = new Map(p2SlotsArr.filter(isPlainObject).map(s => [s.dimension, s]));
   for (const [dim, s1] of p1Slots.entries()) {
     const s2 = p2Slots.get(dim);
-    if (!s2 || s2.checkedAnchor !== s1.checkedAnchor || s2.status !== s1.status) {
+    if (!s2 || canonicalJson(s2) !== canonicalJson(s1)) {
       errs.push({
         code: 'R3_SCHEME_B_PASS1_SLOTS_ALTERED',
         dimension: dim,
-        message: `方案 B Pass 2 篡改或未完整保留 Pass 1 维度 ${dim} 的取证记录（checkedAnchor/status 必须与 Pass 1 一致）。`,
+        message: `方案 B Pass 2 篡改或未完整 verbatim 保留 Pass 1 维度 ${dim} 的取证记录。`,
       });
     }
   }
 
-  const p1Nsa = new Map((pass1Report?.semanticAuditResolutions || []).map(r => [r.auditId, r]));
-  const p2Nsa = new Map((finalReport?.semanticAuditResolutions || []).map(r => [r.auditId, r]));
+  const p1NsaArr = Array.isArray(pass1Snapshot?.semanticAuditResolutions) ? pass1Snapshot.semanticAuditResolutions : [];
+  const p2NsaArr = Array.isArray(finalReport?.semanticAuditResolutions) ? finalReport.semanticAuditResolutions : [];
+  if (p2NsaArr.length !== p1NsaArr.length) {
+    errs.push({
+      code: 'R3_SCHEME_B_PASS1_NSA_ALTERED',
+      message: `方案 B Pass 2 改变了 Pass 1 NSA 核销记录数量（期望 ${p1NsaArr.length}，实际 ${p2NsaArr.length}）。`,
+    });
+  }
+  const p1Nsa = new Map(p1NsaArr.map(r => [r.auditId, r]));
+  const p2Nsa = new Map(p2NsaArr.filter(isPlainObject).map(r => [r.auditId, r]));
   for (const [aid, n1] of p1Nsa.entries()) {
     const n2 = p2Nsa.get(aid);
-    if (!n2 || n2.status !== n1.status || n2.note !== n1.note) {
+    if (!n2 || canonicalJson(n2) !== canonicalJson(n1)) {
       errs.push({
         code: 'R3_SCHEME_B_PASS1_NSA_ALTERED',
         auditId: aid,
-        message: `方案 B Pass 2 篡改了 Pass 1 对 ${aid} 的原始核销记录（status/note 必须原样保留；如需补充请写入独立字段）。`,
+        message: `方案 B Pass 2 篡改了 Pass 1 对 ${aid} 的原始核销记录（须完整 verbatim 保留；补充说明请写入独立字段）。`,
       });
     }
   }
@@ -117,12 +240,13 @@ function checkSchemeBPass1EvidencePreserved(pass1Report, finalReport) {
 }
 
 /**
- * B5: Verify Scheme C Stage 2 retains every Stage 1 MINOR/SUGGESTION issue verbatim, or provides an explicit auditable disposition.
+ * B5: Verify Scheme C Stage 2 retains every Stage 1 MINOR/SUGGESTION issue VERBATIM against the immutable
+ * `stage1EvidenceSnapshot` (full canonical deep equality), or provides an explicit auditable disposition.
  */
-function checkSchemeCNonBlockingRetention(stage1Report, finalReport) {
-  const carried = (stage1Report?.issues || []).filter(
-    i => isPlainObject(i) && (i.severity === 'MINOR' || i.severity === 'SUGGESTION')
-  );
+function checkSchemeCNonBlockingRetention(stage1Snapshot, finalReport) {
+  const carried = Array.isArray(stage1Snapshot?.nonBlockingIssuesCarried)
+    ? stage1Snapshot.nonBlockingIssuesCarried
+    : [];
   if (carried.length === 0) return [];
 
   const finalById = new Map((finalReport?.issues || []).filter(isPlainObject).map(i => [i.id, i]));
@@ -134,16 +258,17 @@ function checkSchemeCNonBlockingRetention(stage1Report, finalReport) {
   const errs = [];
   for (const orig of carried) {
     const retained = finalById.get(orig.id);
-    if (retained && retained.severity === orig.severity && retained.quote === orig.quote) {
+    const retainedVerbatim = Boolean(retained) && canonicalJson(retained) === canonicalJson(orig);
+    if (retainedVerbatim) {
       continue;
     }
     const disp = dispById.get(orig.id);
     if (disp && ALLOWED_CARRIED_DISPOSITIONS.includes(disp.disposition) && isNonEmptyString(disp.note)) {
-      if (disp.disposition === 'kept' && (!retained || retained.severity !== orig.severity || retained.quote !== orig.quote)) {
+      if (disp.disposition === 'kept') {
         errs.push({
           code: 'R3_SCHEME_C_DROPPED_STAGE1_NONBLOCKING',
           issueId: orig.id,
-          message: `方案 C Stage 2 对 ${orig.id} 声明 disposition="kept"，但未在最终 issues 中原样保留该条目（id/severity/quote 须一致）。`,
+          message: `方案 C Stage 2 对 ${orig.id} 声明 disposition="kept"，但未在最终 issues 中完整 verbatim 保留该原始条目。`,
         });
       }
       continue;
@@ -152,7 +277,7 @@ function checkSchemeCNonBlockingRetention(stage1Report, finalReport) {
       code: 'R3_SCHEME_C_DROPPED_STAGE1_NONBLOCKING',
       issueId: orig.id,
       severity: orig.severity,
-      message: `方案 C Stage 2 静默丢弃了 Stage 1 的非阻断条目 ${orig.id}（${orig.severity}），必须原样保留或在 carriedIssueDispositions 中给出明确处置。`,
+      message: `方案 C Stage 2 静默丢弃或篡改了 Stage 1 的非阻断条目 ${orig.id}（${orig.severity}），必须完整 verbatim 保留或在 carriedIssueDispositions 中给出明确处置。`,
     });
   }
   return errs;
@@ -173,6 +298,19 @@ export async function runSchemeA(
   const shared = basePack ?? compileSharedReviewBasePack(projectDir, chapterNumber);
   if (!shared.ok) {
     return {ok: false, exitCode: 2, scheme: 'A', stage: 'compile_base_pack', error: shared.error, shared};
+  }
+  const packErr = checkSharedBasePackIntegrity(shared);
+  if (packErr) {
+    return {
+      ok: false,
+      exitCode: 2,
+      scheme: 'A',
+      protocolMode: 'single_stage_A',
+      stage: 'base_pack_integrity',
+      calls: {stage1: 0, stage2: 0, total: 0},
+      reviewFingerprint: shared.reviewFingerprint,
+      errors: [packErr],
+    };
   }
 
   const stage1Input = buildFullStageInput('A', 'single_stage', 'single_stage_A', 'A', shared);
@@ -230,7 +368,7 @@ export async function runSchemeB(
   projectDir,
   chapterNumber,
   adapter,
-  {basePack = null, radius = CONTEXT_WINDOW_RADIUS_CHARS, compileWriterCard = false} = {}
+  {basePack = null, radius = CONTEXT_WINDOW_RADIUS_CHARS, compileWriterCard = false, runtimeStageContexts = null} = {}
 ) {
   if (typeof adapter?.runPass1Discovery !== 'function' || typeof adapter?.runPass2Calibration !== 'function') {
     throw new Error('R3_SCHEME_B_ADAPTER_REQUIRED');
@@ -238,6 +376,19 @@ export async function runSchemeB(
   const shared = basePack ?? compileSharedReviewBasePack(projectDir, chapterNumber);
   if (!shared.ok) {
     return {ok: false, exitCode: 2, scheme: 'B', stage: 'compile_base_pack', error: shared.error, shared};
+  }
+  const packErr = checkSharedBasePackIntegrity(shared);
+  if (packErr) {
+    return {
+      ok: false,
+      exitCode: 2,
+      scheme: 'B',
+      protocolMode: 'two_stage_B',
+      stage: 'base_pack_integrity',
+      calls: {pass1: 0, pass2: 0, total: 0},
+      reviewFingerprint: shared.reviewFingerprint,
+      errors: [packErr],
+    };
   }
 
   // Pass 1: High-recall open discovery (no OR1-OR7 suppression)
@@ -269,7 +420,17 @@ export async function runSchemeB(
     };
   }
 
-  // Pass 2 input build: strictly locked +-300-char radius & unambiguous paragraphIndex-anchored quotes (B3)
+  // Freeze an independent deep-cloned evidence baseline BEFORE constructing Pass 2 input or calling Pass 2.
+  const pass1EvidenceSnapshot = deepFreeze(
+    deepClone({
+      reviewer: pass1Report.reviewer,
+      dimensionAuditSlots: pass1Report.dimensionAuditSlots,
+      semanticAuditResolutions: pass1Report.semanticAuditResolutions,
+      preserveStrengths: pass1Report.preserveStrengths ?? [],
+    })
+  );
+
+  // Pass 2 input build: strictly locked +-300-char radius & deep-cloned inputs detached from baseline snapshot (B3 & B4)
   let pass2Input;
   try {
     pass2Input = buildSchemeBPass2Input(shared, pass1Report, {radius});
@@ -284,6 +445,7 @@ export async function runSchemeB(
       stage: 'pass2_input_build',
       calls: {pass1: 1, pass2: 0, total: 1},
       reviewFingerprint: shared.reviewFingerprint,
+      pass1EvidenceSnapshot,
       errors: [{code, message: rawMsg}],
     };
   }
@@ -292,12 +454,18 @@ export async function runSchemeB(
 
   const finalValidation = validateR3ReviewReport(shared.projectRoot, chapterNumber, finalReport, {allowDiscovery: false});
   const finalModeErr = assertExpectedProtocolMode(finalReport, 'two_stage_B');
-  const independenceErrors = checkStage2ReviewerIndependence(pass1Report, finalReport, 'Pass 1', 'Pass 2');
-  const evidenceErrors = checkSchemeBPass1EvidencePreserved(pass1Report, finalReport);
+  const independence = checkStage2ReviewerIndependence(
+    pass1EvidenceSnapshot.reviewer,
+    finalReport?.reviewer,
+    'Pass 1',
+    'Pass 2',
+    runtimeStageContexts
+  );
+  const evidenceErrors = checkSchemeBPass1EvidencePreserved(pass1EvidenceSnapshot, finalReport);
   const finalErrors = [
     ...finalValidation.errors,
     ...(finalModeErr ? [finalModeErr] : []),
-    ...independenceErrors,
+    ...independence.errors,
     ...evidenceErrors,
   ];
   if (finalErrors.length > 0) {
@@ -309,6 +477,8 @@ export async function runSchemeB(
       stage: 'pass2_calibration_validation',
       calls: {pass1: 1, pass2: 1, total: 2},
       reviewFingerprint: shared.reviewFingerprint,
+      pass1EvidenceSnapshot,
+      contextIndependenceVerification: independence.verification,
       pass2Input,
       errors: finalErrors,
     };
@@ -324,6 +494,8 @@ export async function runSchemeB(
       stage: 'impact_scope_routing',
       calls: {pass1: 1, pass2: 1, total: 2},
       reviewFingerprint: shared.reviewFingerprint,
+      pass1EvidenceSnapshot,
+      contextIndependenceVerification: independence.verification,
       pass2Input,
       errors: [{code: routing.error, message: routing.message}],
       routing,
@@ -337,6 +509,8 @@ export async function runSchemeB(
     protocolMode: 'two_stage_B',
     calls: {pass1: 1, pass2: 1, total: 2},
     reviewFingerprint: shared.reviewFingerprint,
+    pass1EvidenceSnapshot,
+    contextIndependenceVerification: independence.verification,
     pass1Input,
     pass1Report,
     pass1Validation,
@@ -354,7 +528,7 @@ export async function runSchemeC(
   projectDir,
   chapterNumber,
   adapter,
-  {basePack = null, radius = CONTEXT_WINDOW_RADIUS_CHARS, compileWriterCard = false} = {}
+  {basePack = null, radius = CONTEXT_WINDOW_RADIUS_CHARS, compileWriterCard = false, runtimeStageContexts = null} = {}
 ) {
   if (typeof adapter?.runStage1HighRecall !== 'function' || typeof adapter?.runStage2Triage !== 'function') {
     throw new Error('R3_SCHEME_C_ADAPTER_REQUIRED');
@@ -362,6 +536,20 @@ export async function runSchemeC(
   const shared = basePack ?? compileSharedReviewBasePack(projectDir, chapterNumber);
   if (!shared.ok) {
     return {ok: false, exitCode: 2, scheme: 'C', stage: 'compile_base_pack', error: shared.error, shared};
+  }
+  const packErr = checkSharedBasePackIntegrity(shared);
+  if (packErr) {
+    return {
+      ok: false,
+      exitCode: 2,
+      scheme: 'C',
+      protocolMode: 'single_plus_triage_C',
+      stage: 'base_pack_integrity',
+      shortCircuited: false,
+      calls: {stage1: 0, stage2: 0, total: 0},
+      reviewFingerprint: shared.reviewFingerprint,
+      errors: [packErr],
+    };
   }
 
   // Stage 1: High-recall single-stage complete review
@@ -394,8 +582,24 @@ export async function runSchemeC(
     };
   }
 
+  // Freeze an independent deep-cloned evidence baseline BEFORE short-circuit or Stage 2 invocation.
+  const stage1EvidenceSnapshot = deepFreeze(
+    deepClone({
+      reviewer: stage1Report.reviewer,
+      nonBlockingIssuesCarried: (stage1Report.issues || []).filter(
+        i => isPlainObject(i) && (i.severity === 'MINOR' || i.severity === 'SUGGESTION')
+      ),
+    })
+  );
+
   const triggerCheck = shouldTriggerSchemeCStage2(stage1Report);
   if (!triggerCheck.trigger) {
+    const shortCircuitVerification = {
+      independent: null,
+      proofLevel: 'not_applicable_short_circuited',
+      runtimeInjected: Boolean(runtimeStageContexts),
+      note: 'Stage 2 已短路未触发。',
+    };
     const routing = routeFinalReviewReport(stage1Report, {compileWriterCard, chapterNumber});
     if (!routing.ok) {
       return {
@@ -408,6 +612,8 @@ export async function runSchemeC(
         stage2TriggerReasons: triggerCheck.reasons,
         calls: {stage1: 1, stage2: 0, total: 1},
         reviewFingerprint: shared.reviewFingerprint,
+        stage1EvidenceSnapshot,
+        contextIndependenceVerification: shortCircuitVerification,
         errors: [{code: routing.error, message: routing.message}],
         routing,
       };
@@ -421,6 +627,8 @@ export async function runSchemeC(
       stage2TriggerReasons: triggerCheck.reasons,
       calls: {stage1: 1, stage2: 0, total: 1},
       reviewFingerprint: shared.reviewFingerprint,
+      stage1EvidenceSnapshot,
+      contextIndependenceVerification: shortCircuitVerification,
       stage1Input,
       stage1Report,
       stage1Validation,
@@ -431,7 +639,7 @@ export async function runSchemeC(
     };
   }
 
-  // Stage 2 input build: strictly locked +-300-char radius & unambiguous quote localization (B3)
+  // Stage 2 input build: strictly locked +-300-char radius & deep-cloned inputs detached from baseline snapshot (B3 & B5)
   let stage2Input;
   try {
     stage2Input = buildSchemeCStage2Input(shared, stage1Report, {radius});
@@ -448,6 +656,7 @@ export async function runSchemeC(
       stage2TriggerReasons: triggerCheck.reasons,
       calls: {stage1: 1, stage2: 0, total: 1},
       reviewFingerprint: shared.reviewFingerprint,
+      stage1EvidenceSnapshot,
       errors: [{code, message: rawMsg}],
     };
   }
@@ -456,12 +665,18 @@ export async function runSchemeC(
 
   const finalValidation = validateR3ReviewReport(shared.projectRoot, chapterNumber, finalReport, {allowDiscovery: false});
   const finalModeErr = assertExpectedProtocolMode(finalReport, 'single_plus_triage_C');
-  const independenceErrors = checkStage2ReviewerIndependence(stage1Report, finalReport, 'Stage 1', 'Stage 2');
-  const retentionErrors = checkSchemeCNonBlockingRetention(stage1Report, finalReport);
+  const independence = checkStage2ReviewerIndependence(
+    stage1EvidenceSnapshot.reviewer,
+    finalReport?.reviewer,
+    'Stage 1',
+    'Stage 2',
+    runtimeStageContexts
+  );
+  const retentionErrors = checkSchemeCNonBlockingRetention(stage1EvidenceSnapshot, finalReport);
   const finalErrors = [
     ...finalValidation.errors,
     ...(finalModeErr ? [finalModeErr] : []),
-    ...independenceErrors,
+    ...independence.errors,
     ...retentionErrors,
   ];
   if (finalErrors.length > 0) {
@@ -475,6 +690,8 @@ export async function runSchemeC(
       stage2TriggerReasons: triggerCheck.reasons,
       calls: {stage1: 1, stage2: 1, total: 2},
       reviewFingerprint: shared.reviewFingerprint,
+      stage1EvidenceSnapshot,
+      contextIndependenceVerification: independence.verification,
       stage2Input,
       errors: finalErrors,
     };
@@ -492,6 +709,8 @@ export async function runSchemeC(
       stage2TriggerReasons: triggerCheck.reasons,
       calls: {stage1: 1, stage2: 1, total: 2},
       reviewFingerprint: shared.reviewFingerprint,
+      stage1EvidenceSnapshot,
+      contextIndependenceVerification: independence.verification,
       stage2Input,
       errors: [{code: routing.error, message: routing.message}],
       routing,
@@ -507,6 +726,8 @@ export async function runSchemeC(
     stage2TriggerReasons: triggerCheck.reasons,
     calls: {stage1: 1, stage2: 1, total: 2},
     reviewFingerprint: shared.reviewFingerprint,
+    stage1EvidenceSnapshot,
+    contextIndependenceVerification: independence.verification,
     stage1Input,
     stage1Report,
     stage1Validation,

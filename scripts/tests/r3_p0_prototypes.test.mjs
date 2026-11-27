@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * P0-5 Comprehensive Prototype Test Suite (`TC-P0-5-1` ~ `TC-P0-5-5`, `TC-P0-5-B1` ~ `TC-P0-5-B6`):
+ * P0-5 Comprehensive Prototype Test Suite (`TC-P0-5-1` ~ `TC-P0-5-5`, `TC-P0-5-B1` ~ `TC-P0-5-B6`, `TC-P0-5-R3-1` ~ `TC-P0-5-R3-5`):
  *   TC-P0-5-1: A/B/C 三方案统一共享 precheck v2 + reviewFingerprint 底座并产出通过 P0-4 Fail-Closed 校验的 FinalCalibrationReport
  *   TC-P0-5-2: 方案 B Pass 2 严格上下文隔离（仅候选 + ±300 字原文窗口 + 核心规划，不注入全章全文）与 Pass 1 缺取证槽 Fail-Closed 拒收
  *   TC-P0-5-3: 方案 C 短路机制（Stage 1 清白 pass_candidate 且全部 NSA=pass -> Stage 2 调用=0；含 BLOCKER/MAJOR、advisories 或非 pass NSA -> 强制触发 Stage 2）
@@ -12,6 +12,11 @@
  *   TC-P0-5-B4: 方案 B Pass 1 -> Pass 2 原始取证槽与 NSA 核销不可篡改校验
  *   TC-P0-5-B5: 方案 C Stage 1 -> Stage 2 非阻断条目（MINOR/SUGGESTION）强制保留或显式可审计处置
  *   TC-P0-5-B6: 多卷项目端到端规划切片一致性测试（无显式 volume + 专用 outlinePath + 完整 arc/beats/goal/conflict/hook + 多卷均有内容，P0-4 与 P0-5 A/B/C 实际输入零字段丢失）
+ *   TC-P0-5-R3-1: B4 Adapter 原地篡改（含嵌套对象/数组及闭包引用）不可污染冻结基准快照且必须被拒收
+ *   TC-P0-5-R3-2: B5 Adapter 原地篡改 nonBlockingIssuesCarried（含嵌套字段及伪造 kept）不可污染冻结快照且必须被拒收
+ *   TC-P0-5-R3-3: 跨方案共享底座与兄弟方案证据防污染回归测试
+ *   TC-P0-5-R3-4: B1 协议元数据不同 vs 宿主运行时注入上下文交叉核验的诚实证据边界校验
+ *   TC-P0-5-R3-5: planningCoreSlice 规范化哈希与五元组 planningSliceSha256 的 TOCTOU 一致性门禁
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -36,6 +41,7 @@ import {
   locateBodyParagraphSpans,
   buildLocalContextExcerpt,
   compileSharedReviewBasePack,
+  verifyPlanningSliceMatchesFingerprint,
 } from '../p0_prototypes/review_pack_compiler.mjs';
 import {
   assertWriterRevisionBatchSafe,
@@ -1629,4 +1635,493 @@ test('TC-P0-5-B6: multi-volume P0-4 vs P0-5 planning slice end-to-end parity acr
   }
   assert.deepEqual(Object.keys(received).sort(), ['A_stage1', 'B_pass1', 'B_pass2', 'C_stage1', 'C_stage2']);
 });
+
+// ============================================================================
+// TC-P0-5-R3-1: B4 Adapter 原地篡改（含嵌套对象/数组与闭包引用）不可污染冻结基准快照且必须被拒收
+// ============================================================================
+test('TC-P0-5-R3-1: Scheme B Pass 2 in-place mutations on nested slots/NSA or retained Pass 1 refs cannot pollute immutable snapshot and are rejected', async t => {
+  const {root, candidateQuote, strengthQuote} = makeSandboxProject(t);
+  const basePack = compileSharedReviewBasePack(root, 2);
+  assert.equal(basePack.ok, true);
+  assert.ok(basePack.needsSemanticAudit.length >= 1);
+
+  const makeRichPass1 = input => ({
+    schemaVersion: R3_DISCOVERY_REPORT_SCHEMA,
+    protocolMode: 'two_stage_B',
+    reviewFingerprint: input.reviewFingerprint,
+    reviewer: {runId: 'b1-r3', contextId: 'b1-r3-ctx', role: 'chapter_discovery_auditor'},
+    dimensionAuditSlots: makeFullSlots('HL-6').map((s, idx) => ({
+      ...s,
+      auditTrace: {paragraphs: [idx + 1], flags: {verified: true}},
+    })),
+    semanticAuditResolutions: makeNsaResolutions(input.needsSemanticAudit).map(n => ({
+      ...n,
+      evidenceMeta: {anchors: ['九月廿三'], checks: {confirmed: true}},
+    })),
+    candidates: [{
+      candidateId: 'CAND-R3-B4',
+      dimension: 'HL-6',
+      quote: candidateQuote,
+      objectiveContradiction: '检查三米排风口细节',
+      suspectedImpactScope: 'draft_only',
+    }],
+    preserveStrengths: [{quote: strengthQuote, reason: '动作克制'}],
+  });
+
+  // 1. Pass 2 mutates input.dimensionAuditSlots IN PLACE (both top-level & nested object/array) and returns it directly
+  const resMutSlot = await runSchemeB(root, 2, {
+    runPass1Discovery: makeRichPass1,
+    runPass2Calibration: input => {
+      input.dimensionAuditSlots[0].checkedAnchor = '原地篡改的锚点';
+      input.dimensionAuditSlots[0].auditTrace.flags.verified = false;
+      input.dimensionAuditSlots[0].auditTrace.paragraphs.push(99);
+      return {
+        schemaVersion: R3_FINAL_REPORT_SCHEMA,
+        protocolMode: 'two_stage_B',
+        reviewFingerprint: input.reviewFingerprint,
+        manuscriptHashes: input.manuscriptHashes,
+        reviewer: {runId: 'b2-r3-slot', contextId: 'b2-r3-slot-ctx', role: 'chapter_review_arbiter'},
+        decision: 'pass_candidate',
+        dimensionAuditSlots: input.dimensionAuditSlots,
+        semanticAuditResolutions: input.semanticAuditResolutions,
+        issues: [],
+        planningConflictAdvisories: [],
+        preserveStrengths: input.preserveStrengths,
+      };
+    },
+  }, {basePack});
+
+  assert.equal(resMutSlot.ok, false);
+  assert.equal(resMutSlot.exitCode, 2);
+  assert.ok(resMutSlot.errors.some(e => e.code === 'R3_SCHEME_B_PASS1_SLOTS_ALTERED'));
+  // Snapshot baseline MUST stay pristine & deeply frozen!
+  assert.equal(resMutSlot.pass1EvidenceSnapshot.dimensionAuditSlots[0].auditTrace.flags.verified, true);
+  assert.deepEqual(resMutSlot.pass1EvidenceSnapshot.dimensionAuditSlots[0].auditTrace.paragraphs, [1]);
+  assert.equal(Object.isFrozen(resMutSlot.pass1EvidenceSnapshot.dimensionAuditSlots[0].auditTrace.flags), true);
+
+  // 2. Pass 2 mutates ONLY a nested array inside input.semanticAuditResolutions[0] IN PLACE (keeping status/note untouched!)
+  const resMutNsaNested = await runSchemeB(root, 2, {
+    runPass1Discovery: makeRichPass1,
+    runPass2Calibration: input => {
+      input.semanticAuditResolutions[0].evidenceMeta.anchors.push('INJECTED_ANCHOR');
+      input.semanticAuditResolutions[0].evidenceMeta.checks.confirmed = false;
+      return {
+        schemaVersion: R3_FINAL_REPORT_SCHEMA,
+        protocolMode: 'two_stage_B',
+        reviewFingerprint: input.reviewFingerprint,
+        manuscriptHashes: input.manuscriptHashes,
+        reviewer: {runId: 'b2-r3-nsa', contextId: 'b2-r3-nsa-ctx', role: 'chapter_review_arbiter'},
+        decision: 'pass_candidate',
+        dimensionAuditSlots: input.dimensionAuditSlots,
+        semanticAuditResolutions: input.semanticAuditResolutions,
+        issues: [],
+        planningConflictAdvisories: [],
+        preserveStrengths: input.preserveStrengths,
+      };
+    },
+  }, {basePack});
+
+  assert.equal(resMutNsaNested.ok, false);
+  assert.equal(resMutNsaNested.exitCode, 2);
+  assert.ok(resMutNsaNested.errors.some(e => e.code === 'R3_SCHEME_B_PASS1_NSA_ALTERED'));
+  assert.deepEqual(resMutNsaNested.pass1EvidenceSnapshot.semanticAuditResolutions[0].evidenceMeta.anchors, ['九月廿三']);
+  assert.equal(resMutNsaNested.pass1EvidenceSnapshot.semanticAuditResolutions[0].evidenceMeta.checks.confirmed, true);
+
+  // 3. Adversarial adapter holds original pass1Report reference in closure and mutates BOTH original pass1Report AND pass2Input!
+  let savedPass1Ref = null;
+  const resClosureTamper = await runSchemeB(root, 2, {
+    runPass1Discovery: input => {
+      savedPass1Ref = makeRichPass1(input);
+      return savedPass1Ref;
+    },
+    runPass2Calibration: input => {
+      savedPass1Ref.dimensionAuditSlots[0].auditTrace.flags.verified = false;
+      input.dimensionAuditSlots[0].auditTrace.flags.verified = false;
+      return {
+        schemaVersion: R3_FINAL_REPORT_SCHEMA,
+        protocolMode: 'two_stage_B',
+        reviewFingerprint: input.reviewFingerprint,
+        manuscriptHashes: input.manuscriptHashes,
+        reviewer: {runId: 'b2-r3-closure', contextId: 'b2-r3-closure-ctx', role: 'chapter_review_arbiter'},
+        decision: 'pass_candidate',
+        dimensionAuditSlots: input.dimensionAuditSlots,
+        semanticAuditResolutions: input.semanticAuditResolutions,
+        issues: [],
+        planningConflictAdvisories: [],
+        preserveStrengths: input.preserveStrengths,
+      };
+    },
+  }, {basePack});
+
+  assert.equal(resClosureTamper.ok, false);
+  assert.equal(resClosureTamper.exitCode, 2);
+  assert.ok(resClosureTamper.errors.some(e => e.code === 'R3_SCHEME_B_PASS1_SLOTS_ALTERED'));
+  assert.equal(resClosureTamper.pass1EvidenceSnapshot.dimensionAuditSlots[0].auditTrace.flags.verified, true);
+});
+
+// ============================================================================
+// TC-P0-5-R3-2: B5 Adapter 原地篡改 nonBlockingIssuesCarried（含嵌套字段）不可污染快照且必须拒收
+// ============================================================================
+test('TC-P0-5-R3-2: Scheme C Stage 2 in-place mutations on nested nonBlockingIssuesCarried cannot pollute immutable snapshot and are rejected', async t => {
+  const {root, candidateQuote, strengthQuote} = makeSandboxProject(t);
+  const basePack = compileSharedReviewBasePack(root, 2);
+  assert.equal(basePack.ok, true);
+
+  const makeNestedStage1 = input => ({
+    schemaVersion: R3_FINAL_REPORT_SCHEMA,
+    protocolMode: 'single_plus_triage_C',
+    reviewFingerprint: input.reviewFingerprint,
+    manuscriptHashes: input.manuscriptHashes,
+    reviewer: {runId: 'c1-r3', contextId: 'c1-r3-ctx', role: 'chapter_review_arbiter'},
+    decision: 'revise',
+    dimensionAuditSlots: makeFullSlots('HL-6'),
+    semanticAuditResolutions: makeNsaResolutions(input.needsSemanticAudit),
+    issues: [
+      {
+        id: 'ISS-R3-BLK',
+        dimension: 'HL-6',
+        severity: 'BLOCKER',
+        impactScope: 'draft_only',
+        blocking: true,
+        mustCloseInReReview: true,
+        quote: candidateQuote,
+        evidence: '初审待复核',
+        reverseDefense: '交 Stage 2 独立复核',
+      },
+      {
+        id: 'ISS-R3-MIN',
+        dimension: 'HL-4',
+        severity: 'MINOR',
+        blocking: false,
+        mustCloseInReReview: false,
+        quote: strengthQuote,
+        evidence: '局部衔接可收紧',
+        meta: {tags: ['rhythm'], loc: {para: 1}},
+      },
+      {
+        id: 'ISS-R3-SUG',
+        dimension: 'HL-5',
+        severity: 'SUGGESTION',
+        blocking: false,
+        mustCloseInReReview: false,
+        quote: '赵有福站在院角，目光掠过半掩的门缝，始终没有开口。',
+        evidence: '可补一笔眼神压迫感',
+        meta: {tags: ['subtext'], loc: {para: 4}},
+      },
+    ],
+    planningConflictAdvisories: [],
+    preserveStrengths: [{quote: strengthQuote, reason: '动作克制'}],
+  });
+
+  // 1. Stage 2 mutates input.nonBlockingIssuesCarried[0] IN PLACE (nested array & object) and returns it directly
+  let savedStage1Ref = null;
+  const resInPlace = await runSchemeC(root, 2, {
+    runStage1HighRecall: input => {
+      savedStage1Ref = makeNestedStage1(input);
+      return savedStage1Ref;
+    },
+    runStage2Triage: input => {
+      // Attempt both input in-place tamper AND closure tamper on savedStage1Ref
+      input.nonBlockingIssuesCarried[0].meta.tags.push('TAMPERED');
+      input.nonBlockingIssuesCarried[0].meta.loc.para = 999;
+      savedStage1Ref.issues[1].meta.tags.push('CLOSURE_TAMPER');
+      return {
+        schemaVersion: R3_FINAL_REPORT_SCHEMA,
+        protocolMode: 'single_plus_triage_C',
+        reviewFingerprint: input.reviewFingerprint,
+        manuscriptHashes: input.manuscriptHashes,
+        reviewer: {runId: 'c2-r3-mut', contextId: 'c2-r3-mut-ctx', role: 'chapter_review_arbiter'},
+        decision: 'pass_candidate',
+        dimensionAuditSlots: input.dimensionAuditSlots,
+        semanticAuditResolutions: input.semanticAuditResolutions,
+        issues: input.nonBlockingIssuesCarried,
+        planningConflictAdvisories: [],
+        preserveStrengths: input.preserveStrengths,
+      };
+    },
+  }, {basePack});
+
+  assert.equal(resInPlace.ok, false);
+  assert.equal(resInPlace.exitCode, 2);
+  assert.ok(resInPlace.errors.some(e => e.code === 'R3_SCHEME_C_DROPPED_STAGE1_NONBLOCKING' && e.issueId === 'ISS-R3-MIN'));
+  // Frozen snapshot MUST be completely untouched!
+  assert.deepEqual(resInPlace.stage1EvidenceSnapshot.nonBlockingIssuesCarried[0].meta.tags, ['rhythm']);
+  assert.equal(resInPlace.stage1EvidenceSnapshot.nonBlockingIssuesCarried[0].meta.loc.para, 1);
+  assert.equal(Object.isFrozen(resInPlace.stage1EvidenceSnapshot.nonBlockingIssuesCarried[0].meta.tags), true);
+
+  // 2. Stage 2 mutates nested field of SUGGESTION in place AND declares disposition='kept' -> MUST still be rejected!
+  const resKeptMutated = await runSchemeC(root, 2, {
+    runStage1HighRecall: makeNestedStage1,
+    runStage2Triage: input => {
+      input.nonBlockingIssuesCarried[1].evidence = '被悄悄改写的建议';
+      return {
+        schemaVersion: R3_FINAL_REPORT_SCHEMA,
+        protocolMode: 'single_plus_triage_C',
+        reviewFingerprint: input.reviewFingerprint,
+        manuscriptHashes: input.manuscriptHashes,
+        reviewer: {runId: 'c2-r3-kept', contextId: 'c2-r3-kept-ctx', role: 'chapter_review_arbiter'},
+        decision: 'pass_candidate',
+        dimensionAuditSlots: input.dimensionAuditSlots,
+        semanticAuditResolutions: input.semanticAuditResolutions,
+        issues: input.nonBlockingIssuesCarried,
+        carriedIssueDispositions: [{id: 'ISS-R3-SUG', disposition: 'kept', note: '声称原样保留但实际修改了字段'}],
+        planningConflictAdvisories: [],
+        preserveStrengths: input.preserveStrengths,
+      };
+    },
+  }, {basePack});
+
+  assert.equal(resKeptMutated.ok, false);
+  assert.equal(resKeptMutated.exitCode, 2);
+  assert.ok(resKeptMutated.errors.some(e => e.code === 'R3_SCHEME_C_DROPPED_STAGE1_NONBLOCKING' && e.issueId === 'ISS-R3-SUG'));
+});
+
+// ============================================================================
+// TC-P0-5-R3-3: 跨方案共享底座与兄弟方案证据防污染回归测试
+// ============================================================================
+test('TC-P0-5-R3-3: mutating adapter inputs in one scheme never pollutes shared basePack or sibling schemes', async t => {
+  const {root, candidateQuote, strengthQuote} = makeSandboxProject(t);
+  const basePack = compileSharedReviewBasePack(root, 2);
+  assert.equal(basePack.ok, true);
+  const baselinePlanning = structuredClone(basePack.planningCoreSlice);
+  const baselineConstraints = structuredClone(basePack.hardConstraints);
+  const baselineNsa = structuredClone(basePack.needsSemanticAudit);
+  const baselineLedger = structuredClone(basePack.ledgerSlice);
+
+  // Scheme B mutates all received nested structures in BOTH Pass 1 and Pass 2!
+  const resB = await runSchemeB(root, 2, {
+    runPass1Discovery: input => {
+      input.planningCoreSlice.chapterMeta.title = 'POLLUTED_BY_B1';
+      input.hardConstraints.global.mustInclude.push('POLLUTED_ITEM');
+      input.needsSemanticAudit[0].category = 'POLLUTED_CAT';
+      input.ledgerSlice.activeFacts[0].value = '99999两';
+      return {
+        schemaVersion: R3_DISCOVERY_REPORT_SCHEMA,
+        protocolMode: 'two_stage_B',
+        reviewFingerprint: input.reviewFingerprint,
+        reviewer: {runId: 'iso-b1', contextId: 'iso-b1-ctx', role: 'chapter_discovery_auditor'},
+        dimensionAuditSlots: makeFullSlots('HL-6'),
+        semanticAuditResolutions: makeNsaResolutions(basePack.needsSemanticAudit),
+        candidates: [{
+          candidateId: 'CAND-ISO-CROSS',
+          dimension: 'HL-6',
+          quote: candidateQuote,
+          objectiveContradiction: '检查排风口细节',
+          suspectedImpactScope: 'draft_only',
+        }],
+        preserveStrengths: [{quote: strengthQuote, reason: '动作克制'}],
+      };
+    },
+    runPass2Calibration: input => {
+      // Pass 2 must NOT see Pass 1's mutations to planningCoreSlice / hardConstraints!
+      assert.deepEqual(input.planningCoreSlice, baselinePlanning);
+      assert.deepEqual(input.hardConstraints, baselineConstraints);
+      input.planningCoreSlice.chapterMeta.title = 'POLLUTED_BY_B2';
+      return {
+        schemaVersion: R3_FINAL_REPORT_SCHEMA,
+        protocolMode: 'two_stage_B',
+        reviewFingerprint: input.reviewFingerprint,
+        manuscriptHashes: input.manuscriptHashes,
+        reviewer: {runId: 'iso-b2', contextId: 'iso-b2-ctx', role: 'chapter_review_arbiter'},
+        decision: 'pass_candidate',
+        dimensionAuditSlots: input.dimensionAuditSlots,
+        semanticAuditResolutions: input.semanticAuditResolutions,
+        issues: [],
+        planningConflictAdvisories: [],
+        preserveStrengths: input.preserveStrengths,
+      };
+    },
+  }, {basePack});
+  assert.equal(resB.ok, true);
+
+  // Scheme C running afterward on the EXACT SAME basePack must observe 0 pollution!
+  const resC = await runSchemeC(root, 2, {
+    runStage1HighRecall: input => {
+      assert.deepEqual(input.planningCoreSlice, baselinePlanning);
+      assert.deepEqual(input.hardConstraints, baselineConstraints);
+      assert.deepEqual(input.needsSemanticAudit, baselineNsa);
+      assert.deepEqual(input.ledgerSlice, baselineLedger);
+      input.planningCoreSlice.chapterMeta.title = 'POLLUTED_BY_C1';
+      return {
+        schemaVersion: R3_FINAL_REPORT_SCHEMA,
+        protocolMode: 'single_plus_triage_C',
+        reviewFingerprint: input.reviewFingerprint,
+        manuscriptHashes: input.manuscriptHashes,
+        reviewer: {runId: 'iso-c1', contextId: 'iso-c1-ctx', role: 'chapter_review_arbiter'},
+        decision: 'revise',
+        dimensionAuditSlots: makeFullSlots('HL-6'),
+        semanticAuditResolutions: makeNsaResolutions(input.needsSemanticAudit),
+        issues: [{
+          id: 'ISS-ISO-C1',
+          dimension: 'HL-6',
+          severity: 'MAJOR',
+          impactScope: 'draft_only',
+          blocking: true,
+          mustCloseInReReview: true,
+          quote: candidateQuote,
+          evidence: '初审待核验',
+          reverseDefense: '交 Stage 2 复核',
+        }],
+        planningConflictAdvisories: [],
+        preserveStrengths: [{quote: strengthQuote, reason: '动作克制'}],
+      };
+    },
+    runStage2Triage: input => {
+      assert.deepEqual(input.planningCoreSlice, baselinePlanning);
+      assert.deepEqual(input.hardConstraints, baselineConstraints);
+      return {
+        schemaVersion: R3_FINAL_REPORT_SCHEMA,
+        protocolMode: 'single_plus_triage_C',
+        reviewFingerprint: input.reviewFingerprint,
+        manuscriptHashes: input.manuscriptHashes,
+        reviewer: {runId: 'iso-c2', contextId: 'iso-c2-ctx', role: 'chapter_review_arbiter'},
+        decision: 'pass_candidate',
+        dimensionAuditSlots: input.dimensionAuditSlots,
+        semanticAuditResolutions: input.semanticAuditResolutions,
+        issues: [],
+        planningConflictAdvisories: [],
+        preserveStrengths: input.preserveStrengths,
+      };
+    },
+  }, {basePack});
+  assert.equal(resC.ok, true);
+
+  // Shared basePack itself remains completely untouched & frozen
+  assert.deepEqual(basePack.planningCoreSlice, baselinePlanning);
+  assert.deepEqual(basePack.hardConstraints, baselineConstraints);
+  assert.deepEqual(basePack.needsSemanticAudit, baselineNsa);
+  assert.deepEqual(basePack.ledgerSlice, baselineLedger);
+  assert.equal(Object.isFrozen(basePack.planningCoreSlice.chapterMeta), true);
+});
+
+// ============================================================================
+// TC-P0-5-R3-4: B1 协议元数据不同 vs 宿主运行时注入上下文交叉核验的诚实证据边界
+// ============================================================================
+test('TC-P0-5-R3-4: B1 distinguishes protocol-metadata-only checks from host runtime-injected cross-checked independence', async t => {
+  const {root, candidateQuote, strengthQuote} = makeSandboxProject(t);
+  const basePack = compileSharedReviewBasePack(root, 2);
+  assert.equal(basePack.ok, true);
+
+  const adapterB = (r1, r2) => ({
+    runPass1Discovery: input => ({
+      schemaVersion: R3_DISCOVERY_REPORT_SCHEMA,
+      protocolMode: 'two_stage_B',
+      reviewFingerprint: input.reviewFingerprint,
+      reviewer: {...r1, role: 'chapter_discovery_auditor'},
+      dimensionAuditSlots: makeFullSlots('HL-6'),
+      semanticAuditResolutions: makeNsaResolutions(input.needsSemanticAudit),
+      candidates: [{
+        candidateId: 'CAND-B1-PROV',
+        dimension: 'HL-6',
+        quote: candidateQuote,
+        objectiveContradiction: '检查三米排风口细节',
+        suspectedImpactScope: 'draft_only',
+      }],
+      preserveStrengths: [{quote: strengthQuote, reason: '动作克制'}],
+    }),
+    runPass2Calibration: input => ({
+      schemaVersion: R3_FINAL_REPORT_SCHEMA,
+      protocolMode: 'two_stage_B',
+      reviewFingerprint: input.reviewFingerprint,
+      manuscriptHashes: input.manuscriptHashes,
+      reviewer: {...r2, role: 'chapter_review_arbiter'},
+      decision: 'pass_candidate',
+      dimensionAuditSlots: input.dimensionAuditSlots,
+      semanticAuditResolutions: input.semanticAuditResolutions,
+      issues: [],
+      planningConflictAdvisories: [],
+      preserveStrengths: input.preserveStrengths,
+    }),
+  });
+
+  // 1. Without host runtimeStageContexts -> MUST honestly mark protocol_metadata_only_unverified_runtime
+  const resProtoOnly = await runSchemeB(
+    root,
+    2,
+    adapterB({runId: 'p1', contextId: 'c1'}, {runId: 'p2', contextId: 'c2'}),
+    {basePack}
+  );
+  assert.equal(resProtoOnly.ok, true);
+  assert.equal(resProtoOnly.contextIndependenceVerification.proofLevel, 'protocol_metadata_only_unverified_runtime');
+  assert.equal(resProtoOnly.contextIndependenceVerification.runtimeInjected, false);
+
+  // 2. With host runtimeStageContexts matching both stages -> runtime_metadata_cross_checked
+  const resRuntimeOk = await runSchemeB(
+    root,
+    2,
+    adapterB({runId: 'host-run-1', contextId: 'host-ctx-1'}, {runId: 'host-run-2', contextId: 'host-ctx-2'}),
+    {
+      basePack,
+      runtimeStageContexts: {
+        stage1: {runId: 'host-run-1', contextId: 'host-ctx-1'},
+        stage2: {runId: 'host-run-2', contextId: 'host-ctx-2'},
+      },
+    }
+  );
+  assert.equal(resRuntimeOk.ok, true);
+  assert.equal(resRuntimeOk.contextIndependenceVerification.proofLevel, 'runtime_metadata_cross_checked');
+  assert.equal(resRuntimeOk.contextIndependenceVerification.runtimeInjected, true);
+
+  // 3. Model spoofs a different runId/contextId than host-injected runtimeStageContexts -> Fail-Closed!
+  const resRuntimeSpoof = await runSchemeB(
+    root,
+    2,
+    adapterB({runId: 'host-run-1', contextId: 'host-ctx-1'}, {runId: 'model-fake-2', contextId: 'model-fake-ctx-2'}),
+    {
+      basePack,
+      runtimeStageContexts: {
+        stage1: {runId: 'host-run-1', contextId: 'host-ctx-1'},
+        stage2: {runId: 'host-run-2', contextId: 'host-ctx-2'},
+      },
+    }
+  );
+  assert.equal(resRuntimeSpoof.ok, false);
+  assert.equal(resRuntimeSpoof.exitCode, 2);
+  assert.ok(resRuntimeSpoof.errors.some(e => e.code === 'R3_STAGE_REVIEWER_RUNTIME_MISMATCH'));
+  assert.equal(resRuntimeSpoof.contextIndependenceVerification.proofLevel, 'runtime_cross_check_failed');
+});
+
+// ============================================================================
+// TC-P0-5-R3-5: planningCoreSlice 规范化哈希与五元组 planningSliceSha256 的 TOCTOU 一致性门禁
+// ============================================================================
+test('TC-P0-5-R3-5: planningCoreSlice canonical SHA-256 is verified against planningSliceSha256 and fails closed on drift', async t => {
+  const {root} = makeSandboxProject(t);
+  const basePack = compileSharedReviewBasePack(root, 2);
+  assert.equal(basePack.ok, true);
+  assert.equal(basePack.planningCoreSliceSha256, basePack.fingerprintComponents.planningSliceSha256);
+
+  const okCheck = verifyPlanningSliceMatchesFingerprint(
+    basePack.planningCoreSlice,
+    basePack.fingerprintComponents.planningSliceSha256
+  );
+  assert.equal(okCheck.ok, true);
+
+  // Simulate TOCTOU drift: mutate 1 char in planningCoreSlice while fingerprintComponents retains prior hash
+  const driftedPack = structuredClone(basePack);
+  driftedPack.planningCoreSlice.outlineCore = `${driftedPack.planningCoreSlice.outlineCore} `;
+  const badCheck = verifyPlanningSliceMatchesFingerprint(
+    driftedPack.planningCoreSlice,
+    driftedPack.fingerprintComponents.planningSliceSha256
+  );
+  assert.equal(badCheck.ok, false);
+
+  let modelCalls = 0;
+  const failAdapter = () => {
+    modelCalls++;
+    throw new Error('Model adapter must never run when planningCoreSlice hash mismatches planningSliceSha256');
+  };
+
+  const resA = await runSchemeA(root, 2, {runSingleStage: failAdapter}, {basePack: driftedPack});
+  const resB = await runSchemeB(root, 2, {runPass1Discovery: failAdapter, runPass2Calibration: failAdapter}, {basePack: driftedPack});
+  const resC = await runSchemeC(root, 2, {runStage1HighRecall: failAdapter, runStage2Triage: failAdapter}, {basePack: driftedPack});
+
+  for (const r of [resA, resB, resC]) {
+    assert.equal(r.ok, false);
+    assert.equal(r.exitCode, 2);
+    assert.equal(r.stage, 'base_pack_integrity');
+    assert.ok(r.errors.some(e => e.code === 'R3_PLANNING_SLICE_HASH_MISMATCH'));
+  }
+  assert.equal(modelCalls, 0);
+});
+
 
