@@ -1277,16 +1277,29 @@ function evaluateG2Core(
         pass: false,
       };
     }
-    if (isNonEmptyString(expectedManifestSha256) && expectedManifestSha256.trim().toLowerCase() !== computedManifestSha256) {
+    const expectedSha = isNonEmptyString(expectedManifestSha256) ? expectedManifestSha256.trim().toLowerCase() : null;
+    if (!expectedSha || !HEX64_RE.test(expectedSha)) {
+      return {
+        gate: gateName,
+        track,
+        status: 'INVALID_DESIGN',
+        exitCode: 2,
+        error: 'R3_P0_6_EXPECTED_MANIFEST_HASH_REQUIRED',
+        computedManifestSha256,
+        message: `${gateName} 正式评估（K>0）必须提供独立于待评估输入的运行前冻结清册哈希锚点（expectedManifestSha256），不得仅依赖输入内自报 SHA-256。`,
+        pass: false,
+      };
+    }
+    if (expectedSha !== computedManifestSha256) {
       return {
         gate: gateName,
         track,
         status: 'INVALID_DESIGN',
         exitCode: 2,
         error: 'R3_P0_6_MANIFEST_HASH_MISMATCH',
-        expectedManifestSha256: expectedManifestSha256.trim().toLowerCase(),
+        expectedManifestSha256: expectedSha,
         computedManifestSha256,
-        message: `${gateName} 实际清册 SHA-256 与运行前登记的基准哈希不一致。`,
+        message: `${gateName} 实际清册 SHA-256 与运行前登记的外部冻结基准哈希不一致。`,
         pass: false,
       };
     }
@@ -1332,6 +1345,21 @@ function evaluateG2Core(
           exitCode: 2,
           error: 'R3_P0_6_G2B_POSITIVE_COHORT_UNAPPROVED',
           message: 'G2-B 正例 cohort 规模与标注规格尚未获作者在阶段 1B 建集前书面批准（需严格布尔 positiveCohortApproved===true 及非空 positiveCohortApprovalRef），不得进入正式通过状态。',
+          pass: false,
+        };
+      }
+      if (
+        g2Data?.positiveCohortApprovedManifestSha256 !== undefined &&
+        (!isNonEmptyString(g2Data.positiveCohortApprovedManifestSha256) ||
+          g2Data.positiveCohortApprovedManifestSha256.trim().toLowerCase() !== computedManifestSha256)
+      ) {
+        return {
+          gate: gateName,
+          track,
+          status: 'INVALID_DESIGN',
+          exitCode: 2,
+          error: 'R3_P0_6_MANIFEST_HASH_MISMATCH',
+          message: 'G2-B 作者审批绑定的清册哈希（positiveCohortApprovedManifestSha256）与实际冻结清册 SHA-256 不一致。',
           pass: false,
         };
       }
@@ -1450,7 +1478,17 @@ function evaluateG2Core(
     runProvenanceBoundary: RUN_PROVENANCE_BOUNDARY,
     manifestVersion: g2Data.manifestVersion,
     manifestSha256: computedManifestSha256,
-    ...(gateName === 'G2-B' ? {positiveCohortApprovalRef: g2Data.positiveCohortApprovalRef} : {}),
+    expectedManifestSha256: expectedManifestSha256.trim().toLowerCase(),
+    ...(gateName === 'G2-B'
+      ? {
+          positiveCohortApprovalRef: g2Data.positiveCohortApprovalRef,
+          positiveCohortApprovalBinding: {
+            approvalRef: g2Data.positiveCohortApprovalRef,
+            manifestVersion: g2Data.manifestVersion,
+            manifestSha256: computedManifestSha256,
+          },
+        }
+      : {}),
     status: failures.length === 0 ? 'PASS' : 'FAIL',
     pass: failures.length === 0,
     sampleTriplet: {nCh, effectiveClusters: fprBootstrap.nClusters, nPos, nNeg, kRep, genres},
@@ -1476,11 +1514,17 @@ export function evaluateG2A(g2aData, opts = {}) {
 }
 
 /**
- * Evaluate G2-B (Independent Holdout Non-Blocking Generalization, exact K=3, requires Stage 1B author positive-cohort approval).
+ * Evaluate G2-B (Independent Holdout Non-Blocking Generalization, exact K=3, requires Stage 1B author positive-cohort approval & external pre-frozen manifest hash).
  */
 export function evaluateG2B(
   g2bData,
-  {referenceChapters = [], seed = DEFAULT_BOOTSTRAP_SEED, iterations = BOOTSTRAP_ITERATIONS, expectedManifestSha256 = null} = {}
+  {
+    referenceChapters = [],
+    seed = DEFAULT_BOOTSTRAP_SEED,
+    iterations = BOOTSTRAP_ITERATIONS,
+    expectedManifestSha256 = null,
+    expectedG2BManifestSha256 = null,
+  } = {}
 ) {
   const declaredChapters = g2bData?.chapters || [];
   const leakage = assertZeroLeakage(referenceChapters, declaredChapters, {holdoutName: 'G2-B'});
@@ -1514,7 +1558,7 @@ export function evaluateG2B(
     iterations,
     requireGenres: true,
     maxCasesPerChapter: FROZEN_THRESHOLDS.G2B.maxCasesPerChapter,
-    expectedManifestSha256,
+    expectedManifestSha256: expectedG2BManifestSha256 ?? expectedManifestSha256 ?? null,
   });
 }
 
@@ -1528,6 +1572,29 @@ export function evaluateG3(g3Data, {seed = DEFAULT_BOOTSTRAP_SEED, iterations = 
 
   const uCheck = assertUniqueChapters(chapters, 'G3');
   if (!uCheck.ok) return {gate: 'G3', status: 'INVALID_DESIGN', exitCode: 2, error: uCheck.code, message: uCheck.message, pass: false};
+
+  // Round 5 Blocking 1: Every G3 chapter MUST declare an explicit non-empty `sourceChapterId`
+  // (never fall back to `chapterId`, preventing Arm x Chapter instances from bypassing source dedup).
+  // Independent source chapters simply set `sourceChapterId = chapterId`.
+  const sourceByChapterId = new Map();
+  const independentSourceSet = new Set();
+  for (const ch of chapters) {
+    if (!isNonEmptyString(ch?.sourceChapterId)) {
+      return {
+        gate: 'G3',
+        status: 'INVALID_DESIGN',
+        exitCode: 2,
+        error: 'R3_P0_6_G3_SOURCE_CHAPTER_REQUIRED',
+        chapterId: ch.chapterId,
+        message: `G3 章节 ${ch.chapterId} 缺少必填字段 sourceChapterId（禁止缺省并回退推定独立来源章；若本章本身为独立来源章，请显式令 sourceChapterId 等于 chapterId）。`,
+        pass: false,
+      };
+    }
+    const normCh = normalizeId(ch.chapterId);
+    const normSrc = normalizeId(ch.sourceChapterId);
+    sourceByChapterId.set(normCh, normSrc);
+    independentSourceSet.add(normSrc);
+  }
 
   const kRep = runsRaw.length;
   if (kRep > th.requiredRepeats) {
@@ -1553,16 +1620,6 @@ export function evaluateG3(g3Data, {seed = DEFAULT_BOOTSTRAP_SEED, iterations = 
     derivedRuns = derived.runs;
   }
 
-  // Round 4 Item 4: Deduplicate G3 independent story source chapters via sourceChapterId (fallback to chapterId)
-  // so 9 historical Arm x Chapter instances from《器痕录》Ch 1-3 map to 3 independent source chapters, never 9.
-  const sourceByChapterId = new Map();
-  const independentSourceSet = new Set();
-  for (const ch of chapters) {
-    const normCh = normalizeId(ch.chapterId);
-    const normSrc = isNonEmptyString(ch?.sourceChapterId) ? normalizeId(ch.sourceChapterId) : normCh;
-    sourceByChapterId.set(normCh, normSrc);
-    if (normSrc) independentSourceSet.add(normSrc);
-  }
   const nSourceChapters = independentSourceSet.size;
   const chapterInstances = chapters.length;
   const nCases = manifestIndex
@@ -2385,6 +2442,7 @@ export function evaluateSchemeG1ToG6(
     g6BudgetExpansionApproved = false,
     g6BudgetApprovalRef = null,
     expectedG2AManifestSha256 = null,
+    expectedG2BManifestSha256 = null,
   } = {}
 ) {
   if (isPlainObject(schemeData) && Object.hasOwn(schemeData, 'G2')) {
@@ -2406,7 +2464,12 @@ export function evaluateSchemeG1ToG6(
 
   const G1 = evaluateG1(schemeData?.G1, {seed, iterations});
   const G2A = evaluateG2A(schemeData?.G2A, {seed: seed + 10, iterations, expectedG2AManifestSha256});
-  const G2B = evaluateG2B(schemeData?.G2B, {referenceChapters: exposure.refAll, seed: seed + 20, iterations});
+  const G2B = evaluateG2B(schemeData?.G2B, {
+    referenceChapters: exposure.refAll,
+    seed: seed + 20,
+    iterations,
+    expectedG2BManifestSha256,
+  });
   const G3 = evaluateG3(schemeData?.G3, {seed: seed + 30, iterations});
   const G4 = evaluateG4(schemeData?.G4);
   const G5 = evaluateG5(schemeData?.G5);
@@ -2595,6 +2658,7 @@ export function adjudicateSchemes(
     g6BudgetExpansionApproved = false,
     g6BudgetApprovalRef = null,
     expectedG2AManifestSha256 = null,
+    expectedG2BManifestSha256 = null,
   } = {}
 ) {
   const fairness = assertFairABCEquivalence(schemesPayload);
@@ -2624,6 +2688,7 @@ export function adjudicateSchemes(
       g6BudgetExpansionApproved,
       g6BudgetApprovalRef,
       expectedG2AManifestSha256,
+      expectedG2BManifestSha256,
     });
     if (evaluated[name].status === 'LEAKAGE_REJECTED' || evaluated[name].status === 'INVALID_DESIGN') {
       return {
@@ -2767,6 +2832,7 @@ function parseCliArgs(argv) {
     else if (rest[i] === '--approve-g6-budget-expansion') opts.g6BudgetExpansionApproved = true;
     else if (rest[i] === '--g6-budget-approval-ref' && rest[i + 1]) opts.g6BudgetApprovalRef = rest[++i];
     else if (rest[i] === '--expected-g2a-manifest-sha256' && rest[i + 1]) opts.expectedG2AManifestSha256 = rest[++i];
+    else if (rest[i] === '--expected-g2b-manifest-sha256' && rest[i + 1]) opts.expectedG2BManifestSha256 = rest[++i];
   }
   return {cmd, opts};
 }
@@ -2780,7 +2846,8 @@ if (isDirectCli) {
         ok: false,
         exitCode: 2,
         error: 'R3_P0_6_CLI_USAGE',
-        usage: 'node scripts/p0_prototypes/eval_g1_g6_stats.mjs evaluate --input <payload.json> [--out <report.json>] [--seed <int>]',
+        usage:
+          'node scripts/p0_prototypes/eval_g1_g6_stats.mjs evaluate --input <payload.json> [--out <report.json>] [--seed <int>] [--expected-g2a-manifest-sha256 <hex64>] [--expected-g2b-manifest-sha256 <hex64>]',
       })
     );
     process.exit(2);
@@ -2789,13 +2856,16 @@ if (isDirectCli) {
     const raw = fs.readFileSync(path.resolve(opts.input), 'utf8').replace(/^\uFEFF/, '');
     const payload = JSON.parse(raw);
     const seed = Number.isSafeInteger(opts.seed) ? opts.seed : DEFAULT_BOOTSTRAP_SEED;
+    // Out-of-band anchoring: CLI reads expected G2-A / G2-B manifest SHA-256 STRICTLY from CLI flags
+    // (never from inside the same mutable `--input` JSON payload!).
     const result = adjudicateSchemes(payload.schemes || {}, {
       referenceChapters: payload.referenceChapters || [],
       seed,
       iterations: payload.iterations ?? BOOTSTRAP_ITERATIONS,
-      g6BudgetExpansionApproved: opts.g6BudgetExpansionApproved === true || payload.g6BudgetExpansionApproved === true,
-      g6BudgetApprovalRef: opts.g6BudgetApprovalRef ?? payload.g6BudgetApprovalRef ?? null,
-      expectedG2AManifestSha256: opts.expectedG2AManifestSha256 ?? payload.expectedG2AManifestSha256 ?? null,
+      g6BudgetExpansionApproved: opts.g6BudgetExpansionApproved === true,
+      g6BudgetApprovalRef: opts.g6BudgetApprovalRef ?? null,
+      expectedG2AManifestSha256: opts.expectedG2AManifestSha256 ?? null,
+      expectedG2BManifestSha256: opts.expectedG2BManifestSha256 ?? null,
     });
     const outText = JSON.stringify(result, null, 2) + '\n';
     if (opts.out) {
