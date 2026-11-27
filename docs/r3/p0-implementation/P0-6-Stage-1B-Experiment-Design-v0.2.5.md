@@ -1,23 +1,24 @@
-# P0-6-Stage-1B-Experiment-Design-v0.2.4
-## P0-6 阶段 1B 完整实验设计方案：跨 Agent 混合建集、Data Custody、双评委定案与离线持钥盲测协议
+# P0-6-Stage-1B-Experiment-Design-v0.2.5
+## P0-6 阶段 1B 完整实验设计方案：跨 Agent 混合建集、跨项目空白 VM 隔离与 T1/T2 离线持钥盲测协议
 
-> **文档版本**：`P0-6-Stage-1B-Experiment-Design-v0.2.4`（基于 `v0.2.3` Commit `a58e467cc6badf246d3db3c6a89253c27cb9fb48` 定点闭合 GPT-6 Comment `7219802018` 唯一阻断项 `Blocking 1` 及 3 项文档级非阻断改进）  
-> **文档状态**：`DESIGN_V0_2_4_FINAL_CLOSURE_FOR_GPT6_ACCEPTANCE_AND_AUTHOR_SIGNOFF`（**当前仍处于设计审批阶段：历史素材盘点、GPT-6 补创、Gold Standard 标注、封箱与 A/B/C 盲测全部尚未授权启动；零修改 1A 统计引擎、零修改生产代码/R2、零改变 `08 v1.2.3` 任何冻结门槛**）  
+> **文档版本**：`P0-6-Stage-1B-Experiment-Design-v0.2.5`（基于 `v0.2.4` Commit `a9f023391d8e5d9051008e0984be23484d9263bb` 与 GPT-6 达成全面共识的最终收口版）  
+> **文档状态**：`DESIGN_V0_2_5_FINAL_CONVERGED_FOR_GPT6_ACCEPTANCE_AND_AUTHOR_SIGNOFF`（**当前仍处于设计审批阶段：历史素材盘点、GPT-6 补创、Gold Standard 标注、封箱与 A/B/C 盲测全部尚未授权启动；零修改 1A 统计引擎、零修改生产代码/R2、零改变 `08 v1.2.3` 任何冻结门槛**）  
 > **前置基线**：`P0-6 阶段 1A` 统计裁决引擎与零泄漏检查器已于 `feat/r3-p0-controlled` Commit `2199c88c3b0723052832e60f9e3779bd0f0a4ab7` 获 GPT-6 第六轮正式 `ACCEPTED（仅限阶段 1A 工程交付）`（Issue `#10` Comment `7213091661`）。  
 > **上位冻结规范**：[08-工程效率与文学质量双重验收方案.md](../review-v3/08-工程效率与文学质量双重验收方案.md)（`v1.2.3`）、[P0-Implementation-PRD.md](./P0-Implementation-PRD.md)（`P0-6`）、[P0-0-Baseline-Audit-Report.md](./P0-0-Baseline-Audit-Report.md)（附录 C）。  
 > **接口锚点**：[eval_g1_g6_stats.mjs](../../../scripts/p0_prototypes/eval_g1_g6_stats.mjs)、[abc_orchestrator.mjs](../../../scripts/p0_prototypes/abc_orchestrator.mjs)、[review_pack_compiler.mjs](../../../scripts/p0_prototypes/review_pack_compiler.mjs)。
 
 ---
 
-## v0.2.3 → v0.2.4 定点收口对照表（唯一阻断项 Blocking 1 + 非阻断改进 1–4）
+## v0.2.4 → v0.2.5 最终共识收口对照表（全部阻断项与非阻断细节闭合）
 
-| 编号 | GPT-6 Comment `7219802018` 条目 | v0.2.4 精准落实与定位 |
-|---|---|---|
-| **Blocking 1（1–5 全部闭合）** | 继承工作区全量盲态清除审计漏掉 `00`/`00b`/`00c`/`01-raw-corpus/` 等敏感路径；`Runner 盲态` 须绑定可信宿主运行时证据与完整文件访问审计 | §1.2、§5.2 & §6.3：① `pre-run-blinding-audit.json` 升级为扫描 Run Operator 在继承工作区中**实际可访问的完整文件树**（仓库目录 + `<ART_ROOT>` + `/tmp`/`$HOME` 缓存/隐藏目录），记录全量文件清单、目录权限、运行 UID 与可读性核验；② 盲跑前必须将 **`00`、`00b`、`00c-v1/v2`、`01-raw-corpus/`、`02-ground-truth-adjudication/`、`03` 含真值/来源清单、`P0-0` 历史私钥及全部缓存/索引/备份/临时副本/隐藏文件** 一并离线移出或作者独持密钥加密并从 VM 彻底清除明文；③ 明确 Run Operator 实际可读白名单**仅限** `04-anonymized-sandbox-copies/`、不可变匿名 `config-manifest.json`、匿名调度表及运行所需冻结代码（其余数据路径均须有不存在/不可读证据）；④ 任一数据路径无法完整枚举或证明不可访问时，`明文真值隔离` / `Runner 盲态` 一律标 `未验证` 并按 Fail-Closed 禁止正式盲跑；⑤ `Runner 盲态 = 已验证` 严禁仅凭模型输出 ID 或 `runId/contextId` 认定，必须绑定**平台级宿主生成子代理日志（`.system_generated/logs/transcript.jsonl` 完整文件访问审计）+ 宿主注入 `runtimeStageContexts`**，若平台未提供可信宿主运行时证据则诚实标 `未验证`。 |
-| **Non-blocking 1** | G4 历史 9 案预注册抽样锁定确定性 PRNG 与规范排序 | §3.2：锁定与 1A 引擎一致的 `Mulberry32` PRNG、规范排序键 `sourceChapterId ASC, caseId ASC` 及索引确定性 tie-break，确保逐字节可复现。 |
-| **Non-blocking 2** | §7.2 建集预算补计 G4-Plan A 3 个历史来源章的双评委复审调用 | §7.2：补计 G4-Plan A 的 `3` 个历史源章两步复审（`+3 × 4 = +12` 次评委 + `~2` 次仲裁）：主方案总调用上限由 `~361` 修正为 `~375`（`53` 章双评委 = `212` 次），B1 修正为 `~395`（`56` 章 = `224` 次），B2（`~381`）与 B3（`~401`）因 G4 全新 8 章已在新建数中故保持不变。 |
-| **Non-blocking 3** | 预期正例被降级后的预注册 FIFO 补足与配额阻断规则 | §4.3：明确 T1 前按同题材/同类别预注册 FIFO 备用池顺位自动递补；若备用池耗尽致精确 `72/60` 配额仍未满足，`CUSTODY-PRECHECK` 强制 Fail-Closed 保持阻断，严禁人工挑选或静默凑数。 |
-| **Non-blocking 4** | `P0-Implementation-PRD.md` §五 仍标 P0-5 为 `NOT_STARTED` | 严守本轮单文件纯设计提交边界（不顺带改 PRD）；已写入 §9 `Step 1B-1` 启动前必做管理同步清单，在启动阶段 1B 前单独提交 PRD 状态同步。 |
+| 序号 | 协商收敛条目 | v0.2.5 精准落实与定位 |
+|---:|---|---|
+| 1 | **撤回 `transcript.jsonl` 夸大定性** | §6.3：正式撤回将 `transcript.jsonl` 称为「不可伪造宿主日志 / 完整文件访问审计」的表述，诚实定性为**「辅助会话与工具调用轨迹（非 OS 级文件访问审计）」**。 |
+| 2 | **如实界定 `runtimeStageContexts` 自定义来源** | §6.2 & §6.3：明确 `runtimeStageContexts` **不是** Antigravity 官方 Hooks 标准字段，而是 P0-5 `abc_orchestrator.mjs` 的自定义 JS 运行时入参（附 schema、注入点与交叉校验方法），仅属脚本注入级防模型伪造校验，不冒充平台级安全证明。 |
+| 3 | **跨项目全新空白独立对话 VM + 零克隆/零附加原 GitHub 仓库** | §1.2、§5.2 & §6.3：`Step 1B-4` 盲跑迁至**项目外全新空白对话 / 独立干净项目 B**，**不附加也不克隆原 GitHub 仓库**（彻底排除仓内 `p0-6-readiness-input.json`、`P0-0-Baseline-Audit-Report.md`、`r3_p0_stats.test.mjs` 等历史信息、测试夹具与文档）；改为将 **13 个精确传递依赖运行时 JS + 5 个原型模板 + 盲测脚本/Runbook + `04-anonymized-sandbox-copies/` + 匿名配置/调度表** 按显式文件白名单与逐文件 SHA-256 打包进单一 T1 匿名输入包 `stage1b-blind-input-pack.tar.gz`，实现物理上零历史会话（`<appDataDir>/brain/`）、零共享上传（`$HOME/upload/`）、零 Vault、零仓库历史残余。 |
+| 4 | **诚实 5 维证据边界表（取消单 UID 平台不可行的 OS 内核审计死锁）** | §6.3：诚实标注 `OS 级外部文件访问审计：未实现 / 平台不支持`（不作为盲跑阻断门禁），改以可验证的**「跨项目空白独立对话 VM 隔离（不附加原仓 + `$HOME/upload/` 单文件 T1 哈希匹配 + `<appDataDir>/brain/` 仅当前新会话）+ 作者离线持钥与 T1/T2 跨对话双节点放行」**作为 Fail-Closed 硬门禁。 |
+| 5 | **补全 `Mulberry32` 逐字节复现细节（Non-blocking 1）** | §3.2：明确分层遍历顺序（`QHL-CH1 → QHL-CH2 → QHL-CH3` × `MAJOR → MINOR → SUGGESTION`）、所有 strata 间连续使用单一 PRNG 流（不每层重置）及精确 Fisher–Yates 索引公式。 |
+| 6 | **明确 FIFO 备用池类别键（Non-blocking 2）** | §4.3：锁定预注册 FIFO 备用池统一按原始 **`creatorIntendedLabel`** 索引，避免评委降级后改变递补池类别选择口径。 |
 
 ---
 
@@ -28,8 +29,8 @@
 | 维度 | 归属阶段 | 性质与不可逾越边界 |
 |---|---|---|
 | **G1–G6 统计裁决、B=2,000 聚类 Bootstrap 95% CI、方案 B 淘汰线、A/B/C 案例等价性、`K_rep` 协议元数据与外带清册哈希校验** | **阶段 1A（已 `ACCEPTED` @ `2199c88c`）** | 冻结复用 [eval_g1_g6_stats.mjs](../../../scripts/p0_prototypes/eval_g1_g6_stats.mjs)；**阶段 1B 严禁修改 1A 统计引擎代码或任何冻结 G1–G6 门槛**。 |
-| **跨 Agent 混合建集、Data Custody、历史暴露核查、独立 Gold Standard 定案、作者离线持钥盲跑、1B 清册预检与真实执行日志归档** | **阶段 1B（本设计方案）** | 本方案的 **Gold Standard 数据质量门禁（`DQ-1`–`DQ-4`）** 与 **1B 清册预检（`CUSTODY-PRECHECK`）** 严格属于建集期数据治理控制，**与冻结 `08 v1.2.3` 中 G1–G6 验收门槛严格分开，绝非修改或替换 G1–G6**。 |
-| **D1–D5 前置拍板 + 离线密钥保管 + T1/T2 见证确认 + 阶段授权与最终验收** | **作者书面拍板** | 任何 Agent 均不得越权替代作者决策或自行宣布实验通过。 |
+| **跨 Agent 混合建集、Data Custody、历史暴露核查、独立 Gold Standard 定案、跨项目空白 VM 隔离盲跑、1B 清册预检与真实执行日志归档** | **阶段 1B（本设计方案）** | 本方案的 **Gold Standard 数据质量门禁（`DQ-1`–`DQ-4`）** 与 **1B 清册预检（`CUSTODY-PRECHECK`）** 严格属于建集期数据治理控制，**与冻结 `08 v1.2.3` 中 G1–G6 验收门槛严格分开，绝非修改或替换 G1–G6**。 |
+| **D1–D5 前置拍板 + 离线密钥保管 + T1/T2 见证确认与跨对话单文件交接 + 阶段授权与最终验收** | **作者书面拍板** | 任何 Agent 均不得越权替代作者决策或自行宣布实验通过。 |
 
 ### 1.2 阶段 1B 正式角色分权与协作边界（双方共同确认版）
 
@@ -37,11 +38,11 @@
 
 | 正式角色 | 承担方 | 权限与核心职责 | 严格信息隔离与禁止事项 |
 |---|---|---|---|
-| **1. 主组织与数据保管（Neon 主代理）** | **Neon（主工程师）** | 项目组织、历史素材盘点、全局分配清册维护、Data Custody 打包、运行编排与 T1/T2 锚点发布。 | 不替代独立 Run Operator 执行盲跑；盲跑期不接触已移交离线/加密的明文真值与敏感映射；不利用任何中间输出修改被测方案。 |
+| **1. 主组织与数据保管（Neon 主代理 · 项目 A / 对话 A）** | **Neon（主工程师）** | 在对话 A 承担项目组织、历史素材盘点、全局分配清册维护、Data Custody 打包、T1 白名单单文件包构建与预运行 Dry-Run 验证、T2 回传包哈希核验与 1A 统计裁决编排，以及确定性 `G5` 代码单元测试（`s1CompatTest`/`engFixP1Test`）实跑留痕。 | 不替代独立 Run Operator 执行盲跑；不将任何历史审计文档、测试夹具或真值塞入 T1 盲测包；不利用任何中间输出修改被测方案。 |
 | **2. 补创与独立复审（GPT-6）** | **GPT-6** | ① **补充章节创作**（仅针对真实缺口，附 `creatorIntendedLabel`）；② **方法学复审与统计/证据链独立复核**（审计设计、全局分配清册、执行日志、防泄漏与去重证据链、`DQ-1..4`、1A 统计与探索性发现）。 | **利益冲突回避硬限制**：GPT-6 **不得裁决自己创作章节的最终真值**，**严禁将自创章节作为独立审稿证据进行自我认证**；不以 Neon 本地自测代替复审方独立核验。 |
 | **3. 独立真值定案组（Independent Gold Standard Panel）** | 独立冷启动 **`Judge 1` / `Judge 2` / `Arbiter 3`** | 对全部新入库 Holdout 样本及 G4 全部 24 例执行两步独立盲审（Step A 开放盲审 + Step B 案例标定）与分歧仲裁，产出 `DQ-1..4` 原始盲标与定案记录。 | 评委零接触 `creatorIntendedLabel`、零接触 `corpusOrigin`、零接触历史原始标签与任何 A/B/C 输出；GPT-6 创作者不得介入定案。 |
-| **4. 独立盲测执行者（Neon Run Operator）** | **强制独立的全新冷启动执行子代理** | 不继承 Neon 主代理的创作、标注与仲裁对话；仅接收匿名化只读沙箱输入与不可变配置清单；按随机化序列以 `prepareIfNeeded: false` 执行 A/B/C 全量盲跑，落盘宿主机运行日志、基础包哈希、Provider Request ID（如可得）与 `EXECUTION_OUTPUTS.sha256`。 | **作者离线持钥 + 全工作区明文清除盲化（§6.3）**：盲跑期间，Run Operator 在继承工作区中实际可读范围**仅限** `04-anonymized-sandbox-copies/`、匿名配置/调度表与冻结代码；`00`/`00b`/`00c`/`01`/`02`/历史私钥及一切缓存备份必须全量离线或加密清除，无法证明全树清除即禁止正式盲跑；全程禁止修改模板/提示词/阈值/代码；揭盲后本次 Holdout 永久退出调参。 |
-| **5. 项目决策与密钥保管人（作者）** | **作者** | D1–D5 最终拍板、全局分配清册 `v2-final` 批准、`DQ-4` 强制人工复核、**离线保管敏感数据包或独持加密密钥**、T1 与 T2 双节点独立留存确认、释放真值密钥授权揭盲、阶段授权与最终验收。 | 解密密钥严禁进入 VM、Agent 上下文、环境变量、GitHub 仓库或运行日志；未完成 T2 留存确认前不释放密钥。 |
+| **4. 独立盲测执行者（Run Operator · 跨项目全新空白对话 B / 项目 B）** | **作者新建的跨项目全新空白独立对话 VM 中的执行 Agent** | **不附加、不克隆原 GitHub 仓库**；仅接收作者上传的唯一 T1 匿名包 `stage1b-blind-input-pack.tar.gz`（内含最小白名单运行时代码、5 套原型模板、匿名沙箱副本、匿名配置/调度表与自包含 Runbook）；通过 `pre-run-blinding-audit.json` 后按随机化序列以 `prepareIfNeeded: false` 执行 A/B/C 全量盲跑，产出单文件 `stage1b-blind-outputs-T2.tar.gz` 与 `T2_EXECUTION_OUTPUTS.sha256`。 | **物理不存在即不可读（§6.3）**：该全新独立 VM 与对话 A/项目 A **三层零共享**（零共享项目 `upload/`、零共享原对话 VM 磁盘与 Vault `00/01/02`/历史私钥、零共享原对话 `<appDataDir>/brain/` 历史会话），且不含原仓历史文档与测试夹具；全程禁止修改模板/提示词/阈值/代码；揭盲后本次 Holdout 永久退出调参。 |
+| **5. 项目决策、密钥保管与跨对话交接见证人（作者）** | **作者** | D1–D5 最终拍板、全局分配清册 `v2-final` 批准、`DQ-4` 强制人工复核、**离线保管敏感数据包或独持加密密钥**、T1 单文件上传至全新空白对话 B、T2 独立下载留存 `stage1b-blind-outputs-T2.tar.gz` 并亲自在 Issue `#10` 公布 `T2_EXECUTION_OUTPUTS.sha256` 后回传对话 A、释放真值密钥授权揭盲与最终验收。 | 解密密钥严禁进入任一 VM、Agent 上下文、环境变量、GitHub 仓库或运行日志；未完成 T2 留存确认前不释放密钥。 |
 
 ### 1.3 七条不可突破实施红线
 
@@ -161,7 +162,11 @@
 为彻底杜绝任何事后挑样嫌疑，`G4-Plan A` 从历史 `four-class-24.json` 的 `20` 条真实案例（全部来自 `QHL-CH1..3`：`8` MAJOR / `6` MINOR / `6` SUGGESTION；4 条 BLOCKER 均为合成故不纳入“历史真实案例”池）中挑选 `9` 条时，必须在首次运行任何模型前执行以下预注册流程：
 
 1. **分层结构与规范排序**：先按 **`sourceChapterId ASC, caseId ASC`**（UTF-8 字典序，统一大写规范化 ID）对全部 `20` 条历史真实案例做确定性规范排序，再按 `sourceChapterId`（`QHL-CH1` / `QHL-CH2` / `QHL-CH3`，每章 3 条）× 原始真值类别（`MAJOR` / `MINOR` / `SUGGESTION`）分层；
-2. **锁定 PRNG 算法与同值 Tie-Break**：使用与阶段 1A 引擎 [eval_g1_g6_stats.mjs](../../../scripts/p0_prototypes/eval_g1_g6_stats.mjs#L196-L200) 一致的 **`Mulberry32` 确定性 PRNG**（冻结种子 `g4HistSelectionSeed = 20261128`）对各分层执行 Fisher-Yates 洗牌后取前 $k$ 条；若产生同值打分/权重比较，严格按规范排序索引升序（`caseId ASC`）做确定性 tie-break，保证同一清册与种子逐字节复现；
+2. **锁定 PRNG 算法、遍历顺序与精确 Fisher–Yates 公式**：
+   - 使用与阶段 1A 引擎 [eval_g1_g6_stats.mjs](../../../scripts/p0_prototypes/eval_g1_g6_stats.mjs#L196-L200) 完全一致的 **`Mulberry32` 确定性 PRNG**，初始化冻结种子 `g4HistSelectionSeed = 20261128`；
+   - **固定分层遍历顺序**：外层按 `QHL-CH1 → QHL-CH2 → QHL-CH3`，内层按 `MAJOR → MINOR → SUGGESTION` 顺序依次处理各非空层；
+   - **跨层连续单流（不每层重置）**：所有 strata 共享同一个连续递增的 `Mulberry32` 随机数流（仅在开始前初始化一次 seed，严禁每层重置）；
+   - **精确 Fisher–Yates 洗牌与 Tie-Break**：对长度 $n$ 的层内已规范排序数组 `arr[0..n-1]`，执行 `for (let i = n - 1; i >= 1; i--) { const j = Math.floor(nextFloat() * (i + 1)); swap(arr[i], arr[j]); }`，再取前 $k$ 项；若发生任何同值权重/排序比较，一律按原始 `caseId ASC` 升序做确定性 tie-break，保证同一清册与种子在任意节点逐字节复现；
 3. **双清册完整留痕**：同步保存 **`g4-hist-selected-9.json`（入选清册）** 与 **`g4-hist-unselected-11.json`（未入选清册）** 及其哈希；
 4. **两条绝对禁令**：**严禁根据任何 A/B/C 运行结果选择或替换历史案例**；**严禁为凑成 6/6/6/6 篡改任何一条历史案例的原始真值**（四级缺额——尤其是真实 `BLOCKER` 探针——仅通过新增的 `5` 个独立来源章共 `15` 个新案例补齐）；
 5. **自动降级兜底**：若经上述固定规则仍无法构造合法的 `9 + 15` 组合（例如某历史源章分层不足导致无法满足四级覆盖与源章均衡），自动切换为 `G4-Plan B`（全量新建 `8` 独立来源章 × `3` 案 = `24` 探针）。
@@ -204,7 +209,7 @@
 1. **强制交 `Arbiter 3`（独立冷启动）仲裁**：阻断/非阻断分歧、任一评委判 `BLOCKER` 引发的分歧、`CLEAR` vs `BORDERLINE` 分歧、G4 四级任两级分歧；
 2. **预期正例被判为非阻断的留痕与预注册 FIFO 配额补足规则（禁止静默删除或人工挑替补）**：
    - 无论样本来自 Neon 历史子代理还是 GPT-6 补创，若评委将原本的 `creatorIntendedLabel`（预期正例）判定为非阻断（或降级），**必须完整保留其原始判定记录、创作者原意图与仲裁记录，严禁直接从记录中静默删除**；
-   - 该案例按真实定案结果如实归档于 `adjudication-audit-log.jsonl`；若降级导致某章或整集无法满足冻结配额（如 `D1-B` 的精确 `72` 正例 / `60` 负例及逐章配额），仅允许在 **T1 封箱前** 按**预注册备用清册中同题材、同类别的 FIFO 既定顺位**自动递补（全量记入 `changeEvents[]` 禁止人工挑选）；**若预注册备用顺位耗尽后仍不满足冻结配额，`CUSTODY-PRECHECK` 强制保持 Fail-Closed 阻断，严禁为凑数静默替换或放宽配额**；
+   - 该案例按真实定案结果如实归档于 `adjudication-audit-log.jsonl`；若降级导致某章或整集无法满足冻结配额（如 `D1-B` 的精确 `72` 正例 / `60` 负例及逐章配额），仅允许在 **T1 封箱前** 按预注册备用清册中**同题材且按原始 `creatorIntendedLabel` 索引的同类别 FIFO 既定顺位**自动递补（固定以原始 `creatorIntendedLabel` 作为备用池类别键，避免评委降级后的类别改变递补池选择口径；全量记入 `changeEvents[]` 禁止人工挑选）；**若预注册备用顺位耗尽后仍不满足冻结配额，`CUSTODY-PRECHECK` 强制保持 Fail-Closed 阻断，严禁为凑数静默替换或放宽配额**；
 3. **严格限定排除替补触发条件（`DQ-3`）**：
    - **仅当案例明确满足预注册排除条件**（例如：文本本身存在不可消解的设定矛盾或语义歧义，经 `Arbiter 3` 正式判定为 `AMBIGUOUS_EXCLUDED`；或经 6 维防泄漏复核确认存在改写污染）时，**才允许**在 T1 封箱前按预注册备用清册的 **FIFO 既定顺位** 替补；
    - 一旦完成 T1 封存并启动任何 A/B/C 运行，永久禁止替补、剔除或修改主 Gold Standard。
@@ -232,121 +237,120 @@
   - 凡 **`exposureAuditStatus = "unknown"`** 的素材，在全局分配清册中一律归态 **`EXCLUDED_UNKNOWN`**，**严格执行 Fail-Closed——严禁进入 `G2-B` 或 `G6`，不得计入独立 Holdout 的有效样本数（$N_{\text{ch}}$ / $N_{\text{case}}$）**；
   - 仅在有**可核查证据**支持独立性资格时，素材方可进入 `G2-B` / `G6`；`unknown` 素材如另行评估用于非 Holdout 回归或探索性分析，必须单独标注并完全隔离。
 
-### 5.2 仓外 Vault、两阶段清册目录与 T1/T2 双节点见证协议
+### 5.2 仓外 Vault（对话 A / 项目 A）、T1 单文件最小白名单包与 T1/T2 跨对话见证协议
 
 ```text
-# 1) 仓库外独立 Data Custody Vault（不入 Git）
-# 【Blocking 1 盲跑期全量清除边界】：标有 [盲跑前全量移出/作者密钥加密清除明文] 的全部文件与目录，
-# 连同 P0-0 历史私钥（scratch/phase1-*private-key* 等）及全部缓存/索引/备份/临时副本/隐藏目录，
-# 均必须在 T1 前从 Run Operator 可访问的完整工作区文件树中彻底移出或作者独持密钥加密并清除明文！
-<ART_ROOT>/stage1b-custody-vault/
-├── 00-historical-exposure-registry.json                 # [盲跑前全量移出/加密清除] 历史暴露双哈希与近似重复索引
-├── 00b-historical-subagent-inventory.json               # [盲跑前全量移出/加密清除] 统一盘点表（含 5 态与来源身份）
-├── 00c-global-asset-allocation-v1-historical.json       # [盲跑前全量移出/加密清除] 全局分配清册 v1
-├── 00c-global-asset-allocation-v2-final.json            # [盲跑前全量移出/加密清除] 全局分配清册 v2
-├── 01-raw-corpus/                                       # [盲跑前全量移出/加密清除] 全量原文+切片+corpusOrigin
-├── 02-ground-truth-adjudication/                        # [盲跑前全量移出/加密清除] Step A/B、openFindings、Arbiter 3、G4 四层表、评委配置
+# 1) 对话 A / 项目 A 的仓外 Data Custody Vault（不入 Git；永不挂载至盲跑对话 B！）
+<ART_ROOT_A>/stage1b-custody-vault/
+├── 00-historical-exposure-registry.json                 # 仅驻留对话 A / 作者离线库：历史暴露双哈希与近似重复索引
+├── 00b-historical-subagent-inventory.json               # 仅驻留对话 A / 作者离线库：统一盘点表（含 5 态与来源身份）
+├── 00c-global-asset-allocation-v1-historical.json       # 仅驻留对话 A / 作者离线库：全局分配清册 v1
+├── 00c-global-asset-allocation-v2-final.json            # 仅驻留对话 A / 作者离线库：全局分配清册 v2
+├── 01-raw-corpus/                                       # 仅驻留对话 A / 作者离线库：全量原文+切片+corpusOrigin
+├── 02-ground-truth-adjudication/                        # 仅驻留对话 A / 作者离线库（T1 前作者离线持钥加密）：Step A/B、openFindings、Arbiter 3、G4 四层表、评委配置
 ├── 03-sealed-manifests/
-│   ├── sensitive-truth-manifests/                       # [盲跑前全量移出/加密清除] 含真值/来源/门禁映射的完整冻结清册
-│   └── blind-runner-public/                             # 【盲跑期仅保留只读】：匿名 config-manifest.json、匿名调度表、T1_SEALED_ANCHORS.sha256
-├── 04-anonymized-sandbox-copies/                        # 【盲跑期仅保留只读】：匿名化独立沙箱副本（剥离来源/预期/真值，预冻结后只读）
-└── 05-host-execution-logs/                              # 【盲跑期唯一可写输出】：pre-run-blinding-audit.json、宿主机日志、Provider Request ID、T2_EXECUTION_OUTPUTS.sha256、G5 实跑日志
+│   ├── sensitive-truth-manifests/                       # 仅驻留对话 A / 作者离线库：含真值/来源/门禁映射的冻结清册
+│   └── t1-outbound-package/
+│       ├── stage1b-blind-input-pack.tar.gz              # 【唯一交付至跨项目空白对话 B 的 T1 单文件包（约 0.3–1 MB）】
+│       └── T1_SEALED_ANCHORS.sha256                     # 含 tar.gz 整体哈希 + 包内逐文件 SHA-256 清单 + 各门禁清册锚点
+├── 04-anonymized-sandbox-copies/                        # 构建 stage1b-blind-input-pack.tar.gz 的源只读匿名沙箱目录
+└── 05-host-execution-logs/
+    ├── g5-compat-tests/                                 # 对话 A 按 T1 锁定 Commit 实跑的确定性 G5 代码单测日志（s1CompatTest / engFixP1Test）
+    └── returned-from-blind-vm/                          # 作者从盲跑对话 B 下载留存并回传的 stage1b-blind-outputs-T2.tar.gz（经 T2 哈希校验）
 
 # 2) 主仓脱敏交付目录（0 字节小说原文，仅在阶段 1B 获批执行后提交）
 docs/r3/p0-implementation/stage1b/
 ├── P0-6-Stage1B-Global-Allocation-Sanitized.json        # 脱敏全局分配清册（v1-historical + v2-final + exceptionAssignments 校验记录）
-├── P0-6-Stage1B-Custody-Manifest-Sanitized.json         # 脱敏清册（含 T1 输入预冻结锚点 + T2 运行输出封存锚点，分列两个时间点！）
+├── P0-6-Stage1B-Custody-Manifest-Sanitized.json         # 脱敏清册（含 T1 输入预冻结锚点 + T1 逐文件白名单 SHA-256 + T2 运行输出封存锚点，分列两个时间点！）
 ├── P0-6-Stage1B-Config-And-Judge-Manifest.json          # 不可变 configManifestSha256（分方案模板哈希）+ Judge 1/2/Arbiter 3 配置与同家族披露
 ├── P0-6-Stage1B-GoldStandard-IRR-Report.json            # DQ-1(分 G2-B/G6) + DQ-2(全 24 例原始盲标 & 4×4 矩阵) + DQ-3/4 + G3 一致率
-├── P0-6-Stage1B-Blinding-Audit-Report.json              # pre-run-blinding-audit 全工作区枚举摘要 + 4 项诚实隔离状态表
+├── P0-6-Stage1B-Blinding-Audit-Report.json              # 空白对话 B 全盘 pre-run-blinding-audit 摘要 + 5 维诚实证据边界表
 ├── P0-6-Stage1B-Author-Approval-Record.json             # D1–D5 决议 + v2-final 批准 + positiveCohortApprovalRef + T1/T2 作者确认记录
 ├── P0-6-Stage1B-Eval-Input-Sanitized.json               # eval_g1_g6_stats.mjs 正式输入（0 字节正文）
 ├── P0-6-Stage1B-Exploratory-Findings.json               # 未匹配新发现（按 A/B/C 分报数量、严重度分布与人工复核结论）
 └── P0-6-Stage1B-Final-Adjudication-Report.md            # 正式统计裁决与四层证据边界报告
 ```
 
-- **T1 / T2 双节点外部见证与作者持钥放行门（不强制接入外部 RFC 3161 TSA）**：
+- **T1 / T2 跨对话双节点外部见证与作者持钥放行门（不强制接入外部 RFC 3161 TSA）**：
   - **`T1` · 首跑前输入预冻结锚点（`T1_SEALED_ANCHORS.sha256`）**：
-    - **必须锁定清单**：① 匿名化盲测输入清册；② `G2-A`/`G2-B`/`G6`（及 `G1`/`G3`/`G4`/`G5`）冻结样本清册与全局分配清册 `v2-final`；③ A/B/C 不可变配置及分方案提示词清单（`configManifestSha256`）；④ 运行代码与模板 Git Commit SHA；⑤ `G2-B` 正例 Cohort 审批绑定哈希（`positiveCohortApprovedManifestSha256`）。
-    - **见证动作**：通过 GitHub Issue 公开记录全部 64 位 SHA-256，并由**作者独立下载保存只读副本**确认；同时完成全部敏感目录离线移出/作者密钥加密清除及全工作区 `pre-run-blinding-audit.json` 核验通过后，方可启动盲跑。
+    - **必须锁定清单**：① 单文件匿名包 `stage1b-blind-input-pack.tar.gz` 的整体 64 位 SHA-256 及包内**逐文件白名单 SHA-256 清单（`T1-BUNDLE-FILE-MANIFEST.sha256`）**；② `G2-A`/`G2-B`/`G6`（及 `G1`/`G3`/`G4`/`G5`）冻结样本清册与全局分配清册 `v2-final`；③ A/B/C 不可变配置及分方案提示词清单（`configManifestSha256`）；④ 源仓库导出代码所对应的锁定 Commit SHA；⑤ `G2-B` 正例 Cohort 审批绑定哈希（`positiveCohortApprovedManifestSha256`）。
+    - **见证动作**：通过 GitHub Issue 公开记录全部 64 位 SHA-256，由**作者独立下载保存只读副本**，并将唯一的 `stage1b-blind-input-pack.tar.gz` 上传至**项目外全新空白对话 B / 独立干净项目 B**。
   - **`T2` · 跑完后、揭盲前运行输出封存锚点（`T2_EXECUTION_OUTPUTS.sha256`）**：
-    - **必须锁定清单**：① `EXECUTION_OUTPUTS.sha256`（全部原始模型输出逐次 64 位 SHA-256）；② 完整宿主机运行日志清单；③ Provider Request ID 记录（如运行时可获得，否则诚实标 `not_exposed_by_runtime`）；④ 最终运行清册（含随机化调度顺序）；⑤ A/B/C 各方案实际运行记录。
-    - **见证与放行硬门**：全部盲跑结束、**尚未揭盲前**，将上述 T2 全部哈希再次通过 GitHub Issue 公开记录，并由**作者独立下载保存并书面确认留存**；**只有 T2 完成且作者确认留存后，作者才可释放离线真值密钥授权揭盲与 1A 统计计算**。
+    - **必须锁定清单**：① 单文件输出包 `stage1b-blind-outputs-T2.tar.gz` 的整体 64 位 SHA-256；② `EXECUTION_OUTPUTS.sha256`（全部原始模型输出逐次 64 位 SHA-256）；③ 完整宿主机运行日志清单；④ Provider Request ID 记录（如运行时可获得，否则诚实标 `not_exposed_by_runtime`）；⑤ 最终运行清册（含随机化调度顺序）与各方案实际运行记录。
+    - **见证与放行硬门**：空白对话 B 跑完后产出 `stage1b-blind-outputs-T2.tar.gz` 与 `T2_EXECUTION_OUTPUTS.sha256`（盲跑对话无需 GitHub 写权限）；**由作者本人下载留存离线副本、亲自在 GitHub Issue 公开记录 `T2_EXECUTION_OUTPUTS.sha256` 并将 `.tar.gz` 回传对话 A**；对话 A 强校验回传包 SHA-256 与 Issue T2 锚点逐字节一致后，**作者方可释放离线真值密钥授权揭盲与 1A 统计计算**。
   - **诚实证据边界声明**：
     - 报告必须**分别披露「T1 输入预冻结锚点」与「T2 运行输出封存锚点」两个独立时间点**，严禁混为一谈；
-    - 本项目威胁模型为开源技能离线评测，**不强制接入外部 RFC 3161 TSA 或司法级第三方公证**；`chmod -R a-w` 仅属本地误写保护；**GitHub Issue 公开记录 + 作者独立离线留存与持钥放行门**构成适度的双节点证据保全机制，**明确不等同于 RFC 3161 独立可信时间戳，亦绝不宣称“绝对不可篡改”**。
+    - 本项目威胁模型为开源技能离线评测，**不强制接入外部 RFC 3161 TSA 或司法级第三方公证**；`chmod -R a-w` 仅属本地误写保护；**GitHub Issue 公开记录 + 作者跨对话单文件留存与持钥放行门**构成适度的双节点证据保全机制，**明确不等同于 RFC 3161 独立可信时间戳，亦绝不宣称“绝对不可篡改”**。
 
 ---
 
-## 六、宿主机执行安全与作者离线持钥全工作区盲化协议（Blocking 1 闭合版）
+## 六、跨项目全新空白独立对话 VM 盲跑协议、最小代码白名单与诚实证据边界（v0.2.5 收口版）
 
-### 6.1 端到端 T1/T2 双节点封箱流水线
+### 6.1 端到端跨对话 T1/T2 双节点封箱流水线
 
 ```mermaid
 flowchart TD
-    S0["Step 1B-0 (当前): GPT-6 终审 v0.2.4 + 作者书面拍板 D1–D5"] --> S1["Step 1B-1: 历史暴露台账(unknown Fail-Closed) + 统一盘点 + 00c v1-historical + 核算缺口"]
-    S1 --> S2["Step 1B-2: GPT-6 按缺口补创 + openFindings 闭环 + G4 全24例四层盲标 + DQ-1..4 + 00c v2-final"]
-    S2 --> S3["Step 1B-3 (T1): CUSTODY-PRECHECK + 离线/加密清除全工作区 00/00b/00c/01/02/历史私钥 + 全树 pre-run-blinding-audit + T1 见证"]
-    S3 --> S4["Step 1B-4a: 独立冷启动 Run Operator 随机化封箱盲跑 G6 (K=1, prepareIfNeeded:false)"]
-    S4 --> S5["Step 1B-4b: 独立冷启动 Run Operator 随机化盲跑 G2-B (K=3) + G1/G2-A/G3/G4/G5"]
-    S5 --> S6["Step 1B-5a (T2): 跑完揭盲前公开 T2_EXECUTION_OUTPUTS.sha256 + 作者下载确认 → 释放离线真值密钥"]
-    S6 --> S7["Step 1B-5b: 揭盲映射(新发现按方案细报) + 外带锚点跑 1A 引擎 → GPT-6 独立复审(禁自证) / 揭盲 Holdout 永久退役"]
+    S0["Step 1B-0 (当前): GPT-6 确认 v0.2.5 ACCEPTED + 作者书面拍板 D1–D5"] --> S1["Step 1B-1 (对话 A): 历史暴露台账(unknown Fail-Closed) + 统一盘点 + 00c v1-historical + 核算缺口"]
+    S1 --> S2["Step 1B-2 (对话 A): GPT-6 按缺口补创 + openFindings 闭环 + G4 全24例四层盲标 + DQ-1..4 + 00c v2-final"]
+    S2 --> S3["Step 1B-3 (T1 · 对话 A): CUSTODY-PRECHECK + 打包最小白名单单文件 T1 包(Dry-Run 验证) + 作者离线持钥 + Issue 公开 T1 锚点"]
+    S3 --> S4["Step 1B-4 (项目外全新空白对话 B · 不附加原仓库): 上传唯一 T1 包 → 全盘 pre-run-blinding-audit → 随机化盲跑 G6(K=1) 再跑其余门禁"]
+    S4 --> S5["Step 1B-5a (T2 · 作者跨对话交接): 作者从对话 B 下载留存 T2 输出包 → 亲自发 Issue T2 锚点 → 回传对话 A 核验哈希一致 → 释放离线真值密钥"]
+    S5 --> S6["Step 1B-5b (对话 A): 揭盲映射(新发现按方案细报) + 外带锚点跑 1A 引擎 → GPT-6 独立复审(禁自证) / 揭盲 Holdout 永久退役"]
 ```
 
-### 6.2 代码级工程安全硬约束与不可变配置清单
+### 6.2 代码级工程安全硬约束、`configManifestSha256` 与 `runtimeStageContexts` 真实来源
 
 1. **`review_pack_compiler.mjs` 独立匿名副本 + `prepareIfNeeded: false`**：
    - [review_pack_compiler.mjs](../../../scripts/p0_prototypes/review_pack_compiler.mjs#L343-L368) 默认 `prepareIfNeeded = true` 会在未冻结时调用 `prepareR3Review(..., {dryRun: false})` 写盘；
-   - 阶段 1B 强制先在 `04-anonymized-sandbox-copies/` 独立副本内完成一次预冻结，随后**全部正式盲跑必须显式传入 `{prepareIfNeeded: false}`**，严禁对 `01-raw-corpus/` 或生产目录直接调用；
-   - **基础包字节级一致性校验**：对每章计算 `compileSharedReviewBasePack()` 规范 JSON 的 `basePackSha256`，强断言 A/B/C 消费字节 100% 一致。
+   - 阶段 1B 强制先在对话 A 的 `04-anonymized-sandbox-copies/` 独立副本内完成一次预冻结，打包进 T1 匿名包后，在对话 B 中**全部正式盲跑必须显式传入 `{prepareIfNeeded: false}`**，且对每章计算 `compileSharedReviewBasePack()` 规范 JSON 的 `basePackSha256`，强断言 A/B/C 消费字节 100% 一致。
 2. **不可变配置清单（`configManifestSha256`）**：
-   - 每次运行绑定不可变 `configManifestSha256`，明确记录精确模型快照/供应商版本、推理参数、**A/B/C 各自独立的 Prompt/Template SHA-256（含 B Pass 1/2 与 C Stage 1/2，严禁混为同一配置哈希）**、Adapter/代码 Commit SHA 及运行时版本。
-3. **`abc_orchestrator.mjs` 身份交叉核验与真实证明等级**：
-   - [`runtimeStageContexts`](../../../scripts/p0_prototypes/abc_orchestrator.mjs#L103-L181) 达到 `proofLevel: 'runtime_metadata_cross_checked'` 仅能验证宿主机注入元数据与报告身份一致，**不能单凭此宣称已证明外部 Provider 服务端物理会话隔离**；
-   - 宿主机逐次记录进程 ID、`runId`、`contextId`、`latencyMs`、**Provider Request ID（若运行时可得，否则诚实标 `not_exposed_by_runtime`）**，并在每次响应落盘瞬间追加 64 位 SHA-256 至只增不改的 `EXECUTION_OUTPUTS.sha256`。
+   - 每次运行绑定不可变 `configManifestSha256`，明确记录精确模型快照/供应商版本、推理参数、**A/B/C 各自独立的 Prompt/Template SHA-256（含 B Pass 1/2 与 C Stage 1/2，严禁混为同一配置哈希）**、源仓库锁定 Commit SHA、T1 包逐文件 SHA-256 清单及运行时版本。
+3. **`runtimeStageContexts` 的真实来源、Schema 与证据边界（诚实澄清）**：
+   - **明确声明**：`runtimeStageContexts` **不是** Antigravity 官方 Hooks 标准字段，而是本项目 P0-5 [`abc_orchestrator.mjs`](../../../scripts/p0_prototypes/abc_orchestrator.mjs#L103-L181)（`checkStage2ReviewerIndependence()`）定义的**自定义 JS 运行时入参**；
+   - **字段 Schema**：`{ stage1: { runId: string, contextId: string }, stage2: { runId: string, contextId: string } }`（要求四值非空且 `stage1.runId !== stage2.runId`、`stage1.contextId !== stage2.contextId`）；
+   - **注入点与交叉校验方式**：由盲跑调度脚本在发起每次两阶段调用前分别生成唯一 UUID 级 `runId`/`contextId`，分别传入两阶段独立调用并同时注入 `abc_orchestrator.mjs`；后者强断言两阶段模型返回报告中的 `reviewer.runId`/`reviewer.contextId` 与调度器注入值精确一致（`proofLevel: 'runtime_metadata_cross_checked'`），否则 Fail-Closed 报错 `R3_STAGE_REVIEWER_RUNTIME_MISMATCH`；
+   - **证据边界**：该机制属于**脚本注入级防模型伪造校验**，不构成 Antigravity 平台原生安全证明，也不单独证明外部 Provider 服务端的物理会话隔离。
+4. **G5 确定性代码单元测试的隔离执行**：
+   - 因盲跑对话 B 明确排除 `scripts/tests/` 全部测试夹具，G5 所需的两项确定性代码兼容测试（`s1CompatTest` 与 `engFixP1Test`，不含任何 LLM 盲测）在**对话 A** 针对同一 T1 锁定 Commit SHA 独立实跑，并将完整 stdout、退出码与测试日志哈希单独归档至 `05-host-execution-logs/g5-compat-tests/`。
 
-### 6.3 作者离线持钥 + 继承工作区全量明文清除盲化协议（v0.2.4 闭合 Blocking 1 全部 5 项要求）
+### 6.3 跨项目全新空白独立对话 VM 隔离、T1 最小文件白名单与诚实 5 维证据边界（v0.2.5 收口）
 
-> **撤回夸大表述**：当前 Antigravity 远端 VM 子代理采用 `workspace: inherit`，平台不提供 OS 级零挂载容器隔离；本设计**正式撤回「物理隔离」「零挂载」表述**，改用**「作者离线持钥 + 继承工作区全量敏感明文清除」**，确保 Run Operator 在其继承工作区中实际可访问的全部文件树内**彻底不存在任何敏感真值、来源或门禁分配明文**。
+> **核心隔离原则（「物理不存在即不可读」）**：经核对 Antigravity 官方 [Hooks 文档](https://antigravity.google/docs/hooks) 与 [Remote Agents 文档](https://antigravity.google/docs/remote-agents)，① 单非特权用户 `antigravity` VM 不具备运行于 Runner 信任域之外的 OS 级内核审计进程，且 `transcript.jsonl` 并非不可伪造的 OS 文件访问审计；② 同项目不同对话共享 `$HOME/upload/`；③ 原 GitHub 仓库本身包含 `p0-6-readiness-input.json`、`P0-0-Baseline-Audit-Report.md`、`r3_p0_stats.test.mjs` 等历史信息与测试夹具。因此，本版采用**「项目外全新空白独立对话 VM（不附加/不克隆原 GitHub 仓库）+ T1 最小白名单单文件包」**，使敏感真值、历史会话与仓库历史文件在盲跑 VM 中**物理上从未存在**。
 
-1. **八项强制执行要求（全部验证通过方可启动正式盲跑）**：
-   1. **全量敏感数据打包离线或作者独持加密**：必须将以下**全部**敏感目录与文件一并移出 VM 交作者离线保管，或使用作者独持密钥加密后彻底删除 VM 端全部明文（**不得仅以“未作为正式输入传递”视为不可访问**）：
-      - `00-historical-exposure-registry.json`；
-      - `00b-historical-subagent-inventory.json`；
-      - `00c-global-asset-allocation-v1-historical.json` 与 `00c-global-asset-allocation-v2-final.json`；
-      - `01-raw-corpus/`（含全量原文、切片及 `corpusOrigin`）；
-      - `02-ground-truth-adjudication/`（含 Gold Standard、`creatorIntendedLabel`、Step A/B、仲裁记录、G4 四层表与评委配置）；
-      - `03-sealed-manifests/sensitive-truth-manifests/`（含真值、来源或门禁映射的冻结清册）；
-      - 本机既有 `P0-0` 历史私钥与仲裁记录文件（`<ART_ROOT>/scratch/phase1-*private-key*`、`phase1-cal-r*`、`phase1-r3-arbitration*` 等）；
-      - 上述文件的全部**缓存、索引、备份、临时副本（`/tmp`、`scratch/`）及隐藏目录/隐藏文件（`.*`）**。
-   2. **密钥零入环境**：解密密钥**严禁**进入 VM、任何 Agent 上下文、环境变量、GitHub 仓库或运行日志；
-   3. **Run Operator 实际可读范围严格白名单**：在盲跑期间，Run Operator 继承工作区与 `<ART_ROOT>` 内实际可读的业务/实验数据路径**仅允许包含**：
-      - `04-anonymized-sandbox-copies/`（预冻结匿名只读沙箱副本，零 `corpusOrigin`/预期标签/真值/门禁映射）；
-      - `03-sealed-manifests/blind-runner-public/`（仅含匿名 `config-manifest.json`、匿名调度表与 `T1_SEALED_ANCHORS.sha256`）；
-      - 冻结 Commit 下的 Git 仓库运行代码与原型模板（0 字节正文、0 真值）；
-      - 唯一可写输出目录 `05-host-execution-logs/`；
-      - **其余一切敏感数据路径均必须提供「文件已不存在（ENOENT）或经验证无读取权限（EACCES）」的实测拒绝访问证据**。
-   4. **全新冷启动执行子代理**：Neon Run Operator 必须在**全新冷启动上下文**中独立执行，**严禁继承** Neon 主代理的创作、标注与仲裁对话（不依赖同一主 Agent 自我约束）；
-   5. **全工作区文件树盲态清除核验记录（`pre-run-blinding-audit.json`）**：在开跑前，由独立审计脚本扫描 Run Operator 在继承工作区中**实际可访问的完整文件树**（覆盖整个 Git 工作区、完整 `<ART_ROOT>`、`$HOME` 非系统隐藏/缓存目录及 `/tmp` 临时区），而非仅扫描单个指定目录；完整记录：
-      - ① 运行身份（`uid`、`gid`、`user`、`cwd`）；
-      - ② 完整可访问文件树清单与目录权限快照（含隐藏文件与符号链接目标）；
-      - ③ 对全部禁止路径（`00`/`00b`/`00c`/`01`/`02`/`03-sensitive`/`P0-0` 私钥及备份缓存）的逐项不存在/拒绝读取验证结果（`ENOENT` / `EACCES` 实测证据）；
-      - ④ 残留敏感字段扫描（校验可读目录内零 `creatorIntendedLabel`、`corpusOrigin`、`historicalOriginalTruth`、`truthClass` 残留）。
-   6. **Fail-Closed 阻断门禁**：**若无法完整枚举可访问文件树，或无法证明任何一项敏感数据路径在盲跑期不可访问，`明文真值隔离` 与 `Runner 盲态` 必须标记为 `未验证`，并按 Fail-Closed 严格禁止正式盲跑。**
-   7. **`Runner 盲态 = 已验证` 的可信证据绑定要求（禁止自证）**：`Runner 盲态 = 已验证` **严禁**仅凭模型输出的会话 ID 或 JSON 内不同的 `runId`/`contextId` 作出；必须同时满足：① 绑定平台级宿主生成的不可伪造子代理运行日志（Antigravity 宿主自动落盘的 `<appDataDir>/brain/<subagent-conversationId>/.system_generated/logs/transcript.jsonl` 完整工具调用与文件访问审计，核验零越界读取）+ 宿主运行时注入的 `runtimeStageContexts`（`proofLevel: 'runtime_metadata_cross_checked'`）；② 与 `pre-run-blinding-audit.json` 全工作区零明文核验联合佐证。**若运行平台无法提供可信宿主运行时日志与完整文件访问审计，必须诚实将 `Runner 盲态` 标记为 `未验证` 并按 Fail-Closed 阻止正式盲跑。**
-   8. **运行期只读锁死与揭盲后永久退役**：全程严禁修改模板、提示词、阈值或代码；仅在 **T2 外部见证完成且作者下载确认后** 方可释放离线密钥揭盲；揭盲后的 Holdout **永久退役**，严禁用于后续调参。
+1. **T1 单文件匿名输入包（`stage1b-blind-input-pack.tar.gz`）显式文件白名单（逐文件记录 64 位 SHA-256 于 `T1-BUNDLE-FILE-MANIFEST.sha256`）**：
+   - **精确传递依赖运行时 JS（共 `13` 个，经静态导入链实测核定）**：
+     - `scripts/p0_prototypes/abc_orchestrator.mjs`
+     - `scripts/p0_prototypes/review_pack_compiler.mjs`
+     - `scripts/p0_prototypes/impact_scope_router.mjs`
+     - `scripts/r3_review_kernel.mjs`、`scripts/r3_snapshots.mjs`、`scripts/r3_p1_common.mjs`、`scripts/r3_plan_sections.mjs`、`scripts/r3_state_common.mjs`、`scripts/r3_structured_checks.mjs`、`scripts/r3_writer_firewall.mjs`、`scripts/precheck_v2_common.mjs`、`scripts/chapter_wordcount_common.mjs`、`scripts/v3_common.mjs`
+   - **5 套隔离原型审稿模板（共 `5` 个）**：
+     - `references/v3/prototypes/scheme-a-single-stage.md`、`scheme-b-pass1-discovery.md`、`scheme-b-pass2-calibration.md`、`scheme-c-stage1-high-recall.md`、`scheme-c-stage2-triage.md`
+   - **盲跑自包含执行组件**：盲跑批处理与断点续跑脚本（支持 Antigravity 原生 `invoke_subagent` 分批或外部 API Key 脚本）、`pre-run-blinding-audit` 审计脚本、自包含 `RUNBOOK-BLIND-OPERATOR.md`、`04-anonymized-sandbox-copies/`、匿名 `config-manifest.json`、匿名调度表与 `T1-BUNDLE-FILE-MANIFEST.sha256`；
+   - **明确硬排除清单（严禁打包进 T1，严禁出现在对话 B VM）**：原 GitHub 仓库 `.git/`、`docs/**`（含 `P0-0-Baseline-Audit-Report.md`、`p0-6-readiness-input.json`）、`scripts/tests/**`（含 `r3_p0_stats.test.mjs`）、`scripts/p0_prototypes/eval_g1_g6_stats.mjs`、全部 Vault `00`/`00b`/`00c-v1`/`00c-v2`/`01-raw-corpus/`/`02-ground-truth-adjudication/`/`03-sensitive/` 及 `P0-0` 历史私钥；
+   - **T1 前零上下文 Dry-Run 验证**：在正式 T1 封箱前，先用 `1` 个合成虚拟章对打包格式与 `RUNBOOK-BLIND-OPERATOR.md` 完成端到端 Dry-Run 验证，确保全新空白对话零上下文可一次跑通。
 
-2. **最终报告必须如实披露的四项隔离状态表（严禁把逻辑/密钥隔离宣传成物理隔离）**：
+2. **跨项目空白对话 B 开跑前强制门禁（`pre-run-blinding-audit.json`）**：
+   - 作者在**当前项目之外**新建一个**全新空白对话 B**（或全新独立空白项目 B），**不附加也不克隆原 GitHub 仓库**，仅上传唯一的 `stage1b-blind-input-pack.tar.gz`；
+   - 解包开跑前，审计脚本扫描对话 B 实际可访问的全部路径（全部 `workspacePaths`、`$HOME/upload/`、完整 `<appDataDir>/brain/`、`$HOME` 与 `/tmp`），逐项强断言并落盘：
+     1. `$HOME/upload/` 内**有且仅有**唯一的 `stage1b-blind-input-pack.tar.gz`，且其整体 64 位 SHA-256 精确匹配 GitHub Issue `#10` 公布的 T1 锚点；
+     2. 解包后全部文件集合与 `T1-BUNDLE-FILE-MANIFEST.sha256` 白名单逐文件 100% 精确匹配，零额外文件、零排除路径命中；
+     3. 当前工作区未挂载/未克隆原 GitHub 仓库，零 `docs/`、零 `scripts/tests/`、零 `p0-6-readiness-input.json`、零 `P0-0-Baseline-Audit-Report.md`；
+     4. `<appDataDir>/brain/` 下**仅存在当前新对话 B 自身目录**，零对话 A 历史 Transcript、零历史 Artifacts、零 `scratch/phase1-*`；
+     5. 全盘可读数据目录内残留敏感字段扫描为 `0`（零 `creatorIntendedLabel`、`corpusOrigin`、`historicalOriginalTruth`、`truthClass`）；
+     6. **任一项核验失败即按 Fail-Closed 严格禁止启动正式盲跑。**
 
-| 隔离维度 | 报告必填状态枚举 | 判定依据与 Fail-Closed 门禁 |
+3. **最终报告必须如实披露的五维诚实证据边界表（绝不把辅助日志包装为 OS 安全审计）**：
+
+| 证据维度 | 报告必填状态口径 | 判定依据与盲跑阻断属性 |
 |---|---|---|
-| **物理隔离** | **`未实现 / 不适用`** | 如实披露当前平台无独立 OS 容器/零挂载边界 |
-| **明文真值隔离** | `已验证` / `未验证` | 依据全工作区 `pre-run-blinding-audit.json`（覆盖 `00`/`00b`/`00c`/`01`/`02`/历史私钥/缓存隐藏目录）核验填写；`未验证` 强制禁止正式盲跑 |
-| **作者持钥控制** | `已验证` / `未验证` | 依据 T1 离线移交/加密确认与 T2 后作者释放密钥记录填写；`未验证` 强制禁止正式盲跑 |
-| **Runner 盲态** | `已验证` / `未验证` | 必须绑定可信宿主运行时注入信息（`runtimeStageContexts`）+ 平台级宿主生成日志（`transcript.jsonl` 完整文件访问审计）+ 全工作区白名单核验；不得仅凭模型自报会话 ID 认定；`未验证` 强制禁止正式盲跑 |
+| **OS 级外部文件访问审计（单 UID 信任域外内核审计）** | **`未实现 / 平台不支持`** | 如实披露当前 Antigravity 单非特权用户 VM 无内核级/外部信任域 `open/read` 审计守护进程；**不作为阻断门禁**（以「空白独立 VM 物理不存在敏感数据」替代） |
+| **跨项目空白独立对话 VM 隔离（不附加原仓 + 单文件 T1 哈希匹配 + 零历史会话）** | `已验证` / `未验证` | **Fail-Closed 硬门禁**：依据空白对话 B 的全盘 `pre-run-blinding-audit.json` 与 `T1-BUNDLE-FILE-MANIFEST.sha256` 核验填写；`未验证` 严格禁止盲跑 |
+| **作者离线持钥与 T1/T2 跨对话双节点放行** | `已验证` / `未验证` | **Fail-Closed 硬门禁**：依据 T1 锚点留存、作者下载留存并公开 T2 哈希及回传包字节一致校验后方释放离线密钥填写；`未验证` 严格禁止揭盲 |
+| **会话与工具调用轨迹（`transcript.jsonl`）** | **`辅助证据（非不可伪造 OS 文件访问审计）`** | 作为辅助运行轨迹归档留存，严禁宣称为 OS 级不可伪造文件访问审计 |
+| **两阶段身份交叉校验（`abc_orchestrator.mjs` `runtimeStageContexts`）** | **`脚本注入级校验（非官方 Hooks 标准字段）`** | 验证模型报告未伪造/复用调度脚本下发的 `runId`/`contextId`，不冒充平台原生或 Provider 服务端物理隔离证明 |
 
-3. **运行顺序随机化与未匹配探索性发现的按方案细化披露**：
-   - 使用运行前冻结的调度种子对每批次内 `(scheme, chapterId)` 顺序分层洗牌并留痕；优先封箱运行 `G6 (K = 1)`，随后完成 `G2-B (K = 3)` 与 `G1/G2-A/G3/G4/G5`。
+4. **运行顺序随机化、全量封存与探索性新发现细化披露**：
+   - 使用运行前冻结的调度种子对每批次内 `(scheme, chapterId)` 顺序分层洗牌并留痕；优先封箱运行 `G6 (K = 1)`，随后完成 `G2-B (K = 3)` 与 `G1/G2-A/G3/G4/G5`；全程严禁修改白名单内任何代码、模板或阈值；揭盲后的 Holdout **永久退役**，严禁用于后续调参。
    - **未匹配到任何预注册 `caseId` 的额外新发现**：继续与主 G1–G6 统计严格隔离，**严禁事后回改主 Gold Standard 或主门禁得分**；在 `P0-6-Stage1B-Exploratory-Findings.json` 中**必须按方案（A / B / C）分别报告**：**① 未匹配发现总数、② 严重程度分布（`BLOCKER`/`MAJOR`/`MINOR`/`SUGGESTION`）、③ 人工复核分类结果（真漏标客观缺陷 / 合理次要润色意见 / 模型过度联想噪声）**。
 
 ---
@@ -445,19 +449,19 @@ node scripts/p0_prototypes/eval_g1_g6_stats.mjs evaluate \
 
 | 里程碑 | 核心交付物 | 退出门禁（Exit Gate） |
 |---|---|---|
-| **Step 1B-0（当前）** | **`P0-6-Stage-1B-Experiment-Design-v0.2.4`**（已对照 `08 v1.2.3` 与 `P0-6` PRD 核验零降低任何冻结门槛） | **提交 GPT-6 复审确认 `ACCEPTED` + 作者书面批准 D1–D5（历史盘点、GPT-6 补创、Gold Standard 标注、封箱与 A/B/C 盲测全部尚未授权启动）** |
-| **Step 1B-1** | ① **管理状态前置同步**：将 `P0-Implementation-PRD.md` §五 中 `P0-5` 状态由 `NOT_STARTED` 同步为已 `ACCEPTED`（Issue `#9` Comment `7209790256`）；<br>② 历史暴露台账（`unknown` Fail-Closed 禁入 G2-B/G6）+ 候选作品统一盘点表（5 态枚举）+ **`00c-global-asset-allocation-v1-historical.json`**（`exceptionAssignments` 白名单仅限 `QHL-CH1..3`）+ 非 Holdout 近似重复阈值校准 + 真实缺口与动态预算单 + G4 9 案确定性 `Mulberry32` 预注册双清册 | 全局唯一分配 `v1-historical` 完成，明确各门禁互斥真实缺口 $\Delta N_g$ 与 G3/G4 路线；动态预算单获作者确认后再启动补创 |
-| **Step 1B-2** | **GPT-6 仅按真实缺口补创挑战语料** + 6 维去重与人工复核留痕 + 预注册 FIFO 备用清册 + **独立评委组两步盲审（含 Step A `openFindings[]` 闭环、G4 全 24 例四层原始盲标、评委配置归档与同家族披露，GPT-6 不介入自创章节定案）** + 作者人工复核 + append-only **`00c-global-asset-allocation-v2-final.json`** | `DQ-1`（G2-B 与 G6 **分别**达标 $\kappa \ge 0.80$, 一致率 $\ge 90\%$；G3 报告一致率）、`DQ-2`（**全 24 例原始独立盲标** $\kappa_w \ge 0.85$ & 4×4 矩阵）、`DQ-3`（开放新发现/预期改判/FIFO 审计全留痕，配额不足保持阻断）、`DQ-4`（100% 仲裁/BLOCKER/CLEAR + >=20% 抽核）全绿；`v2-final` 获作者批准 |
-| **Step 1B-3（`T1` 节点）** | `CUSTODY-PRECHECK` 通过（强锁 G2-B 逐章配额与 `00c` 白名单）+ 不可变 `configManifestSha256`（分方案模板哈希）+ 匿名化独立副本预冻结 + **作者离线持钥/加密并清除继承工作区全量敏感明文（`00`/`00b`/`00c`/`01`/`02`/`03-sensitive`/`P0-0` 私钥/缓存/备份/隐藏目录）** + 全树 `pre-run-blinding-audit.json` + **T1 GitHub 公开见证与作者独立保存只读副本** | 任一敏感数据路径无法完整枚举或证明不可访问即 Fail-Closed 禁止盲跑；T1 全部输入/配置/清册锚点获作者确认留存 |
-| **Step 1B-4** | **独立冷启动 Run Operator 子代理**随机化优先封箱盲跑 `G6 (K=1)` → 其余门禁盲跑（全程 `prepareIfNeeded: false`、全树零敏感明文、零调参）+ G5 兼容测试实跑日志 | `basePackSha256` 字节一致；绑定平台级宿主生成 `transcript.jsonl` 文件访问审计 + `runtime_metadata_cross_checked` + Provider Request ID（如可得）+ `EXECUTION_OUTPUTS.sha256` 封存完毕 |
-| **Step 1B-5（`T2` 节点与揭盲）** | **先完成 T2 公开见证（`T2_EXECUTION_OUTPUTS.sha256` + 运行日志清单等）并获作者下载确认 → 作者释放离线真值密钥** → 揭盲映射（未匹配探索性新发现按方案细报数量/严重度/复核结论）+ 外带锚点跑 1A 引擎 + 脱敏报告（含 T1/T2 分列锚点与 4 项诚实隔离状态表）提请 **GPT-6 独立复审（限定审计设计/日志/统计/证据链，严禁自证其创作章节）** | 0 字节正文入仓；四层证据边界与 T1/T2 证据边界诚实准确；揭盲 Holdout 永久退役；维持 `allowProductionMerge: false` 直至 GPT-6 `ACCEPTED` + 作者放行 |
+| **Step 1B-0（当前）** | **`P0-6-Stage-1B-Experiment-Design-v0.2.5`**（已对照 `08 v1.2.3` 与 `P0-6` PRD 核验零降低任何冻结门槛） | **提交 GPT-6 复审确认 `ACCEPTED` + 作者书面批准 D1–D5（历史盘点、GPT-6 补创、Gold Standard 标注、封箱与 A/B/C 盲测全部尚未授权启动）** |
+| **Step 1B-1（对话 A）** | ① **管理状态前置同步**：将 `P0-Implementation-PRD.md` §五 中 `P0-5` 状态由 `NOT_STARTED` 同步为已 `ACCEPTED`（Issue `#9` Comment `7209790256`）；<br>② 历史暴露台账（`unknown` Fail-Closed 禁入 G2-B/G6）+ 候选作品统一盘点表（5 态枚举）+ **`00c-global-asset-allocation-v1-historical.json`**（`exceptionAssignments` 白名单仅限 `QHL-CH1..3`）+ 非 Holdout 近似重复阈值校准 + 真实缺口与动态预算单 + G4 9 案确定性 `Mulberry32`（连续流 + Fisher-Yates）预注册双清册 | 全局唯一分配 `v1-historical` 完成，明确各门禁互斥真实缺口 $\Delta N_g$ 与 G3/G4 路线；动态预算单获作者确认后再启动补创 |
+| **Step 1B-2（对话 A）** | **GPT-6 仅按真实缺口补创挑战语料** + 6 维去重与人工复核留痕 + 预注册 FIFO 备用清册（严格按原始 `creatorIntendedLabel` 匹配）+ **独立评委组两步盲审（含 Step A `openFindings[]` 闭环、G4 全 24 例四层原始盲标、评委配置归档与同家族披露，GPT-6 不介入自创章节定案）** + 作者人工复核 + append-only **`00c-global-asset-allocation-v2-final.json`** | `DQ-1`（G2-B 与 G6 **分别**达标 $\kappa \ge 0.80$, 一致率 $\ge 90\%$；G3 报告一致率）、`DQ-2`（**全 24 例原始独立盲标** $\kappa_w \ge 0.85$ & 4×4 矩阵）、`DQ-3`（开放新发现/预期改判/FIFO 审计全留痕，配额不足保持阻断）、`DQ-4`（100% 仲裁/BLOCKER/CLEAR + >=20% 抽核）全绿；`v2-final` 获作者批准 |
+| **Step 1B-3（`T1` 节点 · 对话 A）** | `CUSTODY-PRECHECK` 通过（强锁 G2-B 逐章配额与 `00c` 白名单）+ 不可变 `configManifestSha256`（分方案模板哈希）+ 匿名化独立副本预冻结 + **打包唯一 T1 最小白名单单文件包 `stage1b-blind-input-pack.tar.gz`（仅含 13 个传递依赖运行时 JS + 5 套原型模板 + 自包含执行脚本/Runbook + 匿名输入 + `T1-BUNDLE-FILE-MANIFEST.sha256`，硬排除 `.git/`、`docs/**`、`scripts/tests/**` 与全量 Vault；完成 1 虚拟章零上下文 Dry-Run 验证）** + 在对话 A 针对同一锁定 Commit 实跑确定性 G5 代码兼容测试（`s1CompatTest`/`engFixP1Test`）+ **作者离线持钥留存真值与只读副本 + GitHub Issue 公开记录 `T1_SEALED_ANCHORS.sha256`** | T1 包内逐文件白名单与零上下文 Dry-Run 均通过，零敏感字段与零历史仓库文件混入；T1 全部输入/配置/清册锚点获作者确认留存 |
+| **Step 1B-4（项目外全新空白对话 B）** | 作者在**项目外全新空白对话 B / 独立空白项目 B（不附加也不克隆原 GitHub 仓库）**仅上传唯一的 `stage1b-blind-input-pack.tar.gz` → 通过全盘 `pre-run-blinding-audit.json` 与 `T1-BUNDLE-FILE-MANIFEST.sha256` 校验 → 随机化优先封箱盲跑 `G6 (K=1)` → 其余门禁盲跑（全程 `prepareIfNeeded: false`、全盘零敏感文件/零历史会话/零仓库历史文件、零调参）→ 产出 `stage1b-blind-outputs-T2.tar.gz` 与 `T2_EXECUTION_OUTPUTS.sha256` | `pre-run-blinding-audit.json` 全绿；`basePackSha256` 字节一致；`abc_orchestrator.mjs` `runtimeStageContexts` 交叉校验（`runtime_metadata_cross_checked`）与 `transcript.jsonl` 辅助轨迹、Provider Request ID（如可得）、`EXECUTION_OUTPUTS.sha256` 完整封存至 T2 输出包 |
+| **Step 1B-5（`T2` 节点与揭盲 · 作者跨对话交接 + 对话 A）** | **作者从对话 B 下载并离线留存 `stage1b-blind-outputs-T2.tar.gz`、亲自在 GitHub Issue 公开记录 `T2_EXECUTION_OUTPUTS.sha256`、并将该 `.tar.gz` 回传对话 A → 对话 A 校验回传包 SHA-256 与 Issue T2 锚点逐字节一致 → 作者释放离线真值密钥** → 揭盲映射（未匹配探索性新发现按方案细报数量/严重度/复核结论）+ 外带锚点跑 1A 引擎 + 脱敏报告（含 T1/T2 分列锚点、G5 实跑日志与 **5 维诚实证据边界表**）提请 **GPT-6 独立复审（限定审计设计/日志/统计/证据链，严禁自证其创作章节）** | 0 字节正文入仓；四层证据边界、T1/T2 双节点证据边界与 5 维诚实隔离状态表如实准确；揭盲 Holdout 永久退役；维持 `allowProductionMerge: false` 直至 GPT-6 `ACCEPTED` + 作者放行 |
 
 ---
 
-### 作者最终拍板确认单（Neon 与 GPT-6 均一致推荐以下首选项；待 GPT-6 确认 `v0.2.4` `ACCEPTED` 后由作者签字授权启动）
+### 作者最终拍板确认单（Neon 与 GPT-6 均一致推荐以下首选项；待 GPT-6 确认 `v0.2.5` `ACCEPTED` 后由作者签字授权启动）
 
 - **D1（G2-B 正例 Cohort 与逐章配额）**：`[ ] D1-B（双方一致推荐：20 章 / 72 正例 [12×(1B+3M)+6×(1B+2M)+2×(3M)=18B+54M] / 60 非阻断 [10×(2C+1B)+10×(1C+2B)=30C+30B]，1B 独立预检强锁）` / `[ ] D1-A（备选：60 / 60）`
 - **D2（G2-B 与 G6 独立性）**：`[ ] D2-A（双方一致推荐：来源作品级 6 维互斥 + 近似重复人工复核，G6 = 16 章）` / `[ ] D2-A 精简（G6 = 12 章）` / `[ ] D2-B（共享 12 章，降级关联评估）`
 - **D3（语料来源路径）**：`[ ] D3-C（双方一致推荐：跨 Agent 混合 — A. 统一盘点与 `00c v1-historical` 全局唯一分配 [`unknown` 禁入 G2-B/G6] → B. GPT-6 仅按缺口补创并追加 `v2-final` → C. 作者素材可选）`
-- **D4（模型配置、全工作区离线持钥盲测与评委归档）**：`[ ] D4-A（双方一致推荐：不可变 `configManifestSha256` 分方案模板哈希 + 作者离线持钥/继承工作区全量敏感明文清除 + 独立冷启动 Run Operator 子代理与平台日志审计 + 独立双评委/第三仲裁 [G4 全 24 例原始盲标 & 同家族相关性披露] + 作者 100% 复核仲裁/BLOCKER/CLEAR 及 >=20% 其余抽核）`
+- **D4（模型配置、跨项目空白 VM 盲测、T1 最小白名单与评委归档）**：`[ ] D4-A（双方一致推荐：不可变 `configManifestSha256` 分方案模板哈希 + 项目外全新空白独立对话 VM [不附加/不克隆原 GitHub 仓库] + T1 最小 13 JS/5 模板单文件白名单包 [逐文件 SHA-256 + Dry-Run] + 作者离线持钥与 T1/T2 跨对话交接 + 5 维诚实证据边界表 + 独立双评委/第三仲裁 [G4 全 24 例原始盲标 & 同家族相关性披露] + 作者 100% 复核仲裁/BLOCKER/CLEAR 及 >=20% 其余抽核）`
 - **D5（Issue `#10` 处置）**：`[ ] D5-A（双方一致推荐：保持 #10 OPEN 追踪阶段 1B）` / `[ ] D5-B（关闭 #10，另开阶段 1B 新 Issue）`
