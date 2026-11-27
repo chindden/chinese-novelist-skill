@@ -1,0 +1,281 @@
+{
+  "description": "P0-6 sanitized current dataset readiness manifest (derived strictly from P0-0 Baseline Audit §5; zero synthetic model predictions, zero novel prose, K_rep=0 live runs).",
+  "referenceChapters": [
+    {"chapterId": "ARM0-CH1", "sourceNovel": "器痕录"},
+    {"chapterId": "ARM0-CH2", "sourceNovel": "器痕录"},
+    {"chapterId": "ARM0-CH3", "sourceNovel": "器痕录"},
+    {"chapterId": "ARM1-CH1", "sourceNovel": "器痕录"},
+    {"chapterId": "ARM1-CH2", "sourceNovel": "器痕录"},
+    {"chapterId": "ARM1-CH3", "sourceNovel": "器痕录"},
+    {"chapterId": "ARM2-CH1", "sourceNovel": "器痕录"},
+    {"chapterId": "ARM2-CH2", "sourceNovel": "器痕录"},
+    {"chapterId": "ARM2-CH3", "sourceNovel": "器痕录"},
+    {"chapterId": "DOC-1"},
+    {"chapterId": "DOC-4"},
+    {"chapterId": "DOC-5"},
+    {"chapterId": "OLD-HOLD-1"},
+    {"chapterId": "OLD-HOLD-2"},
+    {"chapterId": "OLD-HOLD-3"},
+    {"chapterId": "OLD-HOLD-4"},
+    {"chapterId": "NH-1"},
+    {"chapterId": "NH-2"},
+    {"chapterId": "NH-3"},
+    {"chapterId": "NH-4"},
+    {"chapterId": "NH-5"},
+    {"chapterId": "V22-H1"},
+    {"chapterId": "V22-H2"},
+    {"chapterId": "V22-H3"},
+    {"chapterId": "V22-H4"}
+  ],
+  "schemes": {
+    "A": {
+      "avgReviewLatencyMs": null,
+      "G1": {
+        "track2": {
+          "chapters": [
+            {"chapterId": "ARM0-CH1", "positives": 4},
+            {"chapterId": "ARM0-CH2", "positives": 4},
+            {"chapterId": "ARM0-CH3", "positives": 4},
+            {"chapterId": "ARM1-CH1", "positives": 4},
+            {"chapterId": "ARM1-CH2", "positives": 4},
+            {"chapterId": "ARM1-CH3", "positives": 5},
+            {"chapterId": "ARM2-CH1", "positives": 5},
+            {"chapterId": "ARM2-CH2", "positives": 5},
+            {"chapterId": "ARM2-CH3", "positives": 5}
+          ],
+          "runs": []
+        },
+        "regression7": {
+          "chapters": [
+            {"chapterId": "DOC-1", "positives": 1},
+            {"chapterId": "DOC-4", "positives": 1},
+            {"chapterId": "DOC-5", "positives": 2},
+            {"chapterId": "OLD-HOLD-1", "positives": 1},
+            {"chapterId": "OLD-HOLD-2", "positives": 2},
+            {"chapterId": "OLD-HOLD-3", "positives": 1},
+            {"chapterId": "OLD-HOLD-4", "positives": 1}
+          ],
+          "runs": []
+        }
+      },
+      "G2A": {
+        "chapters": [
+          {"chapterId": "ARM0-CH1", "negatives": 3},
+          {"chapterId": "ARM0-CH2", "negatives": 3},
+          {"chapterId": "ARM0-CH3", "negatives": 3},
+          {"chapterId": "ARM1-CH1", "negatives": 4},
+          {"chapterId": "ARM1-CH2", "negatives": 4},
+          {"chapterId": "ARM1-CH3", "negatives": 4},
+          {"chapterId": "ARM2-CH1", "negatives": 4},
+          {"chapterId": "ARM2-CH2", "negatives": 4},
+          {"chapterId": "ARM2-CH3", "negatives": 4}
+        ],
+        "runs": []
+      },
+      "G2B": {
+        "chapters": [],
+        "runs": []
+      },
+      "G3": {
+        "chapters": [
+          {"chapterId": "S4-ARM0-CH1", "paragraphs": 1},
+          {"chapterId": "S4-ARM0-CH2", "paragraphs": 1},
+          {"chapterId": "S4-ARM0-CH3", "paragraphs": 1},
+          {"chapterId": "S4-ARM1-CH1", "paragraphs": 1},
+          {"chapterId": "S4-ARM1-CH2", "paragraphs": 1},
+          {"chapterId": "S4-ARM1-CH3", "paragraphs": 1},
+          {"chapterId": "S4-ARM2-CH1", "paragraphs": 1},
+          {"chapterId": "S4-ARM2-CH2", "paragraphs": 1},
+          {"chapterId": "S4-ARM2-CH3", "paragraphs": 1}
+        ],
+        "runs": []
+      },
+      "G4": {
+        "sourceChapters": ["QHL-CH1", "QHL-CH2", "QHL-CH3"],
+        "nCases": 24,
+        "runs": []
+      },
+      "G5": {
+        "deadlockCases": [
+          {"chapterId": "V22-H4", "decision": null}
+        ],
+        "legalTropeCases": [
+          {"caseId": "CAL-49", "blocking": null},
+          {"caseId": "CAL-62", "blocking": null}
+        ],
+        "s1CompatPassed": true,
+        "engFixP1Passed": true
+      },
+      "G6": {
+        "chapters": [],
+        "runs": []
+      }
+    },
+    "B": {
+      "avgReviewLatencyMs": null,
+      "G1": {
+        "track2": {
+          "chapters": [
+            {"chapterId": "ARM0-CH1", "positives": 4},
+            {"chapterId": "ARM0-CH2", "positives": 4},
+            {"chapterId": "ARM0-CH3", "positives": 4},
+            {"chapterId": "ARM1-CH1", "positives": 4},
+            {"chapterId": "ARM1-CH2", "positives": 4},
+            {"chapterId": "ARM1-CH3", "positives": 5},
+            {"chapterId": "ARM2-CH1", "positives": 5},
+            {"chapterId": "ARM2-CH2", "positives": 5},
+            {"chapterId": "ARM2-CH3", "positives": 5}
+          ],
+          "runs": []
+        },
+        "regression7": {
+          "chapters": [
+            {"chapterId": "DOC-1", "positives": 1},
+            {"chapterId": "DOC-4", "positives": 1},
+            {"chapterId": "DOC-5", "positives": 2},
+            {"chapterId": "OLD-HOLD-1", "positives": 1},
+            {"chapterId": "OLD-HOLD-2", "positives": 2},
+            {"chapterId": "OLD-HOLD-3", "positives": 1},
+            {"chapterId": "OLD-HOLD-4", "positives": 1}
+          ],
+          "runs": []
+        }
+      },
+      "G2A": {
+        "chapters": [
+          {"chapterId": "ARM0-CH1", "negatives": 3},
+          {"chapterId": "ARM0-CH2", "negatives": 3},
+          {"chapterId": "ARM0-CH3", "negatives": 3},
+          {"chapterId": "ARM1-CH1", "negatives": 4},
+          {"chapterId": "ARM1-CH2", "negatives": 4},
+          {"chapterId": "ARM1-CH3", "negatives": 4},
+          {"chapterId": "ARM2-CH1", "negatives": 4},
+          {"chapterId": "ARM2-CH2", "negatives": 4},
+          {"chapterId": "ARM2-CH3", "negatives": 4}
+        ],
+        "runs": []
+      },
+      "G2B": {
+        "chapters": [],
+        "runs": []
+      },
+      "G3": {
+        "chapters": [
+          {"chapterId": "S4-ARM0-CH1", "paragraphs": 1},
+          {"chapterId": "S4-ARM0-CH2", "paragraphs": 1},
+          {"chapterId": "S4-ARM0-CH3", "paragraphs": 1},
+          {"chapterId": "S4-ARM1-CH1", "paragraphs": 1},
+          {"chapterId": "S4-ARM1-CH2", "paragraphs": 1},
+          {"chapterId": "S4-ARM1-CH3", "paragraphs": 1},
+          {"chapterId": "S4-ARM2-CH1", "paragraphs": 1},
+          {"chapterId": "S4-ARM2-CH2", "paragraphs": 1},
+          {"chapterId": "S4-ARM2-CH3", "paragraphs": 1}
+        ],
+        "runs": []
+      },
+      "G4": {
+        "sourceChapters": ["QHL-CH1", "QHL-CH2", "QHL-CH3"],
+        "nCases": 24,
+        "runs": []
+      },
+      "G5": {
+        "deadlockCases": [
+          {"chapterId": "V22-H4", "decision": null}
+        ],
+        "legalTropeCases": [
+          {"caseId": "CAL-49", "blocking": null},
+          {"caseId": "CAL-62", "blocking": null}
+        ],
+        "s1CompatPassed": true,
+        "engFixP1Passed": true
+      },
+      "G6": {
+        "chapters": [],
+        "runs": []
+      }
+    },
+    "C": {
+      "avgReviewLatencyMs": null,
+      "G1": {
+        "track2": {
+          "chapters": [
+            {"chapterId": "ARM0-CH1", "positives": 4},
+            {"chapterId": "ARM0-CH2", "positives": 4},
+            {"chapterId": "ARM0-CH3", "positives": 4},
+            {"chapterId": "ARM1-CH1", "positives": 4},
+            {"chapterId": "ARM1-CH2", "positives": 4},
+            {"chapterId": "ARM1-CH3", "positives": 5},
+            {"chapterId": "ARM2-CH1", "positives": 5},
+            {"chapterId": "ARM2-CH2", "positives": 5},
+            {"chapterId": "ARM2-CH3", "positives": 5}
+          ],
+          "runs": []
+        },
+        "regression7": {
+          "chapters": [
+            {"chapterId": "DOC-1", "positives": 1},
+            {"chapterId": "DOC-4", "positives": 1},
+            {"chapterId": "DOC-5", "positives": 2},
+            {"chapterId": "OLD-HOLD-1", "positives": 1},
+            {"chapterId": "OLD-HOLD-2", "positives": 2},
+            {"chapterId": "OLD-HOLD-3", "positives": 1},
+            {"chapterId": "OLD-HOLD-4", "positives": 1}
+          ],
+          "runs": []
+        }
+      },
+      "G2A": {
+        "chapters": [
+          {"chapterId": "ARM0-CH1", "negatives": 3},
+          {"chapterId": "ARM0-CH2", "negatives": 3},
+          {"chapterId": "ARM0-CH3", "negatives": 3},
+          {"chapterId": "ARM1-CH1", "negatives": 4},
+          {"chapterId": "ARM1-CH2", "negatives": 4},
+          {"chapterId": "ARM1-CH3", "negatives": 4},
+          {"chapterId": "ARM2-CH1", "negatives": 4},
+          {"chapterId": "ARM2-CH2", "negatives": 4},
+          {"chapterId": "ARM2-CH3", "negatives": 4}
+        ],
+        "runs": []
+      },
+      "G2B": {
+        "chapters": [],
+        "runs": []
+      },
+      "G3": {
+        "chapters": [
+          {"chapterId": "S4-ARM0-CH1", "paragraphs": 1},
+          {"chapterId": "S4-ARM0-CH2", "paragraphs": 1},
+          {"chapterId": "S4-ARM0-CH3", "paragraphs": 1},
+          {"chapterId": "S4-ARM1-CH1", "paragraphs": 1},
+          {"chapterId": "S4-ARM1-CH2", "paragraphs": 1},
+          {"chapterId": "S4-ARM1-CH3", "paragraphs": 1},
+          {"chapterId": "S4-ARM2-CH1", "paragraphs": 1},
+          {"chapterId": "S4-ARM2-CH2", "paragraphs": 1},
+          {"chapterId": "S4-ARM2-CH3", "paragraphs": 1}
+        ],
+        "runs": []
+      },
+      "G4": {
+        "sourceChapters": ["QHL-CH1", "QHL-CH2", "QHL-CH3"],
+        "nCases": 24,
+        "runs": []
+      },
+      "G5": {
+        "deadlockCases": [
+          {"chapterId": "V22-H4", "decision": null}
+        ],
+        "legalTropeCases": [
+          {"caseId": "CAL-49", "blocking": null},
+          {"caseId": "CAL-62", "blocking": null}
+        ],
+        "s1CompatPassed": true,
+        "engFixP1Passed": true
+      },
+      "G6": {
+        "chapters": [],
+        "runs": []
+      }
+    }
+  }
+}

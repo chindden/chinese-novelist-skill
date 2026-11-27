@@ -1,0 +1,735 @@
+{
+  "schemaVersion": "r3-p0-6-g1-g6-stats-1",
+  "ok": true,
+  "exitCode": 0,
+  "verdict": "BLOCKED_UNDERPOWERED",
+  "winner": null,
+  "allowProductionMerge": false,
+  "requiresGpt6AcceptanceAndAuthorApproval": true,
+  "eliminations": {},
+  "sampleGaps": {
+    "A": {
+      "G1": {
+        "sampleTriplet": {
+          "track2": {
+            "nCh": 9,
+            "nPos": 40,
+            "kRep": 0
+          },
+          "regression7": {
+            "nCh": 7,
+            "kRep": 0
+          }
+        },
+        "gaps": [
+          "Track2 K_rep=0 < 3",
+          "Regression7 K_rep=0 < 1"
+        ]
+      },
+      "G2-A": {
+        "sampleTriplet": {
+          "nCh": 9,
+          "nNeg": 33,
+          "kRep": 0,
+          "genres": []
+        },
+        "gaps": [
+          "K_rep=0 < 3"
+        ]
+      },
+      "G2-B": {
+        "sampleTriplet": {
+          "nCh": 0,
+          "nNeg": 0,
+          "kRep": 0,
+          "genres": []
+        },
+        "gaps": [
+          "N_ch=0 < 20 (need +20)",
+          "N_neg=0 < 60 (need +60)",
+          "genres=0 < 3 (need +3)",
+          "K_rep=0 < 3"
+        ]
+      },
+      "G3": {
+        "sampleTriplet": {
+          "nCh": 9,
+          "nCases": 9,
+          "kRep": 0
+        },
+        "gaps": [
+          "N_ch=9 < 10 (need +1)",
+          "N_case=9 < 15 (need +6)",
+          "K_rep=0 < 3"
+        ]
+      },
+      "G4": {
+        "sampleTriplet": {
+          "nSourceChapters": 3,
+          "nCases": 24,
+          "kRep": 0
+        },
+        "gaps": [
+          "independentSourceChapters=3 < 8 (need +5)",
+          "K_rep=0 < 2"
+        ]
+      },
+      "G5": {
+        "sampleTriplet": {
+          "deadlockChapters": 1,
+          "deadlockCases": 1,
+          "legalTropeCases": 2,
+          "kRep": 1
+        },
+        "gaps": [
+          "deadlockChapters=1 < 3 (need +2)"
+        ]
+      },
+      "G6": {
+        "sampleTriplet": {
+          "nCh": 0,
+          "nPos": 0,
+          "nNeg": 0,
+          "kRep": 0,
+          "genres": []
+        },
+        "gaps": [
+          "genres=0 < 4",
+          "genresWith>=2Chapters=0 < 4",
+          "N_ch=0 < 12 (need +12)",
+          "N_pos=0 < 30 (need +30)",
+          "N_neg=0 < 40 (need +40)",
+          "K_rep=0 < 1"
+        ]
+      }
+    },
+    "B": {
+      "G1": {
+        "sampleTriplet": {
+          "track2": {
+            "nCh": 9,
+            "nPos": 40,
+            "kRep": 0
+          },
+          "regression7": {
+            "nCh": 7,
+            "kRep": 0
+          }
+        },
+        "gaps": [
+          "Track2 K_rep=0 < 3",
+          "Regression7 K_rep=0 < 1"
+        ]
+      },
+      "G2-A": {
+        "sampleTriplet": {
+          "nCh": 9,
+          "nNeg": 33,
+          "kRep": 0,
+          "genres": []
+        },
+        "gaps": [
+          "K_rep=0 < 3"
+        ]
+      },
+      "G2-B": {
+        "sampleTriplet": {
+          "nCh": 0,
+          "nNeg": 0,
+          "kRep": 0,
+          "genres": []
+        },
+        "gaps": [
+          "N_ch=0 < 20 (need +20)",
+          "N_neg=0 < 60 (need +60)",
+          "genres=0 < 3 (need +3)",
+          "K_rep=0 < 3"
+        ]
+      },
+      "G3": {
+        "sampleTriplet": {
+          "nCh": 9,
+          "nCases": 9,
+          "kRep": 0
+        },
+        "gaps": [
+          "N_ch=9 < 10 (need +1)",
+          "N_case=9 < 15 (need +6)",
+          "K_rep=0 < 3"
+        ]
+      },
+      "G4": {
+        "sampleTriplet": {
+          "nSourceChapters": 3,
+          "nCases": 24,
+          "kRep": 0
+        },
+        "gaps": [
+          "independentSourceChapters=3 < 8 (need +5)",
+          "K_rep=0 < 2"
+        ]
+      },
+      "G5": {
+        "sampleTriplet": {
+          "deadlockChapters": 1,
+          "deadlockCases": 1,
+          "legalTropeCases": 2,
+          "kRep": 1
+        },
+        "gaps": [
+          "deadlockChapters=1 < 3 (need +2)"
+        ]
+      },
+      "G6": {
+        "sampleTriplet": {
+          "nCh": 0,
+          "nPos": 0,
+          "nNeg": 0,
+          "kRep": 0,
+          "genres": []
+        },
+        "gaps": [
+          "genres=0 < 4",
+          "genresWith>=2Chapters=0 < 4",
+          "N_ch=0 < 12 (need +12)",
+          "N_pos=0 < 30 (need +30)",
+          "N_neg=0 < 40 (need +40)",
+          "K_rep=0 < 1"
+        ]
+      }
+    },
+    "C": {
+      "G1": {
+        "sampleTriplet": {
+          "track2": {
+            "nCh": 9,
+            "nPos": 40,
+            "kRep": 0
+          },
+          "regression7": {
+            "nCh": 7,
+            "kRep": 0
+          }
+        },
+        "gaps": [
+          "Track2 K_rep=0 < 3",
+          "Regression7 K_rep=0 < 1"
+        ]
+      },
+      "G2-A": {
+        "sampleTriplet": {
+          "nCh": 9,
+          "nNeg": 33,
+          "kRep": 0,
+          "genres": []
+        },
+        "gaps": [
+          "K_rep=0 < 3"
+        ]
+      },
+      "G2-B": {
+        "sampleTriplet": {
+          "nCh": 0,
+          "nNeg": 0,
+          "kRep": 0,
+          "genres": []
+        },
+        "gaps": [
+          "N_ch=0 < 20 (need +20)",
+          "N_neg=0 < 60 (need +60)",
+          "genres=0 < 3 (need +3)",
+          "K_rep=0 < 3"
+        ]
+      },
+      "G3": {
+        "sampleTriplet": {
+          "nCh": 9,
+          "nCases": 9,
+          "kRep": 0
+        },
+        "gaps": [
+          "N_ch=9 < 10 (need +1)",
+          "N_case=9 < 15 (need +6)",
+          "K_rep=0 < 3"
+        ]
+      },
+      "G4": {
+        "sampleTriplet": {
+          "nSourceChapters": 3,
+          "nCases": 24,
+          "kRep": 0
+        },
+        "gaps": [
+          "independentSourceChapters=3 < 8 (need +5)",
+          "K_rep=0 < 2"
+        ]
+      },
+      "G5": {
+        "sampleTriplet": {
+          "deadlockChapters": 1,
+          "deadlockCases": 1,
+          "legalTropeCases": 2,
+          "kRep": 1
+        },
+        "gaps": [
+          "deadlockChapters=1 < 3 (need +2)"
+        ]
+      },
+      "G6": {
+        "sampleTriplet": {
+          "nCh": 0,
+          "nPos": 0,
+          "nNeg": 0,
+          "kRep": 0,
+          "genres": []
+        },
+        "gaps": [
+          "genres=0 < 4",
+          "genresWith>=2Chapters=0 < 4",
+          "N_ch=0 < 12 (need +12)",
+          "N_pos=0 < 30 (need +30)",
+          "N_neg=0 < 40 (need +40)",
+          "K_rep=0 < 1"
+        ]
+      }
+    }
+  },
+  "schemes": {
+    "A": {
+      "scheme": "A",
+      "status": "UNDERPOWERED",
+      "exitCode": 0,
+      "gates": {
+        "G1": {
+          "gate": "G1",
+          "track": "regression_calibration",
+          "isIndependentGeneralization": false,
+          "status": "UNDERPOWERED",
+          "sampleTriplet": {
+            "track2": {
+              "nCh": 9,
+              "nPos": 40,
+              "kRep": 0
+            },
+            "regression7": {
+              "nCh": 7,
+              "kRep": 0
+            }
+          },
+          "gaps": [
+            "Track2 K_rep=0 < 3",
+            "Regression7 K_rep=0 < 1"
+          ],
+          "pass": false
+        },
+        "G2A": {
+          "gate": "G2-A",
+          "track": "regression_calibration",
+          "isIndependentGeneralization": false,
+          "g2aPassDoesNotImplyG2bPass": true,
+          "doNotExtrapolatePrecisionToProduction": true,
+          "status": "UNDERPOWERED",
+          "sampleTriplet": {
+            "nCh": 9,
+            "nNeg": 33,
+            "kRep": 0,
+            "genres": []
+          },
+          "gaps": [
+            "K_rep=0 < 3"
+          ],
+          "pass": false
+        },
+        "G2B": {
+          "gate": "G2-B",
+          "track": "independent_holdout",
+          "isIndependentGeneralization": true,
+          "g2aPassDoesNotImplyG2bPass": true,
+          "doNotExtrapolatePrecisionToProduction": true,
+          "status": "UNDERPOWERED",
+          "sampleTriplet": {
+            "nCh": 0,
+            "nNeg": 0,
+            "kRep": 0,
+            "genres": []
+          },
+          "gaps": [
+            "N_ch=0 < 20 (need +20)",
+            "N_neg=0 < 60 (need +60)",
+            "genres=0 < 3 (need +3)",
+            "K_rep=0 < 3"
+          ],
+          "pass": false
+        },
+        "G3": {
+          "gate": "G3",
+          "status": "UNDERPOWERED",
+          "sampleTriplet": {
+            "nCh": 9,
+            "nCases": 9,
+            "kRep": 0
+          },
+          "gaps": [
+            "N_ch=9 < 10 (need +1)",
+            "N_case=9 < 15 (need +6)",
+            "K_rep=0 < 3"
+          ],
+          "pass": false
+        },
+        "G4": {
+          "gate": "G4",
+          "status": "UNDERPOWERED",
+          "sampleTriplet": {
+            "nSourceChapters": 3,
+            "nCases": 24,
+            "kRep": 0
+          },
+          "gaps": [
+            "independentSourceChapters=3 < 8 (need +5)",
+            "K_rep=0 < 2"
+          ],
+          "pass": false
+        },
+        "G5": {
+          "gate": "G5",
+          "status": "UNDERPOWERED",
+          "sampleTriplet": {
+            "deadlockChapters": 1,
+            "deadlockCases": 1,
+            "legalTropeCases": 2,
+            "kRep": 1
+          },
+          "gaps": [
+            "deadlockChapters=1 < 3 (need +2)"
+          ],
+          "pass": false
+        },
+        "G6": {
+          "gate": "G6",
+          "track": "independent_cross_genre_holdout",
+          "framing": "limited_budget_engineering_screen_not_production_recall_proof",
+          "status": "UNDERPOWERED",
+          "sampleTriplet": {
+            "nCh": 0,
+            "nPos": 0,
+            "nNeg": 0,
+            "kRep": 0,
+            "genres": []
+          },
+          "gaps": [
+            "genres=0 < 4",
+            "genresWith>=2Chapters=0 < 4",
+            "N_ch=0 < 12 (need +12)",
+            "N_pos=0 < 30 (need +30)",
+            "N_neg=0 < 40 (need +40)",
+            "K_rep=0 < 1"
+          ],
+          "pass": false
+        }
+      },
+      "allGatesPassed": false,
+      "underpoweredGates": [
+        "G1",
+        "G2-A",
+        "G2-B",
+        "G3",
+        "G4",
+        "G5",
+        "G6"
+      ],
+      "failedGates": [],
+      "avgReviewLatencyMs": null
+    },
+    "B": {
+      "scheme": "B",
+      "status": "UNDERPOWERED",
+      "exitCode": 0,
+      "gates": {
+        "G1": {
+          "gate": "G1",
+          "track": "regression_calibration",
+          "isIndependentGeneralization": false,
+          "status": "UNDERPOWERED",
+          "sampleTriplet": {
+            "track2": {
+              "nCh": 9,
+              "nPos": 40,
+              "kRep": 0
+            },
+            "regression7": {
+              "nCh": 7,
+              "kRep": 0
+            }
+          },
+          "gaps": [
+            "Track2 K_rep=0 < 3",
+            "Regression7 K_rep=0 < 1"
+          ],
+          "pass": false
+        },
+        "G2A": {
+          "gate": "G2-A",
+          "track": "regression_calibration",
+          "isIndependentGeneralization": false,
+          "g2aPassDoesNotImplyG2bPass": true,
+          "doNotExtrapolatePrecisionToProduction": true,
+          "status": "UNDERPOWERED",
+          "sampleTriplet": {
+            "nCh": 9,
+            "nNeg": 33,
+            "kRep": 0,
+            "genres": []
+          },
+          "gaps": [
+            "K_rep=0 < 3"
+          ],
+          "pass": false
+        },
+        "G2B": {
+          "gate": "G2-B",
+          "track": "independent_holdout",
+          "isIndependentGeneralization": true,
+          "g2aPassDoesNotImplyG2bPass": true,
+          "doNotExtrapolatePrecisionToProduction": true,
+          "status": "UNDERPOWERED",
+          "sampleTriplet": {
+            "nCh": 0,
+            "nNeg": 0,
+            "kRep": 0,
+            "genres": []
+          },
+          "gaps": [
+            "N_ch=0 < 20 (need +20)",
+            "N_neg=0 < 60 (need +60)",
+            "genres=0 < 3 (need +3)",
+            "K_rep=0 < 3"
+          ],
+          "pass": false
+        },
+        "G3": {
+          "gate": "G3",
+          "status": "UNDERPOWERED",
+          "sampleTriplet": {
+            "nCh": 9,
+            "nCases": 9,
+            "kRep": 0
+          },
+          "gaps": [
+            "N_ch=9 < 10 (need +1)",
+            "N_case=9 < 15 (need +6)",
+            "K_rep=0 < 3"
+          ],
+          "pass": false
+        },
+        "G4": {
+          "gate": "G4",
+          "status": "UNDERPOWERED",
+          "sampleTriplet": {
+            "nSourceChapters": 3,
+            "nCases": 24,
+            "kRep": 0
+          },
+          "gaps": [
+            "independentSourceChapters=3 < 8 (need +5)",
+            "K_rep=0 < 2"
+          ],
+          "pass": false
+        },
+        "G5": {
+          "gate": "G5",
+          "status": "UNDERPOWERED",
+          "sampleTriplet": {
+            "deadlockChapters": 1,
+            "deadlockCases": 1,
+            "legalTropeCases": 2,
+            "kRep": 1
+          },
+          "gaps": [
+            "deadlockChapters=1 < 3 (need +2)"
+          ],
+          "pass": false
+        },
+        "G6": {
+          "gate": "G6",
+          "track": "independent_cross_genre_holdout",
+          "framing": "limited_budget_engineering_screen_not_production_recall_proof",
+          "status": "UNDERPOWERED",
+          "sampleTriplet": {
+            "nCh": 0,
+            "nPos": 0,
+            "nNeg": 0,
+            "kRep": 0,
+            "genres": []
+          },
+          "gaps": [
+            "genres=0 < 4",
+            "genresWith>=2Chapters=0 < 4",
+            "N_ch=0 < 12 (need +12)",
+            "N_pos=0 < 30 (need +30)",
+            "N_neg=0 < 40 (need +40)",
+            "K_rep=0 < 1"
+          ],
+          "pass": false
+        }
+      },
+      "allGatesPassed": false,
+      "underpoweredGates": [
+        "G1",
+        "G2-A",
+        "G2-B",
+        "G3",
+        "G4",
+        "G5",
+        "G6"
+      ],
+      "failedGates": [],
+      "avgReviewLatencyMs": null
+    },
+    "C": {
+      "scheme": "C",
+      "status": "UNDERPOWERED",
+      "exitCode": 0,
+      "gates": {
+        "G1": {
+          "gate": "G1",
+          "track": "regression_calibration",
+          "isIndependentGeneralization": false,
+          "status": "UNDERPOWERED",
+          "sampleTriplet": {
+            "track2": {
+              "nCh": 9,
+              "nPos": 40,
+              "kRep": 0
+            },
+            "regression7": {
+              "nCh": 7,
+              "kRep": 0
+            }
+          },
+          "gaps": [
+            "Track2 K_rep=0 < 3",
+            "Regression7 K_rep=0 < 1"
+          ],
+          "pass": false
+        },
+        "G2A": {
+          "gate": "G2-A",
+          "track": "regression_calibration",
+          "isIndependentGeneralization": false,
+          "g2aPassDoesNotImplyG2bPass": true,
+          "doNotExtrapolatePrecisionToProduction": true,
+          "status": "UNDERPOWERED",
+          "sampleTriplet": {
+            "nCh": 9,
+            "nNeg": 33,
+            "kRep": 0,
+            "genres": []
+          },
+          "gaps": [
+            "K_rep=0 < 3"
+          ],
+          "pass": false
+        },
+        "G2B": {
+          "gate": "G2-B",
+          "track": "independent_holdout",
+          "isIndependentGeneralization": true,
+          "g2aPassDoesNotImplyG2bPass": true,
+          "doNotExtrapolatePrecisionToProduction": true,
+          "status": "UNDERPOWERED",
+          "sampleTriplet": {
+            "nCh": 0,
+            "nNeg": 0,
+            "kRep": 0,
+            "genres": []
+          },
+          "gaps": [
+            "N_ch=0 < 20 (need +20)",
+            "N_neg=0 < 60 (need +60)",
+            "genres=0 < 3 (need +3)",
+            "K_rep=0 < 3"
+          ],
+          "pass": false
+        },
+        "G3": {
+          "gate": "G3",
+          "status": "UNDERPOWERED",
+          "sampleTriplet": {
+            "nCh": 9,
+            "nCases": 9,
+            "kRep": 0
+          },
+          "gaps": [
+            "N_ch=9 < 10 (need +1)",
+            "N_case=9 < 15 (need +6)",
+            "K_rep=0 < 3"
+          ],
+          "pass": false
+        },
+        "G4": {
+          "gate": "G4",
+          "status": "UNDERPOWERED",
+          "sampleTriplet": {
+            "nSourceChapters": 3,
+            "nCases": 24,
+            "kRep": 0
+          },
+          "gaps": [
+            "independentSourceChapters=3 < 8 (need +5)",
+            "K_rep=0 < 2"
+          ],
+          "pass": false
+        },
+        "G5": {
+          "gate": "G5",
+          "status": "UNDERPOWERED",
+          "sampleTriplet": {
+            "deadlockChapters": 1,
+            "deadlockCases": 1,
+            "legalTropeCases": 2,
+            "kRep": 1
+          },
+          "gaps": [
+            "deadlockChapters=1 < 3 (need +2)"
+          ],
+          "pass": false
+        },
+        "G6": {
+          "gate": "G6",
+          "track": "independent_cross_genre_holdout",
+          "framing": "limited_budget_engineering_screen_not_production_recall_proof",
+          "status": "UNDERPOWERED",
+          "sampleTriplet": {
+            "nCh": 0,
+            "nPos": 0,
+            "nNeg": 0,
+            "kRep": 0,
+            "genres": []
+          },
+          "gaps": [
+            "genres=0 < 4",
+            "genresWith>=2Chapters=0 < 4",
+            "N_ch=0 < 12 (need +12)",
+            "N_pos=0 < 30 (need +30)",
+            "N_neg=0 < 40 (need +40)",
+            "K_rep=0 < 1"
+          ],
+          "pass": false
+        }
+      },
+      "allGatesPassed": false,
+      "underpoweredGates": [
+        "G1",
+        "G2-A",
+        "G2-B",
+        "G3",
+        "G4",
+        "G5",
+        "G6"
+      ],
+      "failedGates": [],
+      "avgReviewLatencyMs": null
+    }
+  },
+  "note": "独立 Holdout 或必需样本门槛未齐，强制维持 BLOCKED_UNDERPOWERED，严禁混算 G2-A/G2-B、严禁降门槛、严禁合入生产主干。"
+}
