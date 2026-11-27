@@ -23,6 +23,7 @@
  *   - Locked B = 2,000 chapter-cluster nonparametric Bootstrap 95% CI, Scheme B hard elimination (>1.0 pp
  *     recall lag or ANY 1 BLOCKER miss), and frozen multi-winner tie-break priority.
  */
+import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import {fileURLToPath} from 'node:url';
@@ -62,6 +63,8 @@ const HEX64_RE = /^[a-f0-9]{64}$/i;
 const POSITIVE_TRUTH_CLASSES = Object.freeze(['BLOCKER', 'MAJOR']);
 const ALLOWED_G2_G6_TRUTH_CLASSES = Object.freeze(['BLOCKER', 'MAJOR', 'NON_BLOCKING']);
 const ALLOWED_NON_BLOCKING_TIERS = Object.freeze(['CLEAR', 'BORDERLINE']);
+const RUN_PROVENANCE_BOUNDARY = 'protocol_metadata_only_does_not_prove_host_execution_independence';
+const DATA_CUSTODY_BOUNDARY = 'stage_1a_declared_metadata_only_raw_manuscript_custody_in_stage_1b';
 
 export const FROZEN_THRESHOLDS = Object.freeze({
   G1: Object.freeze({
@@ -76,7 +79,10 @@ export const FROZEN_THRESHOLDS = Object.freeze({
   }),
   G2A: Object.freeze({
     minChapters: 9,
+    requiredChapters: 9,
+    requiredPositives: 40,
     minNegatives: 33,
+    requiredNegatives: 33,
     requiredRepeats: 3,
     maxClearTierFpPerRun: 0,
     maxMeanFpr: 0.13,
@@ -149,6 +155,8 @@ export const RETIRED_BLACKLIST_PATTERNS = Object.freeze([
   /^(?:OLD[-_]?)?HOLD[-_]?[1-4](?:$|[-_].*)/i,
   /^DOC[-_]?[1-6](?:$|[-_].*)/i,
   /^ARM[0-2][-_]?CH[1-3](?:$|[-_].*)/i,
+  /^S4[-_]?ARM[0-2][-_]?CH[1-3](?:$|[-_].*)/i,
+  /^QHL[-_]?CH0?[1-3](?:$|[-_].*)/i,
   /^G1[-_]?CH0?[1-3](?:$|[-_].*)/i,
   /^STEP3[-_]?CH0?[1-3](?:$|[-_].*)/i,
   /^LIVE[-_]?EVAL(?:$|[-_].*)/i,
@@ -733,6 +741,69 @@ function buildCaseManifestIndex(chapters, mode, gateName) {
 }
 
 /**
+ * Compute deterministic SHA-256 hash over normalized chapter & case manifest for pre-run pinning.
+ */
+export function computeCaseManifestSha256(chapters) {
+  const normalized = normalizeChapterManifestForEquivalence(chapters);
+  return crypto.createHash('sha256').update(canonicalJson(normalized), 'utf8').digest('hex');
+}
+
+/**
+ * Protocol-level K_rep run provenance validator.
+ * Enforces unique non-empty `runId`, non-empty `executionEvidenceRef`, and `modelId`/`configVersion`
+ * across all runs within a gate so cloning the same run object cannot satisfy K_rep.
+ *
+ * Boundary note: This checks protocol metadata integrity only; it CANNOT by itself prove authentic
+ * independent host LLM executions (authentic execution custody belongs to Stage 1B Data Custody).
+ */
+export function validateRunProvenanceMetadata(runs, gateName) {
+  const seenRunIds = new Set();
+  for (let idx = 0; idx < (runs || []).length; idx++) {
+    const run = runs[idx];
+    if (!isNonEmptyString(run?.runId)) {
+      return {
+        ok: false,
+        code: 'R3_P0_6_RUN_ID_REQUIRED',
+        runIndex: idx + 1,
+        message: `${gateName} 第 ${idx + 1} 轮缺少非空唯一 runId。`,
+      };
+    }
+    const normRunId = normalizeId(run.runId);
+    if (seenRunIds.has(normRunId)) {
+      return {
+        ok: false,
+        code: 'R3_P0_6_DUPLICATE_RUN_ID',
+        runIndex: idx + 1,
+        runId: run.runId,
+        message: `${gateName} 存在重复 runId（严禁通过复制同一轮运行记录凑足 K_rep）：${run.runId}。`,
+      };
+    }
+    seenRunIds.add(normRunId);
+
+    if (!isNonEmptyString(run?.executionEvidenceRef)) {
+      return {
+        ok: false,
+        code: 'R3_P0_6_EXECUTION_EVIDENCE_REF_REQUIRED',
+        runIndex: idx + 1,
+        runId: run.runId,
+        message: `${gateName} 第 ${idx + 1} 轮（${run.runId}）缺少非空 executionEvidenceRef 运行输出引用。`,
+      };
+    }
+
+    if (!isNonEmptyString(run?.modelId) || !isNonEmptyString(run?.configVersion)) {
+      return {
+        ok: false,
+        code: 'R3_P0_6_RUN_MODEL_CONFIG_REQUIRED',
+        runIndex: idx + 1,
+        runId: run.runId,
+        message: `${gateName} 第 ${idx + 1} 轮（${run.runId}）缺少必需的模型与配置元数据（modelId / configVersion）。`,
+      };
+    }
+  }
+  return {ok: true, runIds: [...seenRunIds]};
+}
+
+/**
  * Derive exact per-chapter & per-run confusion counts strictly from case-level predictions joined against
  * the validated case manifest. ZERO self-reported aggregate integers (TP/FP/FN/TN/clearTierFp/blockerMisses)
  * are trusted!
@@ -993,10 +1064,12 @@ export function evaluateG1(g1Data, {seed = DEFAULT_BOOTSTRAP_SEED, iterations = 
   const nPosTrack2 = countDeclaredChapterField(track2Chapters, 'positives', c => POSITIVE_TRUTH_CLASSES.includes(c?.truthClass));
   const nChReg = regChapters.length;
 
-  // Validate case manifests & predictions whenever runs are present
+  // Validate protocol run provenance, case manifests & predictions whenever runs are present
   let derivedT2Runs = [];
   let derivedRegRuns = [];
   if (kRepTrack2 > 0) {
+    const provT2 = validateRunProvenanceMetadata(track2RunsRaw, 'G1.track2');
+    if (!provT2.ok) return {gate: 'G1', status: 'INVALID_DESIGN', exitCode: 2, error: provT2.code, message: provT2.message, pass: false};
     const idxT2 = buildCaseManifestIndex(track2Chapters, 'g1', 'G1.track2');
     if (!idxT2.ok) return {gate: 'G1', status: 'INVALID_DESIGN', exitCode: 2, error: idxT2.code, message: idxT2.message, pass: false};
     const dT2 = deriveRunsFromCasePredictions(track2RunsRaw, idxT2, 'g1', 'G1.track2');
@@ -1004,6 +1077,8 @@ export function evaluateG1(g1Data, {seed = DEFAULT_BOOTSTRAP_SEED, iterations = 
     derivedT2Runs = dT2.runs;
   }
   if (kRepReg > 0) {
+    const provReg = validateRunProvenanceMetadata(regRunsRaw, 'G1.regression7');
+    if (!provReg.ok) return {gate: 'G1', status: 'INVALID_DESIGN', exitCode: 2, error: provReg.code, message: provReg.message, pass: false};
     const idxReg = buildCaseManifestIndex(regChapters, 'g1', 'G1.regression7');
     if (!idxReg.ok) return {gate: 'G1', status: 'INVALID_DESIGN', exitCode: 2, error: idxReg.code, message: idxReg.message, pass: false};
     const dReg = deriveRunsFromCasePredictions(regRunsRaw, idxReg, 'g1', 'G1.regression7');
@@ -1075,6 +1150,7 @@ export function evaluateG1(g1Data, {seed = DEFAULT_BOOTSTRAP_SEED, iterations = 
     gate: 'G1',
     track: 'regression_calibration',
     isIndependentGeneralization: false,
+    runProvenanceBoundary: RUN_PROVENANCE_BOUNDARY,
     status: failures.length === 0 ? 'PASS' : 'FAIL',
     pass: failures.length === 0,
     sampleTriplet: {
@@ -1102,7 +1178,13 @@ function evaluateG2Core(
   track,
   g2Data,
   thresholds,
-  {seed = DEFAULT_BOOTSTRAP_SEED, iterations = BOOTSTRAP_ITERATIONS, requireGenres = false, maxCasesPerChapter = null} = {}
+  {
+    seed = DEFAULT_BOOTSTRAP_SEED,
+    iterations = BOOTSTRAP_ITERATIONS,
+    requireGenres = false,
+    maxCasesPerChapter = null,
+    expectedManifestSha256 = null,
+  } = {}
 ) {
   const chapters = g2Data?.chapters || [];
   const runsRaw = g2Data?.runs || [];
@@ -1125,7 +1207,7 @@ function evaluateG2Core(
     };
   }
 
-  // Blocking 4: Controlled canonical genre validation for G2-B (trim/normalize, no unclassified chapters)
+  // Blocking 4 (R2): Controlled canonical genre validation for G2-B (trim/normalize, no unclassified chapters)
   const genreSet = new Set();
   if (requireGenres) {
     for (const ch of chapters) {
@@ -1155,23 +1237,106 @@ function evaluateG2Core(
 
   let derivedRuns = [];
   let manifestIndex = null;
+  let computedManifestSha256 = null;
   if (kRep > 0) {
+    // Round 4 Item 2: Protocol-level unique runId + executionEvidenceRef + model/config metadata
+    const provCheck = validateRunProvenanceMetadata(runsRaw, gateName);
+    if (!provCheck.ok) {
+      return {gate: gateName, track, status: 'INVALID_DESIGN', exitCode: 2, error: provCheck.code, message: provCheck.message, pass: false};
+    }
+
     manifestIndex = buildCaseManifestIndex(chapters, 'g2', gateName);
     if (!manifestIndex.ok) {
       return {gate: gateName, track, status: 'INVALID_DESIGN', exitCode: 2, error: manifestIndex.code, message: manifestIndex.message, pass: false};
     }
-    // Blocking 1: G2 Precision requires bounded positive cases in the declared case manifest!
-    if (manifestIndex.totalPositives <= 0) {
+
+    // Round 4 Item 3: Pre-run frozen manifest version & deterministic SHA-256 pinning
+    if (!isNonEmptyString(g2Data?.manifestVersion)) {
       return {
         gate: gateName,
         track,
         status: 'INVALID_DESIGN',
         exitCode: 2,
-        error: 'R3_P0_6_G2_POSITIVE_MANIFEST_REQUIRED_FOR_PRECISION',
-        message: `${gateName} 缺少声明正例案例（positives=0），无法基于受控清册计算 Precision >= 88%，严禁凭空注入 TP。`,
+        error: 'R3_P0_6_MANIFEST_VERSION_REQUIRED',
+        message: `${gateName} 正式评估必须声明冻结清册版本号 manifestVersion。`,
         pass: false,
       };
     }
+    computedManifestSha256 = computeCaseManifestSha256(chapters);
+    const declaredSha = isNonEmptyString(g2Data?.manifestSha256) ? g2Data.manifestSha256.trim().toLowerCase() : null;
+    if (!declaredSha || !HEX64_RE.test(declaredSha) || declaredSha !== computedManifestSha256) {
+      return {
+        gate: gateName,
+        track,
+        status: 'INVALID_DESIGN',
+        exitCode: 2,
+        error: 'R3_P0_6_MANIFEST_HASH_MISMATCH',
+        declaredManifestSha256: declaredSha,
+        computedManifestSha256,
+        message: `${gateName} 冻结清册 SHA-256 缺失、格式非法或与实际章节/案例清册不匹配，禁止事后增删案例。`,
+        pass: false,
+      };
+    }
+    if (isNonEmptyString(expectedManifestSha256) && expectedManifestSha256.trim().toLowerCase() !== computedManifestSha256) {
+      return {
+        gate: gateName,
+        track,
+        status: 'INVALID_DESIGN',
+        exitCode: 2,
+        error: 'R3_P0_6_MANIFEST_HASH_MISMATCH',
+        expectedManifestSha256: expectedManifestSha256.trim().toLowerCase(),
+        computedManifestSha256,
+        message: `${gateName} 实际清册 SHA-256 与运行前登记的基准哈希不一致。`,
+        pass: false,
+      };
+    }
+
+    if (gateName === 'G2-A') {
+      // Round 4 Item 3 (G2-A): Exact frozen P0-0 Track 2 benchmark (9 chapters, 40 positives, 33 negatives)
+      if (
+        chapters.length !== thresholds.requiredChapters ||
+        manifestIndex.totalPositives !== thresholds.requiredPositives ||
+        manifestIndex.totalNegatives !== thresholds.requiredNegatives
+      ) {
+        return {
+          gate: gateName,
+          track,
+          status: 'INVALID_DESIGN',
+          exitCode: 2,
+          error: 'R3_P0_6_G2A_FROZEN_SAMPLE_COUNT_MISMATCH',
+          expected: {chapters: thresholds.requiredChapters, positives: thresholds.requiredPositives, negatives: thresholds.requiredNegatives},
+          actual: {chapters: chapters.length, positives: manifestIndex.totalPositives, negatives: manifestIndex.totalNegatives},
+          message: `G2-A 必须严格匹配 P0-0 冻结基准（9 章 / 40 正例 / 33 负例），当前为 ${chapters.length} 章 / ${manifestIndex.totalPositives} 正例 / ${manifestIndex.totalNegatives} 负例。`,
+          pass: false,
+        };
+      }
+    } else if (gateName === 'G2-B') {
+      // Round 4 Item 3 (G2-B): Positive cohort sizing is an author Stage 1B decision (not invented by Stage 1A engine).
+      // Until author explicitly approves the G2-B positive cohort & manifest, G2-B cannot enter official PASS!
+      if (manifestIndex.totalPositives <= 0) {
+        return {
+          gate: gateName,
+          track,
+          status: 'INVALID_DESIGN',
+          exitCode: 2,
+          error: 'R3_P0_6_G2_POSITIVE_MANIFEST_REQUIRED_FOR_PRECISION',
+          message: `${gateName} 缺少声明正例案例（positives=0），无法计算 Precision >= 88%。`,
+          pass: false,
+        };
+      }
+      if (g2Data?.positiveCohortApproved !== true || !isNonEmptyString(g2Data?.positiveCohortApprovalRef)) {
+        return {
+          gate: gateName,
+          track,
+          status: 'INVALID_DESIGN',
+          exitCode: 2,
+          error: 'R3_P0_6_G2B_POSITIVE_COHORT_UNAPPROVED',
+          message: 'G2-B 正例 cohort 规模与标注规格尚未获作者在阶段 1B 建集前书面批准（需严格布尔 positiveCohortApproved===true 及非空 positiveCohortApprovalRef），不得进入正式通过状态。',
+          pass: false,
+        };
+      }
+    }
+
     const derived = deriveRunsFromCasePredictions(runsRaw, manifestIndex, 'g2', gateName);
     if (!derived.ok) {
       return {gate: gateName, track, status: 'INVALID_DESIGN', exitCode: 2, error: derived.code, message: derived.message, pass: false};
@@ -1282,6 +1447,10 @@ function evaluateG2Core(
     isIndependentGeneralization: gateName === 'G2-B',
     g2aPassDoesNotImplyG2bPass: true,
     doNotExtrapolatePrecisionToProduction: true,
+    runProvenanceBoundary: RUN_PROVENANCE_BOUNDARY,
+    manifestVersion: g2Data.manifestVersion,
+    manifestSha256: computedManifestSha256,
+    ...(gateName === 'G2-B' ? {positiveCohortApprovalRef: g2Data.positiveCohortApprovalRef} : {}),
     status: failures.length === 0 ? 'PASS' : 'FAIL',
     pass: failures.length === 0,
     sampleTriplet: {nCh, effectiveClusters: fprBootstrap.nClusters, nPos, nNeg, kRep, genres},
@@ -1297,16 +1466,22 @@ function evaluateG2Core(
 }
 
 /**
- * Evaluate G2-A (Historical Regression/Calibration FPR control, exact K=3).
+ * Evaluate G2-A (Historical Regression/Calibration FPR control, exact 9 ch / 40 pos / 33 neg / K=3).
  */
 export function evaluateG2A(g2aData, opts = {}) {
-  return evaluateG2Core('G2-A', 'regression_calibration', g2aData, FROZEN_THRESHOLDS.G2A, opts);
+  return evaluateG2Core('G2-A', 'regression_calibration', g2aData, FROZEN_THRESHOLDS.G2A, {
+    ...opts,
+    expectedManifestSha256: opts.expectedG2AManifestSha256 ?? opts.expectedManifestSha256 ?? null,
+  });
 }
 
 /**
- * Evaluate G2-B (Independent Holdout Non-Blocking Generalization, exact K=3).
+ * Evaluate G2-B (Independent Holdout Non-Blocking Generalization, exact K=3, requires Stage 1B author positive-cohort approval).
  */
-export function evaluateG2B(g2bData, {referenceChapters = [], seed = DEFAULT_BOOTSTRAP_SEED, iterations = BOOTSTRAP_ITERATIONS} = {}) {
+export function evaluateG2B(
+  g2bData,
+  {referenceChapters = [], seed = DEFAULT_BOOTSTRAP_SEED, iterations = BOOTSTRAP_ITERATIONS, expectedManifestSha256 = null} = {}
+) {
   const declaredChapters = g2bData?.chapters || [];
   const leakage = assertZeroLeakage(referenceChapters, declaredChapters, {holdoutName: 'G2-B'});
   if (!leakage.ok) {
@@ -1339,6 +1514,7 @@ export function evaluateG2B(g2bData, {referenceChapters = [], seed = DEFAULT_BOO
     iterations,
     requireGenres: true,
     maxCasesPerChapter: FROZEN_THRESHOLDS.G2B.maxCasesPerChapter,
+    expectedManifestSha256,
   });
 }
 
@@ -1368,6 +1544,8 @@ export function evaluateG3(g3Data, {seed = DEFAULT_BOOTSTRAP_SEED, iterations = 
   let derivedRuns = [];
   let manifestIndex = null;
   if (kRep > 0) {
+    const provCheck = validateRunProvenanceMetadata(runsRaw, 'G3');
+    if (!provCheck.ok) return {gate: 'G3', status: 'INVALID_DESIGN', exitCode: 2, error: provCheck.code, message: provCheck.message, pass: false};
     manifestIndex = buildCaseManifestIndex(chapters, 'g3', 'G3');
     if (!manifestIndex.ok) return {gate: 'G3', status: 'INVALID_DESIGN', exitCode: 2, error: manifestIndex.code, message: manifestIndex.message, pass: false};
     const derived = deriveRunsFromCasePredictions(runsRaw, manifestIndex, 'g3', 'G3');
@@ -1375,7 +1553,18 @@ export function evaluateG3(g3Data, {seed = DEFAULT_BOOTSTRAP_SEED, iterations = 
     derivedRuns = derived.runs;
   }
 
-  const nCh = chapters.length;
+  // Round 4 Item 4: Deduplicate G3 independent story source chapters via sourceChapterId (fallback to chapterId)
+  // so 9 historical Arm x Chapter instances from《器痕录》Ch 1-3 map to 3 independent source chapters, never 9.
+  const sourceByChapterId = new Map();
+  const independentSourceSet = new Set();
+  for (const ch of chapters) {
+    const normCh = normalizeId(ch.chapterId);
+    const normSrc = isNonEmptyString(ch?.sourceChapterId) ? normalizeId(ch.sourceChapterId) : normCh;
+    sourceByChapterId.set(normCh, normSrc);
+    if (normSrc) independentSourceSet.add(normSrc);
+  }
+  const nSourceChapters = independentSourceSet.size;
+  const chapterInstances = chapters.length;
   const nCases = manifestIndex
     ? manifestIndex.totalCleanParagraphs
     : countDeclaredChapterField(chapters, 'paragraphs');
@@ -1396,7 +1585,9 @@ export function evaluateG3(g3Data, {seed = DEFAULT_BOOTSTRAP_SEED, iterations = 
   }
 
   const gaps = [];
-  if (nCh < th.minChapters) gaps.push(`N_ch=${nCh} < ${th.minChapters} (need +${th.minChapters - nCh})`);
+  if (nSourceChapters < th.minChapters) {
+    gaps.push(`N_ch(independentSourceChapters)=${nSourceChapters} < ${th.minChapters} (need +${th.minChapters - nSourceChapters})`);
+  }
   if (nCases < th.minCases) gaps.push(`N_case=${nCases} < ${th.minCases} (need +${th.minCases - nCases})`);
   if (kRep < th.requiredRepeats) gaps.push(`K_rep=${kRep} < ${th.requiredRepeats}`);
 
@@ -1404,7 +1595,7 @@ export function evaluateG3(g3Data, {seed = DEFAULT_BOOTSTRAP_SEED, iterations = 
     return {
       gate: 'G3',
       status: 'UNDERPOWERED',
-      sampleTriplet: {nCh, nCases, kRep},
+      sampleTriplet: {nCh: nSourceChapters, chapterInstances, nCases, kRep},
       gaps,
       pass: false,
     };
@@ -1445,7 +1636,14 @@ export function evaluateG3(g3Data, {seed = DEFAULT_BOOTSTRAP_SEED, iterations = 
   const nonBlockingRate = totalEvaluated > 0 ? totalNonBlockingTn / totalEvaluated : null;
   const noIssueRate = totalEvaluated > 0 ? totalNoIssue / totalEvaluated : null;
 
-  const noIssueClusters = aggregateRunsByChapter(derivedRuns, c => ({
+  const runsBySourceChapter = derivedRuns.map(r => ({
+    chapters: (r.chapters || []).map(c => ({
+      ...c,
+      chapterId: sourceByChapterId.get(normalizeId(c.chapterId)) || c.chapterId,
+    })),
+  }));
+
+  const noIssueClusters = aggregateRunsByChapter(runsBySourceChapter, c => ({
     numerator: c.noIssue,
     denominator: c.blockingFp + c.nonBlockingTn,
   }));
@@ -1455,13 +1653,13 @@ export function evaluateG3(g3Data, {seed = DEFAULT_BOOTSTRAP_SEED, iterations = 
     return {
       gate: 'G3',
       status: 'UNDERPOWERED',
-      sampleTriplet: {nCh: noIssueBootstrap.nClusters, nCases, kRep},
+      sampleTriplet: {nCh: noIssueBootstrap.nClusters, chapterInstances, nCases, kRep},
       gaps: [`effective clean-paragraph clusters=${noIssueBootstrap.nClusters} < ${th.minChapters}`],
       pass: false,
     };
   }
 
-  const nonBlockingClusters = aggregateRunsByChapter(derivedRuns, c => ({
+  const nonBlockingClusters = aggregateRunsByChapter(runsBySourceChapter, c => ({
     numerator: c.nonBlockingTn,
     denominator: c.blockingFp + c.nonBlockingTn,
   }));
@@ -1477,9 +1675,10 @@ export function evaluateG3(g3Data, {seed = DEFAULT_BOOTSTRAP_SEED, iterations = 
 
   return {
     gate: 'G3',
+    runProvenanceBoundary: RUN_PROVENANCE_BOUNDARY,
     status: failures.length === 0 ? 'PASS' : 'FAIL',
     pass: failures.length === 0,
-    sampleTriplet: {nCh, effectiveClusters: noIssueBootstrap.nClusters, nCases, kRep},
+    sampleTriplet: {nCh: nSourceChapters, chapterInstances, effectiveClusters: noIssueBootstrap.nClusters, nCases, kRep},
     rawTotalsAcrossRuns: {tn: totalNonBlockingTn, fp: totalBlockingFp, noIssue: totalNoIssue, total: totalEvaluated},
     perRun,
     nonBlockingRate: round6(nonBlockingRate),
@@ -1499,7 +1698,7 @@ export function evaluateG4(g4Data) {
   const runs = g4Data?.runs || [];
   const kRep = runs.length;
 
-  // Blocking 3: Exact K=2 check
+  // Blocking 3 (R2): Exact K=2 check
   if (kRep > th.requiredRepeats) {
     return {
       gate: 'G4',
@@ -1511,7 +1710,7 @@ export function evaluateG4(g4Data) {
     };
   }
 
-  // Blocking 3: Exact declared N_case === 24 check (if non-zero / >24)
+  // Blocking 3 (R2): Exact declared N_case === 24 check (if non-zero / >24)
   if (g4Data?.nCases !== undefined && g4Data.nCases !== th.requiredCases && (kRep > 0 || g4Data.nCases > th.requiredCases)) {
     return {
       gate: 'G4',
@@ -1539,6 +1738,12 @@ export function evaluateG4(g4Data) {
       gaps,
       pass: false,
     };
+  }
+
+  // Round 4 Item 2: Protocol-level unique runId + executionEvidenceRef + model/config metadata
+  const provCheck = validateRunProvenanceMetadata(runs, 'G4');
+  if (!provCheck.ok) {
+    return {gate: 'G4', status: 'INVALID_DESIGN', exitCode: 2, error: provCheck.code, message: provCheck.message, pass: false};
   }
 
   let baselineProbeKey = null;
@@ -1733,6 +1938,7 @@ export function evaluateG4(g4Data) {
 
   return {
     gate: 'G4',
+    runProvenanceBoundary: RUN_PROVENANCE_BOUNDARY,
     status: failures.length === 0 ? 'PASS' : 'FAIL',
     pass: failures.length === 0,
     sampleTriplet: {nSourceChapters: observedSources.length, nCases: th.requiredCases, kRep},
@@ -1759,7 +1965,7 @@ export function evaluateG5(g5Data) {
   const th = FROZEN_THRESHOLDS.G5;
   const deadlockCases = g5Data?.deadlockCases || [];
   const legalTropeCases = g5Data?.legalTropeCases || [];
-  const deadlockChapters = [...new Set(deadlockCases.map(c => normalizeId(c.chapterId)).filter(Boolean))];
+  const deadlockChapters = [...new Set(deadlockCases.map(c => normalizeId(c.sourceChapterId || c.chapterId)).filter(Boolean))];
   const compatEvidenceRef = g5Data?.compatEvidenceRef ?? null;
 
   const gaps = [];
@@ -1776,6 +1982,7 @@ export function evaluateG5(g5Data) {
       status: 'UNDERPOWERED',
       sampleTriplet: {deadlockChapters: deadlockChapters.length, deadlockCases: deadlockCases.length, legalTropeCases: legalTropeCases.length, kRep: 1},
       compatEvidenceRef,
+      compatEvidenceAnchorNote: 'reproducible_test_path_anchor_only_not_ci_execution_proof',
       gaps,
       pass: false,
     };
@@ -1791,9 +1998,12 @@ export function evaluateG5(g5Data) {
 
   const s1CompatPassed = g5Data?.s1CompatPassed === true;
   const engFixP1Passed = g5Data?.engFixP1Passed === true;
-  const hasVerifiableCompatRef =
+  // Round 4 Item 5: Require BOTH explicit compatibility anchor keys (s1CompatTest & engFixP1Test).
+  // Note: Provides reproducible test-path anchors only; does NOT prove test execution by itself.
+  const hasRequiredCompatRefs =
     isPlainObject(compatEvidenceRef) &&
-    Object.values(compatEvidenceRef).some(v => isNonEmptyString(v));
+    isNonEmptyString(compatEvidenceRef.s1CompatTest) &&
+    isNonEmptyString(compatEvidenceRef.engFixP1Test);
 
   const failures = [];
   if (deadlockBlockRate < th.minDeadlockBlockRate || deadlockWhitewashedToPass > 0) {
@@ -1807,7 +2017,9 @@ export function evaluateG5(g5Data) {
   }
   if (!s1CompatPassed) failures.push('S1 bidirectional compatibility check failed');
   if (!engFixP1Passed) failures.push('ENG-FIX-P1 compatibility check failed');
-  if (!hasVerifiableCompatRef) failures.push('G5 requires non-empty compatEvidenceRef pointing to verifiable compatibility test artifacts');
+  if (!hasRequiredCompatRefs) {
+    failures.push('G5 requires non-empty compatEvidenceRef.s1CompatTest and compatEvidenceRef.engFixP1Test test path anchors');
+  }
 
   return {
     gate: 'G5',
@@ -1820,6 +2032,7 @@ export function evaluateG5(g5Data) {
     s1CompatPassed,
     engFixP1Passed,
     compatEvidenceRef,
+    compatEvidenceAnchorNote: 'reproducible_test_path_anchor_only_not_ci_execution_proof',
     failures,
   };
 }
@@ -1829,7 +2042,13 @@ export function evaluateG5(g5Data) {
  */
 export function evaluateG6(
   g6Data,
-  {referenceChapters = [], seed = DEFAULT_BOOTSTRAP_SEED, iterations = BOOTSTRAP_ITERATIONS, g6BudgetExpansionApproved = false} = {}
+  {
+    referenceChapters = [],
+    seed = DEFAULT_BOOTSTRAP_SEED,
+    iterations = BOOTSTRAP_ITERATIONS,
+    g6BudgetExpansionApproved = false,
+    g6BudgetApprovalRef = null,
+  } = {}
 ) {
   const th = FROZEN_THRESHOLDS.G6;
   const chapters = g6Data?.chapters || [];
@@ -1881,7 +2100,7 @@ export function evaluateG6(
     };
   }
 
-  // Blocking 4: Every chapter MUST carry a valid canonical genre (no unclassified chapters!)
+  // Blocking 4 (R2): Every chapter MUST carry a valid canonical genre (no unclassified chapters!)
   const genreCounts = new Map();
   for (const ch of chapters) {
     const normG = normalizeCanonicalGenre(ch?.genre);
@@ -1908,11 +2127,13 @@ export function evaluateG6(
 
   const nCh = chapters.length;
   const exceedsBudget = genres.length > th.maxBudgetGenres || nCh > th.maxBudgetChapters;
+  // Round 4 Item 1: Strict boolean check (rejects "false", 1, {}, etc.) + traceable author approval ref!
+  const budgetApproved = g6BudgetExpansionApproved === true;
   const budgetStatus = exceedsBudget
-    ? (g6BudgetExpansionApproved ? 'EXCEEDS_FROZEN_BUDGET_APPROVED' : 'EXCEEDS_FROZEN_BUDGET_REQUIRES_AUTHOR_APPROVAL')
+    ? (budgetApproved ? 'EXCEEDS_FROZEN_BUDGET_APPROVED' : 'EXCEEDS_FROZEN_BUDGET_REQUIRES_AUTHOR_APPROVAL')
     : 'WITHIN_FROZEN_BUDGET';
 
-  if (exceedsBudget && !g6BudgetExpansionApproved) {
+  if (exceedsBudget && !budgetApproved) {
     return {
       gate: 'G6',
       track: 'independent_cross_genre_holdout',
@@ -1921,7 +2142,20 @@ export function evaluateG6(
       status: 'INVALID_DESIGN',
       exitCode: 2,
       error: 'R3_P0_6_G6_BUDGET_EXCEEDED_UNAPPROVED',
-      message: `G6 样本超出冻结预算上限（题材 ${genres.length}/6，章数 ${nCh}/16），未经作者显式批准（g6BudgetExpansionApproved）不得继续正式裁决。`,
+      message: `G6 样本超出冻结预算上限（题材 ${genres.length}/6，章数 ${nCh}/16），未经作者严格布尔授权（g6BudgetExpansionApproved===true）不得继续正式裁决。`,
+      pass: false,
+    };
+  }
+  if (exceedsBudget && budgetApproved && !isNonEmptyString(g6BudgetApprovalRef)) {
+    return {
+      gate: 'G6',
+      track: 'independent_cross_genre_holdout',
+      framing: 'limited_budget_engineering_screen_not_production_recall_proof',
+      budgetStatus: 'EXCEEDS_FROZEN_BUDGET_MISSING_APPROVAL_REF',
+      status: 'INVALID_DESIGN',
+      exitCode: 2,
+      error: 'R3_P0_6_G6_BUDGET_APPROVAL_REF_REQUIRED',
+      message: 'G6 超预算扩展批准必须附带可追溯的作者批准记录引用 g6BudgetApprovalRef。',
       pass: false,
     };
   }
@@ -1929,6 +2163,10 @@ export function evaluateG6(
   let derivedRuns = [];
   let manifestIndex = null;
   if (kRep > 0) {
+    const provCheck = validateRunProvenanceMetadata(runsRaw, 'G6');
+    if (!provCheck.ok) {
+      return {gate: 'G6', status: 'INVALID_DESIGN', exitCode: 2, error: provCheck.code, message: provCheck.message, pass: false};
+    }
     manifestIndex = buildCaseManifestIndex(chapters, 'g6', 'G6');
     if (!manifestIndex.ok) {
       return {gate: 'G6', status: 'INVALID_DESIGN', exitCode: 2, error: manifestIndex.code, message: manifestIndex.message, pass: false};
@@ -1965,6 +2203,7 @@ export function evaluateG6(
       track: 'independent_cross_genre_holdout',
       framing: 'limited_budget_engineering_screen_not_production_recall_proof',
       budgetStatus,
+      ...(exceedsBudget && budgetApproved ? {budgetApprovalRef: g6BudgetApprovalRef} : {}),
       status: 'UNDERPOWERED',
       sampleTriplet: {nCh, nPos, nNeg, kRep, genres},
       gaps,
@@ -2014,6 +2253,7 @@ export function evaluateG6(
       track: 'independent_cross_genre_holdout',
       framing: 'limited_budget_engineering_screen_not_production_recall_proof',
       budgetStatus,
+      ...(exceedsBudget && budgetApproved ? {budgetApprovalRef: g6BudgetApprovalRef} : {}),
       status: 'UNDERPOWERED',
       sampleTriplet: {
         nCh,
@@ -2057,7 +2297,9 @@ export function evaluateG6(
     gate: 'G6',
     track: 'independent_cross_genre_holdout',
     framing: 'limited_budget_engineering_screen_not_production_recall_proof',
+    runProvenanceBoundary: RUN_PROVENANCE_BOUNDARY,
     budgetStatus,
+    ...(exceedsBudget && budgetApproved ? {budgetApprovalRef: g6BudgetApprovalRef} : {}),
     status: failures.length === 0 ? 'PASS' : 'FAIL',
     pass: failures.length === 0,
     sampleTriplet: {
@@ -2078,13 +2320,72 @@ export function evaluateG6(
 }
 
 /**
+ * Build unified historical exposure reference list from external referenceChapters + declared G1/G2A/G3/G4/G5
+ * chapters/sourceChapters/deadlockCases for Stage 1A cross-gate anti-leakage checks.
+ */
+function buildUnifiedHistoricalExposureRefs(referenceChapters, schemeData) {
+  const g4Sources = [];
+  for (const src of schemeData?.G4?.sourceChapters || []) {
+    if (isNonEmptyString(src)) g4Sources.push({chapterId: src, sourceChapterId: src});
+  }
+  for (const run of schemeData?.G4?.runs || []) {
+    for (const pair of run?.pairs || []) {
+      if (isNonEmptyString(pair?.sourceChapterId)) {
+        g4Sources.push({chapterId: pair.sourceChapterId, sourceChapterId: pair.sourceChapterId});
+      }
+    }
+  }
+  const g5Deadlocks = (schemeData?.G5?.deadlockCases || [])
+    .filter(c => isNonEmptyString(c?.chapterId) || isNonEmptyString(c?.sourceChapterId))
+    .map(c => ({
+      chapterId: c.chapterId || c.sourceChapterId,
+      ...(isNonEmptyString(c.sourceChapterId) ? {sourceChapterId: c.sourceChapterId} : {}),
+      ...(isNonEmptyString(c.contentSha256) ? {contentSha256: c.contentSha256} : {}),
+    }));
+
+  const refAll = [
+    ...(referenceChapters || []),
+    ...(schemeData?.G1?.track2?.chapters || []),
+    ...(schemeData?.G1?.regression7?.chapters || []),
+    ...(schemeData?.G2A?.chapters || []),
+    ...(schemeData?.G3?.chapters || []),
+    ...g4Sources,
+    ...g5Deadlocks,
+  ];
+
+  const trackedChapterIds = new Set();
+  const trackedSourceChapterIds = new Set();
+  for (const r of refAll) {
+    if (isNonEmptyString(r?.chapterId)) trackedChapterIds.add(normalizeId(r.chapterId));
+    if (isNonEmptyString(r?.sourceChapterId)) trackedSourceChapterIds.add(normalizeId(r.sourceChapterId));
+  }
+
+  return {
+    refAll,
+    summary: {
+      trackedChapterIdCount: trackedChapterIds.size,
+      trackedSourceChapterIdCount: trackedSourceChapterIds.size,
+      includedGates: ['referenceChapters', 'G1.track2', 'G1.regression7', 'G2-A', 'G3', 'G4', 'G5'],
+      dataCustodyBoundary: DATA_CUSTODY_BOUNDARY,
+    },
+  };
+}
+
+/**
  * Evaluate a single scheme across all 7 separated gates (G1, G2-A, G2-B, G3, G4, G5, G6).
  * Strictly forbids merged `G2` key (`R3_P0_6_MERGED_G2_FORBIDDEN`).
  */
 export function evaluateSchemeG1ToG6(
   schemeName,
   schemeData,
-  {referenceChapters = [], seed = DEFAULT_BOOTSTRAP_SEED, iterations = BOOTSTRAP_ITERATIONS, g6BudgetExpansionApproved = false} = {}
+  {
+    referenceChapters = [],
+    seed = DEFAULT_BOOTSTRAP_SEED,
+    iterations = BOOTSTRAP_ITERATIONS,
+    g6BudgetExpansionApproved = false,
+    g6BudgetApprovalRef = null,
+    expectedG2AManifestSha256 = null,
+  } = {}
 ) {
   if (isPlainObject(schemeData) && Object.hasOwn(schemeData, 'G2')) {
     return {
@@ -2101,24 +2402,20 @@ export function evaluateSchemeG1ToG6(
     };
   }
 
-  const refAll = [
-    ...referenceChapters,
-    ...(schemeData?.G1?.track2?.chapters || []),
-    ...(schemeData?.G1?.regression7?.chapters || []),
-    ...(schemeData?.G2A?.chapters || []),
-  ];
+  const exposure = buildUnifiedHistoricalExposureRefs(referenceChapters, schemeData);
 
   const G1 = evaluateG1(schemeData?.G1, {seed, iterations});
-  const G2A = evaluateG2A(schemeData?.G2A, {seed: seed + 10, iterations});
-  const G2B = evaluateG2B(schemeData?.G2B, {referenceChapters: refAll, seed: seed + 20, iterations});
+  const G2A = evaluateG2A(schemeData?.G2A, {seed: seed + 10, iterations, expectedG2AManifestSha256});
+  const G2B = evaluateG2B(schemeData?.G2B, {referenceChapters: exposure.refAll, seed: seed + 20, iterations});
   const G3 = evaluateG3(schemeData?.G3, {seed: seed + 30, iterations});
   const G4 = evaluateG4(schemeData?.G4);
   const G5 = evaluateG5(schemeData?.G5);
   const G6 = evaluateG6(schemeData?.G6, {
-    referenceChapters: refAll,
+    referenceChapters: exposure.refAll,
     seed: seed + 40,
     iterations,
     g6BudgetExpansionApproved,
+    g6BudgetApprovalRef,
   });
 
   const gates = {G1, G2A, G2B, G3, G4, G5, G6};
@@ -2131,6 +2428,7 @@ export function evaluateSchemeG1ToG6(
       status: 'LEAKAGE_REJECTED',
       exitCode: 2,
       error: leakageGate.error,
+      historicalExposureSummary: exposure.summary,
       gates,
       allGatesPassed: false,
       underpoweredGates: [],
@@ -2146,6 +2444,7 @@ export function evaluateSchemeG1ToG6(
       status: 'INVALID_DESIGN',
       exitCode: 2,
       error: invalidGate.error,
+      historicalExposureSummary: exposure.summary,
       gates,
       allGatesPassed: false,
       underpoweredGates: [],
@@ -2166,6 +2465,7 @@ export function evaluateSchemeG1ToG6(
     scheme: schemeName,
     status,
     exitCode: 0,
+    historicalExposureSummary: exposure.summary,
     gates,
     allGatesPassed,
     underpoweredGates,
@@ -2199,7 +2499,8 @@ function normalizeChapterManifestForEquivalence(chapters) {
 
 /**
  * Extract canonical case-level evaluation dataset signature for a scheme so A, B, and C are guaranteed
- * to be adjudicated on the EXACT SAME frozen chapters, source IDs, content hashes, caseIds, truthClasses, and tiers.
+ * to be adjudicated on the EXACT SAME frozen chapters, source IDs, content hashes, manifest versions,
+ * caseIds, truthClasses, and tiers.
  */
 export function extractSchemeDatasetSignature(schemeData) {
   const g4Run0Pairs = Array.isArray(schemeData?.G4?.runs?.[0]?.pairs)
@@ -2215,8 +2516,16 @@ export function extractSchemeDatasetSignature(schemeData) {
   return {
     G1_track2: normalizeChapterManifestForEquivalence(schemeData?.G1?.track2?.chapters),
     G1_regression7: normalizeChapterManifestForEquivalence(schemeData?.G1?.regression7?.chapters),
-    G2A: normalizeChapterManifestForEquivalence(schemeData?.G2A?.chapters),
-    G2B: normalizeChapterManifestForEquivalence(schemeData?.G2B?.chapters),
+    G2A: {
+      manifestVersion: isNonEmptyString(schemeData?.G2A?.manifestVersion) ? schemeData.G2A.manifestVersion.trim() : null,
+      manifestSha256: isNonEmptyString(schemeData?.G2A?.manifestSha256) ? schemeData.G2A.manifestSha256.trim().toLowerCase() : null,
+      chapters: normalizeChapterManifestForEquivalence(schemeData?.G2A?.chapters),
+    },
+    G2B: {
+      manifestVersion: isNonEmptyString(schemeData?.G2B?.manifestVersion) ? schemeData.G2B.manifestVersion.trim() : null,
+      manifestSha256: isNonEmptyString(schemeData?.G2B?.manifestSha256) ? schemeData.G2B.manifestSha256.trim().toLowerCase() : null,
+      chapters: normalizeChapterManifestForEquivalence(schemeData?.G2B?.chapters),
+    },
     G3: normalizeChapterManifestForEquivalence(schemeData?.G3?.chapters),
     G4: {
       sourceChapters: [...new Set((schemeData?.G4?.sourceChapters || []).filter(isNonEmptyString).map(normalizeId))].sort(),
@@ -2224,7 +2533,7 @@ export function extractSchemeDatasetSignature(schemeData) {
       probes: g4Run0Pairs,
     },
     G5: {
-      deadlockChapters: (schemeData?.G5?.deadlockCases || []).map(c => normalizeId(c?.chapterId)).sort(),
+      deadlockChapters: (schemeData?.G5?.deadlockCases || []).map(c => normalizeId(c?.sourceChapterId || c?.chapterId)).sort(),
       legalTropeIds: (schemeData?.G5?.legalTropeCases || []).map(c => normalizeId(c?.caseId)).sort(),
     },
     G6: normalizeChapterManifestForEquivalence(schemeData?.G6?.chapters),
@@ -2268,7 +2577,7 @@ function assertFairABCEquivalence(schemesPayload) {
       ok: false,
       code: 'R3_P0_6_UNEQUAL_EVALUATION_DATASET',
       mismatchedGates,
-      message: `A / B / C 三方案在以下门禁使用了不等价的评测集（章节 ID、来源章、内容哈希、案例主键或真值标注不一致）：${mismatchedGates.join(', ')}。`,
+      message: `A / B / C 三方案在以下门禁使用了不等价的评测集（章节 ID、来源章、内容哈希、清册版本/哈希、案例主键或真值标注不一致）：${mismatchedGates.join(', ')}。`,
     };
   }
   return {ok: true};
@@ -2279,7 +2588,14 @@ function assertFairABCEquivalence(schemesPayload) {
  */
 export function adjudicateSchemes(
   schemesPayload,
-  {referenceChapters = [], seed = DEFAULT_BOOTSTRAP_SEED, iterations = BOOTSTRAP_ITERATIONS, g6BudgetExpansionApproved = false} = {}
+  {
+    referenceChapters = [],
+    seed = DEFAULT_BOOTSTRAP_SEED,
+    iterations = BOOTSTRAP_ITERATIONS,
+    g6BudgetExpansionApproved = false,
+    g6BudgetApprovalRef = null,
+    expectedG2AManifestSha256 = null,
+  } = {}
 ) {
   const fairness = assertFairABCEquivalence(schemesPayload);
   if (!fairness.ok) {
@@ -2306,6 +2622,8 @@ export function adjudicateSchemes(
       seed,
       iterations,
       g6BudgetExpansionApproved,
+      g6BudgetApprovalRef,
+      expectedG2AManifestSha256,
     });
     if (evaluated[name].status === 'LEAKAGE_REJECTED' || evaluated[name].status === 'INVALID_DESIGN') {
       return {
@@ -2447,6 +2765,8 @@ function parseCliArgs(argv) {
     else if (rest[i] === '--out' && rest[i + 1]) opts.out = rest[++i];
     else if (rest[i] === '--seed' && rest[i + 1]) opts.seed = Number(rest[++i]);
     else if (rest[i] === '--approve-g6-budget-expansion') opts.g6BudgetExpansionApproved = true;
+    else if (rest[i] === '--g6-budget-approval-ref' && rest[i + 1]) opts.g6BudgetApprovalRef = rest[++i];
+    else if (rest[i] === '--expected-g2a-manifest-sha256' && rest[i + 1]) opts.expectedG2AManifestSha256 = rest[++i];
   }
   return {cmd, opts};
 }
@@ -2474,6 +2794,8 @@ if (isDirectCli) {
       seed,
       iterations: payload.iterations ?? BOOTSTRAP_ITERATIONS,
       g6BudgetExpansionApproved: opts.g6BudgetExpansionApproved === true || payload.g6BudgetExpansionApproved === true,
+      g6BudgetApprovalRef: opts.g6BudgetApprovalRef ?? payload.g6BudgetApprovalRef ?? null,
+      expectedG2AManifestSha256: opts.expectedG2AManifestSha256 ?? payload.expectedG2AManifestSha256 ?? null,
     });
     const outText = JSON.stringify(result, null, 2) + '\n';
     if (opts.out) {

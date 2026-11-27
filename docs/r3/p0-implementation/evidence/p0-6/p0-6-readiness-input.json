@@ -1,15 +1,15 @@
 {
-  "description": "P0-6 sanitized current dataset readiness manifest (derived strictly from P0-0 Baseline Audit §5; zero synthetic model predictions, zero novel prose, K_rep=0 live runs).",
+  "description": "P0-6 sanitized current dataset readiness manifest (derived strictly from P0-0 Baseline Audit §5; zero synthetic model predictions, zero novel prose, K_rep=0 live runs; includes explicit Arm x Chapter -> QHL-CH1..3 sourceChapterId alias mapping).",
   "referenceChapters": [
-    {"chapterId": "ARM0-CH1", "sourceNovel": "器痕录"},
-    {"chapterId": "ARM0-CH2", "sourceNovel": "器痕录"},
-    {"chapterId": "ARM0-CH3", "sourceNovel": "器痕录"},
-    {"chapterId": "ARM1-CH1", "sourceNovel": "器痕录"},
-    {"chapterId": "ARM1-CH2", "sourceNovel": "器痕录"},
-    {"chapterId": "ARM1-CH3", "sourceNovel": "器痕录"},
-    {"chapterId": "ARM2-CH1", "sourceNovel": "器痕录"},
-    {"chapterId": "ARM2-CH2", "sourceNovel": "器痕录"},
-    {"chapterId": "ARM2-CH3", "sourceNovel": "器痕录"},
+    {"chapterId": "ARM0-CH1", "sourceChapterId": "QHL-CH1", "sourceNovel": "器痕录"},
+    {"chapterId": "ARM0-CH2", "sourceChapterId": "QHL-CH2", "sourceNovel": "器痕录"},
+    {"chapterId": "ARM0-CH3", "sourceChapterId": "QHL-CH3", "sourceNovel": "器痕录"},
+    {"chapterId": "ARM1-CH1", "sourceChapterId": "QHL-CH1", "sourceNovel": "器痕录"},
+    {"chapterId": "ARM1-CH2", "sourceChapterId": "QHL-CH2", "sourceNovel": "器痕录"},
+    {"chapterId": "ARM1-CH3", "sourceChapterId": "QHL-CH3", "sourceNovel": "器痕录"},
+    {"chapterId": "ARM2-CH1", "sourceChapterId": "QHL-CH1", "sourceNovel": "器痕录"},
+    {"chapterId": "ARM2-CH2", "sourceChapterId": "QHL-CH2", "sourceNovel": "器痕录"},
+    {"chapterId": "ARM2-CH3", "sourceChapterId": "QHL-CH3", "sourceNovel": "器痕录"},
     {"chapterId": "DOC-1"},
     {"chapterId": "DOC-4"},
     {"chapterId": "DOC-5"},
@@ -25,7 +25,7 @@
     {"chapterId": "V22-H1"},
     {"chapterId": "V22-H2"},
     {"chapterId": "V22-H3"},
-    {"chapterId": "V22-H4"}
+    {"chapterId": "V22-H4", "sourceChapterId": "V22-H4", "sourceNovel": "盐引旧账"}
   ],
   "schemes": {
     "A": {
@@ -33,15 +33,15 @@
       "G1": {
         "track2": {
           "chapters": [
-            {"chapterId": "ARM0-CH1", "positives": 4},
-            {"chapterId": "ARM0-CH2", "positives": 4},
-            {"chapterId": "ARM0-CH3", "positives": 4},
-            {"chapterId": "ARM1-CH1", "positives": 4},
-            {"chapterId": "ARM1-CH2", "positives": 4},
-            {"chapterId": "ARM1-CH3", "positives": 5},
-            {"chapterId": "ARM2-CH1", "positives": 5},
-            {"chapterId": "ARM2-CH2", "positives": 5},
-            {"chapterId": "ARM2-CH3", "positives": 5}
+            {"chapterId": "ARM0-CH1", "sourceChapterId": "QHL-CH1", "positives": 4},
+            {"chapterId": "ARM0-CH2", "sourceChapterId": "QHL-CH2", "positives": 4},
+            {"chapterId": "ARM0-CH3", "sourceChapterId": "QHL-CH3", "positives": 4},
+            {"chapterId": "ARM1-CH1", "sourceChapterId": "QHL-CH1", "positives": 4},
+            {"chapterId": "ARM1-CH2", "sourceChapterId": "QHL-CH2", "positives": 4},
+            {"chapterId": "ARM1-CH3", "sourceChapterId": "QHL-CH3", "positives": 5},
+            {"chapterId": "ARM2-CH1", "sourceChapterId": "QHL-CH1", "positives": 5},
+            {"chapterId": "ARM2-CH2", "sourceChapterId": "QHL-CH2", "positives": 5},
+            {"chapterId": "ARM2-CH3", "sourceChapterId": "QHL-CH3", "positives": 5}
           ],
           "runs": []
         },
@@ -59,16 +59,17 @@
         }
       },
       "G2A": {
+        "manifestVersion": "p0-0-track2-readiness-v1",
         "chapters": [
-          {"chapterId": "ARM0-CH1", "positives": 4, "negatives": 3},
-          {"chapterId": "ARM0-CH2", "positives": 4, "negatives": 3},
-          {"chapterId": "ARM0-CH3", "positives": 4, "negatives": 3},
-          {"chapterId": "ARM1-CH1", "positives": 4, "negatives": 4},
-          {"chapterId": "ARM1-CH2", "positives": 4, "negatives": 4},
-          {"chapterId": "ARM1-CH3", "positives": 5, "negatives": 4},
-          {"chapterId": "ARM2-CH1", "positives": 5, "negatives": 4},
-          {"chapterId": "ARM2-CH2", "positives": 5, "negatives": 4},
-          {"chapterId": "ARM2-CH3", "positives": 5, "negatives": 4}
+          {"chapterId": "ARM0-CH1", "sourceChapterId": "QHL-CH1", "positives": 4, "negatives": 3},
+          {"chapterId": "ARM0-CH2", "sourceChapterId": "QHL-CH2", "positives": 4, "negatives": 3},
+          {"chapterId": "ARM0-CH3", "sourceChapterId": "QHL-CH3", "positives": 4, "negatives": 3},
+          {"chapterId": "ARM1-CH1", "sourceChapterId": "QHL-CH1", "positives": 4, "negatives": 4},
+          {"chapterId": "ARM1-CH2", "sourceChapterId": "QHL-CH2", "positives": 4, "negatives": 4},
+          {"chapterId": "ARM1-CH3", "sourceChapterId": "QHL-CH3", "positives": 5, "negatives": 4},
+          {"chapterId": "ARM2-CH1", "sourceChapterId": "QHL-CH1", "positives": 5, "negatives": 4},
+          {"chapterId": "ARM2-CH2", "sourceChapterId": "QHL-CH2", "positives": 5, "negatives": 4},
+          {"chapterId": "ARM2-CH3", "sourceChapterId": "QHL-CH3", "positives": 5, "negatives": 4}
         ],
         "runs": []
       },
@@ -78,15 +79,15 @@
       },
       "G3": {
         "chapters": [
-          {"chapterId": "S4-ARM0-CH1", "paragraphs": 1},
-          {"chapterId": "S4-ARM0-CH2", "paragraphs": 1},
-          {"chapterId": "S4-ARM0-CH3", "paragraphs": 1},
-          {"chapterId": "S4-ARM1-CH1", "paragraphs": 1},
-          {"chapterId": "S4-ARM1-CH2", "paragraphs": 1},
-          {"chapterId": "S4-ARM1-CH3", "paragraphs": 1},
-          {"chapterId": "S4-ARM2-CH1", "paragraphs": 1},
-          {"chapterId": "S4-ARM2-CH2", "paragraphs": 1},
-          {"chapterId": "S4-ARM2-CH3", "paragraphs": 1}
+          {"chapterId": "S4-ARM0-CH1", "sourceChapterId": "QHL-CH1", "paragraphs": 1},
+          {"chapterId": "S4-ARM0-CH2", "sourceChapterId": "QHL-CH2", "paragraphs": 1},
+          {"chapterId": "S4-ARM0-CH3", "sourceChapterId": "QHL-CH3", "paragraphs": 1},
+          {"chapterId": "S4-ARM1-CH1", "sourceChapterId": "QHL-CH1", "paragraphs": 1},
+          {"chapterId": "S4-ARM1-CH2", "sourceChapterId": "QHL-CH2", "paragraphs": 1},
+          {"chapterId": "S4-ARM1-CH3", "sourceChapterId": "QHL-CH3", "paragraphs": 1},
+          {"chapterId": "S4-ARM2-CH1", "sourceChapterId": "QHL-CH1", "paragraphs": 1},
+          {"chapterId": "S4-ARM2-CH2", "sourceChapterId": "QHL-CH2", "paragraphs": 1},
+          {"chapterId": "S4-ARM2-CH3", "sourceChapterId": "QHL-CH3", "paragraphs": 1}
         ],
         "runs": []
       },
@@ -97,7 +98,7 @@
       },
       "G5": {
         "deadlockCases": [
-          {"chapterId": "V22-H4", "decision": null}
+          {"chapterId": "V22-H4", "sourceChapterId": "V22-H4", "decision": null}
         ],
         "legalTropeCases": [
           {"caseId": "CAL-49", "blocking": null},
@@ -121,15 +122,15 @@
       "G1": {
         "track2": {
           "chapters": [
-            {"chapterId": "ARM0-CH1", "positives": 4},
-            {"chapterId": "ARM0-CH2", "positives": 4},
-            {"chapterId": "ARM0-CH3", "positives": 4},
-            {"chapterId": "ARM1-CH1", "positives": 4},
-            {"chapterId": "ARM1-CH2", "positives": 4},
-            {"chapterId": "ARM1-CH3", "positives": 5},
-            {"chapterId": "ARM2-CH1", "positives": 5},
-            {"chapterId": "ARM2-CH2", "positives": 5},
-            {"chapterId": "ARM2-CH3", "positives": 5}
+            {"chapterId": "ARM0-CH1", "sourceChapterId": "QHL-CH1", "positives": 4},
+            {"chapterId": "ARM0-CH2", "sourceChapterId": "QHL-CH2", "positives": 4},
+            {"chapterId": "ARM0-CH3", "sourceChapterId": "QHL-CH3", "positives": 4},
+            {"chapterId": "ARM1-CH1", "sourceChapterId": "QHL-CH1", "positives": 4},
+            {"chapterId": "ARM1-CH2", "sourceChapterId": "QHL-CH2", "positives": 4},
+            {"chapterId": "ARM1-CH3", "sourceChapterId": "QHL-CH3", "positives": 5},
+            {"chapterId": "ARM2-CH1", "sourceChapterId": "QHL-CH1", "positives": 5},
+            {"chapterId": "ARM2-CH2", "sourceChapterId": "QHL-CH2", "positives": 5},
+            {"chapterId": "ARM2-CH3", "sourceChapterId": "QHL-CH3", "positives": 5}
           ],
           "runs": []
         },
@@ -147,16 +148,17 @@
         }
       },
       "G2A": {
+        "manifestVersion": "p0-0-track2-readiness-v1",
         "chapters": [
-          {"chapterId": "ARM0-CH1", "positives": 4, "negatives": 3},
-          {"chapterId": "ARM0-CH2", "positives": 4, "negatives": 3},
-          {"chapterId": "ARM0-CH3", "positives": 4, "negatives": 3},
-          {"chapterId": "ARM1-CH1", "positives": 4, "negatives": 4},
-          {"chapterId": "ARM1-CH2", "positives": 4, "negatives": 4},
-          {"chapterId": "ARM1-CH3", "positives": 5, "negatives": 4},
-          {"chapterId": "ARM2-CH1", "positives": 5, "negatives": 4},
-          {"chapterId": "ARM2-CH2", "positives": 5, "negatives": 4},
-          {"chapterId": "ARM2-CH3", "positives": 5, "negatives": 4}
+          {"chapterId": "ARM0-CH1", "sourceChapterId": "QHL-CH1", "positives": 4, "negatives": 3},
+          {"chapterId": "ARM0-CH2", "sourceChapterId": "QHL-CH2", "positives": 4, "negatives": 3},
+          {"chapterId": "ARM0-CH3", "sourceChapterId": "QHL-CH3", "positives": 4, "negatives": 3},
+          {"chapterId": "ARM1-CH1", "sourceChapterId": "QHL-CH1", "positives": 4, "negatives": 4},
+          {"chapterId": "ARM1-CH2", "sourceChapterId": "QHL-CH2", "positives": 4, "negatives": 4},
+          {"chapterId": "ARM1-CH3", "sourceChapterId": "QHL-CH3", "positives": 5, "negatives": 4},
+          {"chapterId": "ARM2-CH1", "sourceChapterId": "QHL-CH1", "positives": 5, "negatives": 4},
+          {"chapterId": "ARM2-CH2", "sourceChapterId": "QHL-CH2", "positives": 5, "negatives": 4},
+          {"chapterId": "ARM2-CH3", "sourceChapterId": "QHL-CH3", "positives": 5, "negatives": 4}
         ],
         "runs": []
       },
@@ -166,15 +168,15 @@
       },
       "G3": {
         "chapters": [
-          {"chapterId": "S4-ARM0-CH1", "paragraphs": 1},
-          {"chapterId": "S4-ARM0-CH2", "paragraphs": 1},
-          {"chapterId": "S4-ARM0-CH3", "paragraphs": 1},
-          {"chapterId": "S4-ARM1-CH1", "paragraphs": 1},
-          {"chapterId": "S4-ARM1-CH2", "paragraphs": 1},
-          {"chapterId": "S4-ARM1-CH3", "paragraphs": 1},
-          {"chapterId": "S4-ARM2-CH1", "paragraphs": 1},
-          {"chapterId": "S4-ARM2-CH2", "paragraphs": 1},
-          {"chapterId": "S4-ARM2-CH3", "paragraphs": 1}
+          {"chapterId": "S4-ARM0-CH1", "sourceChapterId": "QHL-CH1", "paragraphs": 1},
+          {"chapterId": "S4-ARM0-CH2", "sourceChapterId": "QHL-CH2", "paragraphs": 1},
+          {"chapterId": "S4-ARM0-CH3", "sourceChapterId": "QHL-CH3", "paragraphs": 1},
+          {"chapterId": "S4-ARM1-CH1", "sourceChapterId": "QHL-CH1", "paragraphs": 1},
+          {"chapterId": "S4-ARM1-CH2", "sourceChapterId": "QHL-CH2", "paragraphs": 1},
+          {"chapterId": "S4-ARM1-CH3", "sourceChapterId": "QHL-CH3", "paragraphs": 1},
+          {"chapterId": "S4-ARM2-CH1", "sourceChapterId": "QHL-CH1", "paragraphs": 1},
+          {"chapterId": "S4-ARM2-CH2", "sourceChapterId": "QHL-CH2", "paragraphs": 1},
+          {"chapterId": "S4-ARM2-CH3", "sourceChapterId": "QHL-CH3", "paragraphs": 1}
         ],
         "runs": []
       },
@@ -185,7 +187,7 @@
       },
       "G5": {
         "deadlockCases": [
-          {"chapterId": "V22-H4", "decision": null}
+          {"chapterId": "V22-H4", "sourceChapterId": "V22-H4", "decision": null}
         ],
         "legalTropeCases": [
           {"caseId": "CAL-49", "blocking": null},
@@ -209,15 +211,15 @@
       "G1": {
         "track2": {
           "chapters": [
-            {"chapterId": "ARM0-CH1", "positives": 4},
-            {"chapterId": "ARM0-CH2", "positives": 4},
-            {"chapterId": "ARM0-CH3", "positives": 4},
-            {"chapterId": "ARM1-CH1", "positives": 4},
-            {"chapterId": "ARM1-CH2", "positives": 4},
-            {"chapterId": "ARM1-CH3", "positives": 5},
-            {"chapterId": "ARM2-CH1", "positives": 5},
-            {"chapterId": "ARM2-CH2", "positives": 5},
-            {"chapterId": "ARM2-CH3", "positives": 5}
+            {"chapterId": "ARM0-CH1", "sourceChapterId": "QHL-CH1", "positives": 4},
+            {"chapterId": "ARM0-CH2", "sourceChapterId": "QHL-CH2", "positives": 4},
+            {"chapterId": "ARM0-CH3", "sourceChapterId": "QHL-CH3", "positives": 4},
+            {"chapterId": "ARM1-CH1", "sourceChapterId": "QHL-CH1", "positives": 4},
+            {"chapterId": "ARM1-CH2", "sourceChapterId": "QHL-CH2", "positives": 4},
+            {"chapterId": "ARM1-CH3", "sourceChapterId": "QHL-CH3", "positives": 5},
+            {"chapterId": "ARM2-CH1", "sourceChapterId": "QHL-CH1", "positives": 5},
+            {"chapterId": "ARM2-CH2", "sourceChapterId": "QHL-CH2", "positives": 5},
+            {"chapterId": "ARM2-CH3", "sourceChapterId": "QHL-CH3", "positives": 5}
           ],
           "runs": []
         },
@@ -235,16 +237,17 @@
         }
       },
       "G2A": {
+        "manifestVersion": "p0-0-track2-readiness-v1",
         "chapters": [
-          {"chapterId": "ARM0-CH1", "positives": 4, "negatives": 3},
-          {"chapterId": "ARM0-CH2", "positives": 4, "negatives": 3},
-          {"chapterId": "ARM0-CH3", "positives": 4, "negatives": 3},
-          {"chapterId": "ARM1-CH1", "positives": 4, "negatives": 4},
-          {"chapterId": "ARM1-CH2", "positives": 4, "negatives": 4},
-          {"chapterId": "ARM1-CH3", "positives": 5, "negatives": 4},
-          {"chapterId": "ARM2-CH1", "positives": 5, "negatives": 4},
-          {"chapterId": "ARM2-CH2", "positives": 5, "negatives": 4},
-          {"chapterId": "ARM2-CH3", "positives": 5, "negatives": 4}
+          {"chapterId": "ARM0-CH1", "sourceChapterId": "QHL-CH1", "positives": 4, "negatives": 3},
+          {"chapterId": "ARM0-CH2", "sourceChapterId": "QHL-CH2", "positives": 4, "negatives": 3},
+          {"chapterId": "ARM0-CH3", "sourceChapterId": "QHL-CH3", "positives": 4, "negatives": 3},
+          {"chapterId": "ARM1-CH1", "sourceChapterId": "QHL-CH1", "positives": 4, "negatives": 4},
+          {"chapterId": "ARM1-CH2", "sourceChapterId": "QHL-CH2", "positives": 4, "negatives": 4},
+          {"chapterId": "ARM1-CH3", "sourceChapterId": "QHL-CH3", "positives": 5, "negatives": 4},
+          {"chapterId": "ARM2-CH1", "sourceChapterId": "QHL-CH1", "positives": 5, "negatives": 4},
+          {"chapterId": "ARM2-CH2", "sourceChapterId": "QHL-CH2", "positives": 5, "negatives": 4},
+          {"chapterId": "ARM2-CH3", "sourceChapterId": "QHL-CH3", "positives": 5, "negatives": 4}
         ],
         "runs": []
       },
@@ -254,15 +257,15 @@
       },
       "G3": {
         "chapters": [
-          {"chapterId": "S4-ARM0-CH1", "paragraphs": 1},
-          {"chapterId": "S4-ARM0-CH2", "paragraphs": 1},
-          {"chapterId": "S4-ARM0-CH3", "paragraphs": 1},
-          {"chapterId": "S4-ARM1-CH1", "paragraphs": 1},
-          {"chapterId": "S4-ARM1-CH2", "paragraphs": 1},
-          {"chapterId": "S4-ARM1-CH3", "paragraphs": 1},
-          {"chapterId": "S4-ARM2-CH1", "paragraphs": 1},
-          {"chapterId": "S4-ARM2-CH2", "paragraphs": 1},
-          {"chapterId": "S4-ARM2-CH3", "paragraphs": 1}
+          {"chapterId": "S4-ARM0-CH1", "sourceChapterId": "QHL-CH1", "paragraphs": 1},
+          {"chapterId": "S4-ARM0-CH2", "sourceChapterId": "QHL-CH2", "paragraphs": 1},
+          {"chapterId": "S4-ARM0-CH3", "sourceChapterId": "QHL-CH3", "paragraphs": 1},
+          {"chapterId": "S4-ARM1-CH1", "sourceChapterId": "QHL-CH1", "paragraphs": 1},
+          {"chapterId": "S4-ARM1-CH2", "sourceChapterId": "QHL-CH2", "paragraphs": 1},
+          {"chapterId": "S4-ARM1-CH3", "sourceChapterId": "QHL-CH3", "paragraphs": 1},
+          {"chapterId": "S4-ARM2-CH1", "sourceChapterId": "QHL-CH1", "paragraphs": 1},
+          {"chapterId": "S4-ARM2-CH2", "sourceChapterId": "QHL-CH2", "paragraphs": 1},
+          {"chapterId": "S4-ARM2-CH3", "sourceChapterId": "QHL-CH3", "paragraphs": 1}
         ],
         "runs": []
       },
@@ -273,7 +276,7 @@
       },
       "G5": {
         "deadlockCases": [
-          {"chapterId": "V22-H4", "decision": null}
+          {"chapterId": "V22-H4", "sourceChapterId": "V22-H4", "decision": null}
         ],
         "legalTropeCases": [
           {"caseId": "CAL-49", "blocking": null},

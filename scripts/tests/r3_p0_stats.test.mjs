@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
  * P0-6 Comprehensive Statistical, Anti-Leakage & Go/No-Go Engine Test Suite
- * (`TC-P0-6-1A`~`1G`, `TC-P0-6-R2-1`~`R2-4`, `TC-P0-6-R3-1`~`R3-4`):
+ * (`TC-P0-6-1A`~`1G`, `TC-P0-6-R2-1`~`R2-4`, `TC-P0-6-R3-1`~`R3-4`, `TC-P0-6-R4-1`~`R4-4`):
  *   - TC-P0-6-1A: Exact mathematical verification (4x4 confusion matrix, quadratic weighted Kappa, unweighted Kappa, locked B=2000 cluster Bootstrap 95% CI)
  *   - TC-P0-6-1B: Cross-set anti-leakage, retired blacklist (`NH-1..5`, `V22-H1..4`, `OLD-HOLD-1..4`, `DOC-1..6`, `Arm 0..2 Ch 1..3`), merged-G2 ban, duplicate chapterId ban, per-chapter caps
  *   - TC-P0-6-1C: Mandatory `UNDERPOWERED` & `BLOCKED_UNDERPOWERED` enforcement (proving G2-A PASS != G2-B PASS and exact current sample gaps)
@@ -12,11 +12,15 @@
  *   - TC-P0-6-R2-1: Case-level coverage & count consistency (rejects partial case coverage, undeclared caseIds, duplicate predictions, manifest mismatch)
  *   - TC-P0-6-R2-2: Complete `{A, B, C}` requirement & frozen dataset equivalence across all 3 schemes
  *   - TC-P0-6-R2-3: Independent Holdout internal provenance (`sourceChapterId` + 64-hex `contentSha256`) and internal uniqueness
- *   - TC-P0-6-R2-4: G4 undefined degenerate Kappa (never 1.0), 4-class truth coverage, single-class prediction collapse, and per-case `caseId`/`sourceChapterId` traceability
- *   - TC-P0-6-R3-1: Blocking 1 — G2 bounded positive manifest required for Precision & strict rejection of null-precision runs
- *   - TC-P0-6-R3-2: Blocking 2 — Case-level A/B/C equivalence (same chapter/count but different caseId/tier rejected) & derived BLOCKER misses (no self-reported integers)
- *   - TC-P0-6-R3-3: Blocking 3 — Exact frozen K_rep enforcement across G1/G2-A/G2-B/G3/G4/G6 & exact G4 N_case === 24
- *   - TC-P0-6-R3-4: Blocking 4 — Controlled 15-genre taxonomy, whitespace normalization, every-genre >=2ch, unclassified rejection, Fail-Closed G6 budget ceiling, and G5 compatEvidenceRef check
+ *   - TC-P0-6-R2-4: Direct math degenerate Kappa (`computeOrderedKappa` -> null) vs `evaluateG4` gate-level 4-class truth coverage, single-class collapse & source traceability
+ *   - TC-P0-6-R3-1: G2 bounded positive manifest required for Precision & strict rejection of null-precision runs
+ *   - TC-P0-6-R3-2: Case-level A/B/C equivalence (same chapter/count but different caseId/tier rejected) & derived BLOCKER misses (no self-reported integers)
+ *   - TC-P0-6-R3-3: Exact frozen K_rep enforcement across G1/G2-A/G2-B/G3/G4/G6 & exact G4 N_case === 24
+ *   - TC-P0-6-R3-4: Controlled 15-genre taxonomy, whitespace normalization, every-genre >=2ch, unclassified rejection, Fail-Closed G6 budget ceiling, and G5 compatEvidenceRef check
+ *   - TC-P0-6-R4-1: Item 1 — G6 strict boolean `g6BudgetExpansionApproved === true` (rejects `"false"`, `1`, `{}`) and traceable `g6BudgetApprovalRef`
+ *   - TC-P0-6-R4-2: Item 2 — K_rep protocol run provenance (unique `runId`, `executionEvidenceRef`, `modelId`/`configVersion`; rejects cloned runs while allowing identical predictions across distinct runs)
+ *   - TC-P0-6-R4-3: Item 3 — G2-A exact frozen `9ch / 40pos / 33neg` + `manifestVersion`/`manifestSha256` pinning & G2-B Stage 1B author positive-cohort approval gate
+ *   - TC-P0-6-R4-4: Items 4–5 — Unified G3/G4/G5 historical exposure auto-aggregation, G3 `sourceChapterId` deduplication, and G5 required `s1CompatTest` + `engFixP1Test` anchor keys
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -30,6 +34,7 @@ import {
   CANONICAL_GENRES,
   ORDERED_SEVERITIES,
   normalizeCanonicalGenre,
+  computeCaseManifestSha256,
   assertZeroLeakage,
   assertHoldoutInternalProvenanceAndUniqueness,
   chapterClusterBootstrapCI,
@@ -47,6 +52,15 @@ import {
 
 const REPO_ROOT = fileURLToPath(new URL('../../', import.meta.url));
 const EVAL_CLI = fileURLToPath(new URL('../p0_prototypes/eval_g1_g6_stats.mjs', import.meta.url));
+
+function makeRunMeta(gateTag, idx) {
+  return {
+    runId: `${gateTag}-RUN-${idx + 1}`,
+    executionEvidenceRef: `evidence/runs/${gateTag.toLowerCase()}-run-${idx + 1}.json`,
+    modelId: 'synthetic-reviewer-v1',
+    configVersion: 'r3-p0-6-proto-v1',
+  };
+}
 
 /**
  * Helper: build a fully powered, clean case-level synthetic passing dataset across all 7 gates for one scheme.
@@ -75,6 +89,7 @@ function makePassingSchemeData({
     let remMajorMiss = g1Track2MissMajorCount;
     let remBlockerMiss = rIdx === 0 && g1MissBlocker ? 1 : 0;
     return {
+      ...makeRunMeta('G1-T2', rIdx),
       predictions: allT2Cases.map(c => {
         if (c.truthClass === 'BLOCKER' && remBlockerMiss > 0) {
           remBlockerMiss--;
@@ -99,10 +114,11 @@ function makePassingSchemeData({
     ],
   }));
   const reg7Runs = [{
+    ...makeRunMeta('G1-REG7', 0),
     predictions: reg7Chapters.flatMap(ch => ch.cases.map(c => ({caseId: c.caseId, predictedBlocking: true}))),
   }];
 
-  // G2-A: 9 historical chapters, 33 negatives (3+3+3+4+4+4+4+4+4) + 40 positives (for bounded Precision!), exact K=3
+  // G2-A: Exact frozen P0-0 benchmark: 9 chapters, 40 positives + 33 negatives (3+3+3+4+4+4+4+4+4), exact K=3
   const g2aNegCounts = [3, 3, 3, 4, 4, 4, 4, 4, 4];
   const g2aChapters = g2aNegCounts.map((neg, i) => {
     const pos = t2PosCounts[i];
@@ -123,9 +139,10 @@ function makePassingSchemeData({
     };
   });
   const allG2aCases = g2aChapters.flatMap(ch => ch.cases);
-  const g2aRuns = [0, 1, 2].map(() => {
+  const g2aRuns = [0, 1, 2].map(rIdx => {
     let remFp = 2; // 2 borderline FPs out of 33 negatives -> FPR = 6.06% <= 13%, TP = 40 -> Precision = 40/42 = 95.2% >= 88%
     return {
+      ...makeRunMeta('G2A', rIdx),
       predictions: allG2aCases.map(c => {
         if (c.truthClass !== 'NON_BLOCKING') return {caseId: c.caseId, predictedBlocking: true};
         if (c.tier === 'BORDERLINE' && remFp > 0) {
@@ -160,9 +177,10 @@ function makePassingSchemeData({
     };
   });
   const allG2bCases = g2bChapters.flatMap(ch => ch.cases);
-  const g2bRuns = g2bRunFpCounts.map(totalFpInRun => {
+  const g2bRuns = g2bRunFpCounts.map((totalFpInRun, rIdx) => {
     let remFp = totalFpInRun;
     return {
+      ...makeRunMeta('G2B', rIdx),
       predictions: allG2bCases.map(c => {
         if (c.truthClass !== 'NON_BLOCKING') return {caseId: c.caseId, predictedBlocking: true};
         if (c.tier === 'BORDERLINE' && remFp > 0) {
@@ -174,11 +192,12 @@ function makePassingSchemeData({
     };
   });
 
-  // G3: 10 chapters, 15 clean paragraphs (5x2 + 5x1 = 15, <=2/ch), exact K=3
+  // G3: 10 independent chapters, 15 clean paragraphs (5x2 + 5x1 = 15, <=2/ch), exact K=3
   const g3Chapters = Array.from({length: 10}, (_, i) => {
     const cnt = i < 5 ? 2 : 1;
     return {
       chapterId: `FRESH-G3-CH${String(i + 1).padStart(2, '0')}`,
+      sourceChapterId: `SRC-G3-CH${String(i + 1).padStart(2, '0')}`,
       paragraphs: cnt,
       cases: Array.from({length: cnt}, (_, j) => ({
         caseId: `G3-CH${String(i + 1).padStart(2, '0')}-PARA${j + 1}`,
@@ -187,7 +206,8 @@ function makePassingSchemeData({
     };
   });
   const allG3Cases = g3Chapters.flatMap(ch => ch.cases);
-  const g3Runs = [0, 1, 2].map(() => ({
+  const g3Runs = [0, 1, 2].map(rIdx => ({
+    ...makeRunMeta('G3', rIdx),
     predictions: allG3Cases.map(c => ({caseId: c.caseId, predictedBlocking: false, noIssue: true})),
   }));
 
@@ -205,11 +225,11 @@ function makePassingSchemeData({
     });
   }
   const g4Runs = [
-    {pairs: g4Pairs, suggestionLoopLeaks: 0},
-    {pairs: g4Pairs, suggestionLoopLeaks: 0},
+    {...makeRunMeta('G4', 0), pairs: g4Pairs, suggestionLoopLeaks: 0},
+    {...makeRunMeta('G4', 1), pairs: g4Pairs, suggestionLoopLeaks: 0},
   ];
 
-  // G5: 3 independent deadlock chapters + 3 legal trope cases + verifiable compatEvidenceRef
+  // G5: 3 independent deadlock chapters + 3 legal trope cases + required test path anchors
   const g5Data = {
     deadlockCases: [
       {chapterId: 'DEADLOCK-CH01', decision: 'PLANNING_CONFLICT_BLOCK'},
@@ -256,6 +276,7 @@ function makePassingSchemeData({
   let remG6BlockerMiss = g6MissBlocker ? 1 : 0;
   let remG6Fp = 2; // 2/48 = 4.17% <= 13%
   const g6Runs = [{
+    ...makeRunMeta('G6', 0),
     predictions: allG6Cases.map(c => {
       if (c.truthClass === 'BLOCKER') {
         if (remG6BlockerMiss > 0) {
@@ -285,8 +306,20 @@ function makePassingSchemeData({
       track2: {chapters: g1Track2Chapters, runs: g1Track2Runs},
       regression7: {chapters: reg7Chapters, runs: reg7Runs},
     },
-    G2A: {chapters: g2aChapters, runs: g2aRuns},
-    G2B: {chapters: g2bChapters, runs: g2bRuns},
+    G2A: {
+      manifestVersion: 'p0-0-track2-frozen-v1',
+      manifestSha256: computeCaseManifestSha256(g2aChapters),
+      chapters: g2aChapters,
+      runs: g2aRuns,
+    },
+    G2B: {
+      manifestVersion: 'stage-1b-synthetic-g2b-v1',
+      manifestSha256: computeCaseManifestSha256(g2bChapters),
+      positiveCohortApproved: true,
+      positiveCohortApprovalRef: 'STAGE-1B-TEST-APPROVAL-REF',
+      chapters: g2bChapters,
+      runs: g2bRuns,
+    },
     G3: {chapters: g3Chapters, runs: g3Runs},
     G4: {sourceChapters: g4SourceChapters, nCases: 24, runs: g4Runs},
     G5: g5Data,
@@ -404,6 +437,7 @@ test('TC-P0-6-1B: hard rejects chapter/hash overlap, retired blacklist (NH-1..5 
   const capG2b = makePassingSchemeData();
   capG2b.G2B.chapters[0].negatives = 4;
   capG2b.G2B.chapters[0].cases.push({caseId: 'G2B-CH01-NEG4', truthClass: 'NON_BLOCKING', tier: 'BORDERLINE'});
+  capG2b.G2B.manifestSha256 = computeCaseManifestSha256(capG2b.G2B.chapters);
   capG2b.G2B.runs.forEach(r => r.predictions.push({caseId: 'G2B-CH01-NEG4', predictedBlocking: false}));
   assert.equal(evaluateG2B(capG2b.G2B).error, 'R3_P0_6_G2B_CHAPTER_CASE_CAP_EXCEEDED');
 
@@ -444,6 +478,7 @@ test('TC-P0-6-1C: insufficient G2-B / G3 / G4 / G5 / G6 samples force UNDERPOWER
   // G2-B with 19 chapters (< 20) -> UNDERPOWERED
   const g2b19 = makePassingSchemeData().G2B;
   const removedCh = g2b19.chapters.pop();
+  g2b19.manifestSha256 = computeCaseManifestSha256(g2b19.chapters);
   const removedIds = new Set(removedCh.cases.map(c => c.caseId));
   g2b19.runs.forEach(r => { r.predictions = r.predictions.filter(p => !removedIds.has(p.caseId)); });
   assert.equal(evaluateG2B(g2b19).status, 'UNDERPOWERED');
@@ -451,6 +486,7 @@ test('TC-P0-6-1C: insufficient G2-B / G3 / G4 / G5 / G6 samples force UNDERPOWER
   // G2-B with 2 genres (< 3) -> UNDERPOWERED
   const g2b2Genres = makePassingSchemeData().G2B;
   g2b2Genres.chapters.forEach((c, i) => { c.genre = i % 2 === 0 ? '悬疑' : '历史'; });
+  g2b2Genres.manifestSha256 = computeCaseManifestSha256(g2b2Genres.chapters);
   assert.equal(evaluateG2B(g2b2Genres).status, 'UNDERPOWERED');
 
   // G3 with 9 chapters / 9 paragraphs -> UNDERPOWERED
@@ -460,7 +496,7 @@ test('TC-P0-6-1C: insufficient G2-B / G3 / G4 / G5 / G6 samples force UNDERPOWER
   };
   const g3Res = evaluateG3(g3Hist);
   assert.equal(g3Res.status, 'UNDERPOWERED');
-  assert.ok(g3Res.gaps.some(g => g.includes('N_ch=9 < 10')));
+  assert.ok(g3Res.gaps.some(g => g.includes('N_ch(independentSourceChapters)=9 < 10')));
 
   // G4 with 3 independent source chapters -> UNDERPOWERED
   const g4Hist = makePassingSchemeData().G4;
@@ -551,9 +587,10 @@ test('TC-P0-6-1E: enforces Scheme B hard elimination (>1.0 pp recall lag or BLOC
       })),
     }));
     const flat = chs.flatMap(c => c.cases);
-    const runs = [0, 1, 2].map(() => {
+    const runs = [0, 1, 2].map(rIdx => {
       let rem = missMajorCount;
       return {
+        ...makeRunMeta('G1-EDGE', rIdx),
         predictions: flat.map(c => {
           if (c.truthClass === 'MAJOR' && rem > 0) {
             rem--;
@@ -725,9 +762,10 @@ test('TC-P0-6-R2-3: rejects renamed duplicate sourceChapterId, renamed duplicate
 });
 
 // ============================================================================
-// TC-P0-6-R2-4: G4 Undefined Degenerate Kappa, Single-Class Prediction Collapse & Source Traceability
+// TC-P0-6-R2-4: Direct Math Degenerate Kappa vs G4 Gate-Level 4-Class / Collapse / Source Checks
 // ============================================================================
-test('TC-P0-6-R2-4: G4 rejects single-class degenerate Kappa (never 1.0), all-same prediction collapse, incomplete 4-class truth, and declared-8-vs-actual-1 source mismatch', () => {
+test('TC-P0-6-R2-4: computeOrderedKappa returns null on degenerate marginals; evaluateG4 enforces 4-class truth, collapse FAIL, and source traceability', () => {
+  // 1. Direct mathematical function test: single-class degenerate marginals -> kappa_w = null (never 1.0)
   const degenPairs = Array.from({length: 24}, (_, i) => ({
     caseId: `DEG-${i + 1}`,
     sourceChapterId: `FRESH-G4-SRC${(i % 8) + 1}`,
@@ -740,21 +778,25 @@ test('TC-P0-6-R2-4: G4 rejects single-class degenerate Kappa (never 1.0), all-sa
   assert.equal(kDegen.degenerateMarginals, true);
   assert.equal(kDegen.kappaStatus, 'UNDEFINED_DEGENERATE_MARGINALS');
 
+  // 2. G4 gate-level test: single-class truth is rejected upfront by 4-class truth coverage check
   const g4Degen = {
     sourceChapters: Array.from({length: 8}, (_, i) => `FRESH-G4-SRC${i + 1}`),
     nCases: 24,
-    runs: [{pairs: degenPairs, suggestionLoopLeaks: 0}, {pairs: degenPairs, suggestionLoopLeaks: 0}],
+    runs: [
+      {...makeRunMeta('G4-DEG', 0), pairs: degenPairs, suggestionLoopLeaks: 0},
+      {...makeRunMeta('G4-DEG', 1), pairs: degenPairs, suggestionLoopLeaks: 0},
+    ],
   };
   assert.equal(evaluateG4(g4Degen).error, 'R3_P0_6_G4_INCOMPLETE_SEVERITY_CLASSES');
 
-  // All-SUGGESTION model predictions against 4-class truth -> kappa_w = 0 < 0.85 -> FAIL!
+  // 3. G4 gate-level test: all-SUGGESTION model predictions against 4-class truth -> kappa_w = 0 < 0.85 -> FAIL!
   const g4AllSugPred = makePassingSchemeData().G4;
   g4AllSugPred.runs.forEach(r => r.pairs.forEach(p => { p.predicted = 'SUGGESTION'; }));
   const rCollapse = evaluateG4(g4AllSugPred);
   assert.equal(rCollapse.status, 'FAIL');
   assert.equal(rCollapse.pooled.quadraticWeightedKappa, 0);
 
-  // Declare 8 sourceChapters, but all 24 pairs actually come from 1 sourceChapterId -> rejected!
+  // 4. G4 gate-level test: declare 8 sourceChapters, but all 24 pairs actually come from 1 sourceChapterId -> rejected!
   const g4Fake8 = makePassingSchemeData().G4;
   g4Fake8.runs.forEach(r => r.pairs.forEach(p => { p.sourceChapterId = 'FRESH-G4-SRC1'; }));
   assert.equal(evaluateG4(g4Fake8).error, 'R3_P0_6_G4_SOURCE_CHAPTER_MISMATCH');
@@ -765,7 +807,7 @@ test('TC-P0-6-R2-4: G4 rejects single-class degenerate Kappa (never 1.0), all-sa
 });
 
 // ============================================================================
-// TC-P0-6-R3-1: Blocking 1 — G2 Bounded Positive Manifest & Strict Non-Null Precision
+// TC-P0-6-R3-1: G2 Bounded Positive Manifest & Strict Non-Null Precision
 // ============================================================================
 test('TC-P0-6-R3-1: G2 rejects missing positive manifest for Precision and never silently drops null-precision runs', () => {
   // 1. G2-B with ONLY NON_BLOCKING cases (0 positives in manifest) -> INVALID_DESIGN (cannot compute Precision!)
@@ -774,6 +816,7 @@ test('TC-P0-6-R3-1: G2 rejects missing positive manifest for Precision and never
     ch.cases = ch.cases.filter(c => c.truthClass === 'NON_BLOCKING');
     ch.positives = 0;
   });
+  g2bNoPos.manifestSha256 = computeCaseManifestSha256(g2bNoPos.chapters);
   const keepNegIds = new Set(g2bNoPos.chapters.flatMap(ch => ch.cases.map(c => c.caseId)));
   g2bNoPos.runs.forEach(r => { r.predictions = r.predictions.filter(p => keepNegIds.has(p.caseId)); });
   const rNoPos = evaluateG2B(g2bNoPos);
@@ -792,7 +835,7 @@ test('TC-P0-6-R3-1: G2 rejects missing positive manifest for Precision and never
 });
 
 // ============================================================================
-// TC-P0-6-R3-2: Blocking 2 — Case-Level A/B/C Equivalence & Derived BLOCKER Misses
+// TC-P0-6-R3-2: Case-Level A/B/C Equivalence & Derived BLOCKER Misses
 // ============================================================================
 test('TC-P0-6-R3-2: detects same-chapter/same-count different caseIds or tiers across A/B/C, rejects aggregate-only runs, and derives BLOCKER misses from truth', () => {
   const baseA = makePassingSchemeData();
@@ -804,6 +847,7 @@ test('TC-P0-6-R3-2: detects same-chapter/same-count different caseIds or tiers a
   const oldId = diffCaseC.G2B.chapters[0].cases[3].caseId;
   const newId = 'G2B-CH01-NEG-SWAPPED';
   diffCaseC.G2B.chapters[0].cases[3].caseId = newId;
+  diffCaseC.G2B.manifestSha256 = computeCaseManifestSha256(diffCaseC.G2B.chapters);
   diffCaseC.G2B.runs.forEach(r => {
     r.predictions.find(p => p.caseId === oldId).caseId = newId;
   });
@@ -816,13 +860,14 @@ test('TC-P0-6-R3-2: detects same-chapter/same-count different caseIds or tiers a
   // 2. Same caseIds, but Scheme C changed a case tier from CLEAR -> BORDERLINE -> rejected!
   const diffTierC = makePassingSchemeData();
   diffTierC.G2B.chapters[0].cases.find(c => c.tier === 'CLEAR').tier = 'BORDERLINE';
+  diffTierC.G2B.manifestSha256 = computeCaseManifestSha256(diffTierC.G2B.chapters);
   const rSwapTier = adjudicateSchemes({A: baseA, B: baseB, C: diffTierC});
   assert.equal(rSwapTier.error, 'R3_P0_6_UNEQUAL_EVALUATION_DATASET');
   assert.ok(rSwapTier.mismatchedGates.includes('G2B'));
 
   // 3. Aggregate-only legacy run (no predictions[]) -> rejected!
   const aggOnlyG6 = makePassingSchemeData().G6;
-  aggOnlyG6.runs = [{chapters: [{chapterId: 'FRESH-G6-CH01', tp: 3, fn: 0, fp: 0, tn: 4, blockerMisses: 0}]}];
+  aggOnlyG6.runs = [{...makeRunMeta('G6-AGG', 0), chapters: [{chapterId: 'FRESH-G6-CH01', tp: 3, fn: 0, fp: 0, tn: 4, blockerMisses: 0}]}];
   assert.equal(evaluateG6(aggOnlyG6).error, 'R3_P0_6_CASE_PREDICTIONS_REQUIRED');
 
   // 4. Derived BLOCKER miss on Scheme B in G6 -> auto-counted as blockerMisses=1 and eliminates Scheme B!
@@ -835,36 +880,36 @@ test('TC-P0-6-R3-2: detects same-chapter/same-count different caseIds or tiers a
 });
 
 // ============================================================================
-// TC-P0-6-R3-3: Blocking 3 — Exact Frozen K_rep & Exact G4 N_case === 24
+// TC-P0-6-R3-3: Exact Frozen K_rep & Exact G4 N_case === 24
 // ============================================================================
 test('TC-P0-6-R3-3: enforces exact frozen K_rep across G1/G2-A/G2-B/G3/G4 and exact G4 N_case === 24', () => {
   // G1 Track2 K=4 (>3) -> rejected
   const g1K4 = makePassingSchemeData().G1;
-  g1K4.track2.runs.push(structuredClone(g1K4.track2.runs[0]));
+  g1K4.track2.runs.push({...structuredClone(g1K4.track2.runs[0]), runId: 'G1-T2-RUN-4'});
   assert.equal(evaluateG1(g1K4).error, 'R3_P0_6_REPEAT_COUNT_EXCEEDS_FROZEN_DESIGN');
 
   // G1 Regression7 K=2 (>1) -> rejected
   const g1RegK2 = makePassingSchemeData().G1;
-  g1RegK2.regression7.runs.push(structuredClone(g1RegK2.regression7.runs[0]));
+  g1RegK2.regression7.runs.push({...structuredClone(g1RegK2.regression7.runs[0]), runId: 'G1-REG7-RUN-2'});
   assert.equal(evaluateG1(g1RegK2).error, 'R3_P0_6_REPEAT_COUNT_EXCEEDS_FROZEN_DESIGN');
 
   // G2-A K=4 (>3) & G2-B K=4 (>3) -> rejected
   const g2aK4 = makePassingSchemeData().G2A;
-  g2aK4.runs.push(structuredClone(g2aK4.runs[0]));
+  g2aK4.runs.push({...structuredClone(g2aK4.runs[0]), runId: 'G2A-RUN-4'});
   assert.equal(evaluateG2A(g2aK4).error, 'R3_P0_6_REPEAT_COUNT_EXCEEDS_FROZEN_DESIGN');
 
   const g2bK4 = makePassingSchemeData().G2B;
-  g2bK4.runs.push(structuredClone(g2bK4.runs[0]));
+  g2bK4.runs.push({...structuredClone(g2bK4.runs[0]), runId: 'G2B-RUN-4'});
   assert.equal(evaluateG2B(g2bK4).error, 'R3_P0_6_REPEAT_COUNT_EXCEEDS_FROZEN_DESIGN');
 
   // G3 K=4 (>3) -> rejected
   const g3K4 = makePassingSchemeData().G3;
-  g3K4.runs.push(structuredClone(g3K4.runs[0]));
+  g3K4.runs.push({...structuredClone(g3K4.runs[0]), runId: 'G3-RUN-4'});
   assert.equal(evaluateG3(g3K4).error, 'R3_P0_6_REPEAT_COUNT_EXCEEDS_FROZEN_DESIGN');
 
   // G4 K=3 (>2) -> rejected
   const g4K3 = makePassingSchemeData().G4;
-  g4K3.runs.push(structuredClone(g4K3.runs[0]));
+  g4K3.runs.push({...structuredClone(g4K3.runs[0]), runId: 'G4-RUN-3'});
   assert.equal(evaluateG4(g4K3).error, 'R3_P0_6_REPEAT_COUNT_EXCEEDS_FROZEN_DESIGN');
 
   // G4 N_case=25 (both declared & actual) -> rejected!
@@ -880,7 +925,7 @@ test('TC-P0-6-R3-3: enforces exact frozen K_rep across G1/G2-A/G2-B/G3/G4 and ex
 });
 
 // ============================================================================
-// TC-P0-6-R3-4: Blocking 4 — Controlled 15-Genre Taxonomy, Per-Genre >=2ch, Budget Ceiling & G5 Evidence Ref
+// TC-P0-6-R3-4: Controlled 15-Genre Taxonomy, Per-Genre >=2ch, Budget Ceiling & G5 Evidence Ref
 // ============================================================================
 test('TC-P0-6-R3-4: enforces controlled 15-genre taxonomy, whitespace normalization, every-genre >=2ch, Fail-Closed G6 budget ceiling, and G5 compatEvidenceRef', () => {
   assert.equal(CANONICAL_GENRES.length, 15);
@@ -900,6 +945,7 @@ test('TC-P0-6-R3-4: enforces controlled 15-genre taxonomy, whitespace normalizat
   // 3. Whitespace trick ('科幻' vs '科幻 ') in G2-B cannot inflate 2 genres into 3 genres!
   const g2bWsTrick = makePassingSchemeData().G2B;
   g2bWsTrick.chapters.forEach((c, i) => { c.genre = i % 3 === 0 ? '科幻' : (i % 3 === 1 ? '科幻 ' : '历史'); });
+  g2bWsTrick.manifestSha256 = computeCaseManifestSha256(g2bWsTrick.chapters);
   const rWs = evaluateG2B(g2bWsTrick);
   assert.equal(rWs.status, 'UNDERPOWERED');
   assert.deepEqual(rWs.sampleTriplet.genres, ['历史', '科幻']);
@@ -911,7 +957,7 @@ test('TC-P0-6-R3-4: enforces controlled 15-genre taxonomy, whitespace normalizat
   assert.equal(rUnderRep.status, 'UNDERPOWERED');
   assert.ok(rUnderRep.gaps.some(g => g.includes('仙侠(1)')));
 
-  // 5. G6 exceeding frozen budget (17 chapters > 16): Fail-Closed without approval; passes ONLY with explicit approval!
+  // 5. G6 exceeding frozen budget (17 chapters > 16): Fail-Closed without approval; passes ONLY with strict boolean + approvalRef!
   const overBudgetA = makePassingSchemeData();
   const genres4 = ['悬疑', '历史', '科幻', '都市'];
   for (let i = 12; i < 17; i++) {
@@ -952,13 +998,193 @@ test('TC-P0-6-R3-4: enforces controlled 15-genre taxonomy, whitespace normalizat
 
   const rApproved = adjudicateSchemes(
     {A: overBudgetA, B: structuredClone(overBudgetA), C: structuredClone(overBudgetA)},
-    {g6BudgetExpansionApproved: true}
+    {g6BudgetExpansionApproved: true, g6BudgetApprovalRef: 'AUTHOR-G6-BUDGET-2026-001'}
   );
   assert.equal(rApproved.verdict, 'GO_CANDIDATE_SELECTED');
   assert.equal(rApproved.schemes.A.gates.G6.budgetStatus, 'EXCEEDS_FROZEN_BUDGET_APPROVED');
+  assert.equal(rApproved.schemes.A.gates.G6.budgetApprovalRef, 'AUTHOR-G6-BUDGET-2026-001');
 
-  // 6. Non-blocking reminder: G5 without non-empty compatEvidenceRef MUST fail (no bare boolean pass!)
+  // 6. G5 without compatEvidenceRef MUST fail (no bare boolean pass!)
   const g5NoRef = makePassingSchemeData().G5;
   delete g5NoRef.compatEvidenceRef;
   assert.equal(evaluateG5(g5NoRef).status, 'FAIL');
+});
+
+// ============================================================================
+// TC-P0-6-R4-1: Item 1 — G6 Strict Boolean g6BudgetExpansionApproved === true & Approval Ref
+// ============================================================================
+test('TC-P0-6-R4-1: evaluateG6 rejects non-boolean truthy budget approval ("false", 1, {}) and requires traceable g6BudgetApprovalRef', () => {
+  const overG6 = makePassingSchemeData().G6;
+  const extraCh = {
+    chapterId: 'FRESH-G6-CH13',
+    sourceChapterId: 'SRC-G6-NOVEL5-CH13',
+    genre: '悬疑',
+    positives: 3,
+    negatives: 4,
+    contentSha256: `c${'13'.padStart(63, '0')}`,
+    cases: [
+      {caseId: 'G6-CH13-B1', truthClass: 'BLOCKER'},
+      {caseId: 'G6-CH13-M1', truthClass: 'MAJOR'},
+      {caseId: 'G6-CH13-M2', truthClass: 'MAJOR'},
+      {caseId: 'G6-CH13-N1', truthClass: 'NON_BLOCKING', tier: 'CLEAR'},
+      {caseId: 'G6-CH13-N2', truthClass: 'NON_BLOCKING', tier: 'CLEAR'},
+      {caseId: 'G6-CH13-N3', truthClass: 'NON_BLOCKING', tier: 'BORDERLINE'},
+      {caseId: 'G6-CH13-N4', truthClass: 'NON_BLOCKING', tier: 'BORDERLINE'},
+    ],
+  };
+  // Push 5 extra chapters (total 17 > 16)
+  for (let i = 13; i <= 17; i++) {
+    const ch = structuredClone(extraCh);
+    ch.chapterId = `FRESH-G6-CH${i}`;
+    ch.sourceChapterId = `SRC-G6-NOVEL5-CH${i}`;
+    ch.contentSha256 = `d${String(i).padStart(63, '0')}`;
+    ch.cases.forEach(c => { c.caseId = c.caseId.replace('CH13', `CH${i}`); });
+    overG6.chapters.push(ch);
+    ch.cases.forEach(c => {
+      overG6.runs[0].predictions.push({caseId: c.caseId, predictedBlocking: c.truthClass !== 'NON_BLOCKING'});
+    });
+  }
+
+  for (const badVal of ['false', 'true', 1, {}, ['true']]) {
+    const res = evaluateG6(overG6, {g6BudgetExpansionApproved: badVal, g6BudgetApprovalRef: 'AUTHOR-REF'});
+    assert.equal(res.status, 'INVALID_DESIGN');
+    assert.equal(res.exitCode, 2);
+    assert.equal(res.error, 'R3_P0_6_G6_BUDGET_EXCEEDED_UNAPPROVED');
+  }
+
+  // Strictly true boolean WITHOUT approvalRef -> rejected!
+  const noRefRes = evaluateG6(overG6, {g6BudgetExpansionApproved: true});
+  assert.equal(noRefRes.status, 'INVALID_DESIGN');
+  assert.equal(noRefRes.exitCode, 2);
+  assert.equal(noRefRes.error, 'R3_P0_6_G6_BUDGET_APPROVAL_REF_REQUIRED');
+
+  // Strictly true boolean WITH traceable approvalRef -> PASS!
+  const okRes = evaluateG6(overG6, {g6BudgetExpansionApproved: true, g6BudgetApprovalRef: 'AUTHOR-G6-EXP-2026'});
+  assert.equal(okRes.status, 'PASS');
+  assert.equal(okRes.budgetStatus, 'EXCEEDS_FROZEN_BUDGET_APPROVED');
+  assert.equal(okRes.budgetApprovalRef, 'AUTHOR-G6-EXP-2026');
+});
+
+// ============================================================================
+// TC-P0-6-R4-2: Item 2 — K_rep Protocol Run Provenance (Unique runId, executionEvidenceRef, model/config)
+// ============================================================================
+test('TC-P0-6-R4-2: K_rep rejects missing/duplicate runId, cloned runs, missing executionEvidenceRef or model/config, while allowing identical predictions across distinct runs', () => {
+  // 1. Missing runId -> R3_P0_6_RUN_ID_REQUIRED
+  const g1NoRunId = makePassingSchemeData().G1;
+  delete g1NoRunId.track2.runs[1].runId;
+  assert.equal(evaluateG1(g1NoRunId).error, 'R3_P0_6_RUN_ID_REQUIRED');
+
+  // 2. Cloning the exact same run object 3 times to fake K=3 -> R3_P0_6_DUPLICATE_RUN_ID
+  const g2bCloned = makePassingSchemeData().G2B;
+  g2bCloned.runs = [g2bCloned.runs[0], structuredClone(g2bCloned.runs[0]), structuredClone(g2bCloned.runs[0])];
+  assert.equal(evaluateG2B(g2bCloned).error, 'R3_P0_6_DUPLICATE_RUN_ID');
+
+  // 3. Duplicate runId in G4 -> R3_P0_6_DUPLICATE_RUN_ID
+  const g4Dup = makePassingSchemeData().G4;
+  g4Dup.runs[1].runId = g4Dup.runs[0].runId;
+  assert.equal(evaluateG4(g4Dup).error, 'R3_P0_6_DUPLICATE_RUN_ID');
+
+  // 4. Missing executionEvidenceRef in G3 -> R3_P0_6_EXECUTION_EVIDENCE_REF_REQUIRED
+  const g3NoRef = makePassingSchemeData().G3;
+  delete g3NoRef.runs[2].executionEvidenceRef;
+  assert.equal(evaluateG3(g3NoRef).error, 'R3_P0_6_EXECUTION_EVIDENCE_REF_REQUIRED');
+
+  // 5. Missing modelId / configVersion in G6 -> R3_P0_6_RUN_MODEL_CONFIG_REQUIRED
+  const g6NoModel = makePassingSchemeData().G6;
+  delete g6NoModel.runs[0].modelId;
+  assert.equal(evaluateG6(g6NoModel).error, 'R3_P0_6_RUN_MODEL_CONFIG_REQUIRED');
+
+  // 6. Identical predictions across 3 distinct valid runIds MUST PASS (authentic independent runs can agree!)
+  const g2bIdenticalPreds = makePassingSchemeData({g2bRunFpCounts: [2, 2, 2]}).G2B;
+  assert.deepEqual(g2bIdenticalPreds.runs[0].predictions, g2bIdenticalPreds.runs[1].predictions);
+  const okIdentical = evaluateG2B(g2bIdenticalPreds);
+  assert.equal(okIdentical.status, 'PASS');
+  assert.equal(okIdentical.runProvenanceBoundary, 'protocol_metadata_only_does_not_prove_host_execution_independence');
+});
+
+// ============================================================================
+// TC-P0-6-R4-3: Item 3 — G2-A Exact Frozen 9ch/40pos/33neg + Manifest Hash Pinning & G2-B Author Approval Gate
+// ============================================================================
+test('TC-P0-6-R4-3: G2-A locks exact 9ch/40pos/33neg & manifest SHA-256 pinning; G2-B requires Stage 1B author positive-cohort approval', () => {
+  // 1. G2-A with 41 positives (mutated from frozen 40) -> R3_P0_6_G2A_FROZEN_SAMPLE_COUNT_MISMATCH
+  const g2a41Pos = makePassingSchemeData().G2A;
+  g2a41Pos.chapters[0].cases.push({caseId: 'G2A-CH01-EXTRA-POS', truthClass: 'MAJOR'});
+  g2a41Pos.chapters[0].positives += 1;
+  g2a41Pos.manifestSha256 = computeCaseManifestSha256(g2a41Pos.chapters);
+  g2a41Pos.runs.forEach(r => r.predictions.push({caseId: 'G2A-CH01-EXTRA-POS', predictedBlocking: true}));
+  assert.equal(evaluateG2A(g2a41Pos).error, 'R3_P0_6_G2A_FROZEN_SAMPLE_COUNT_MISMATCH');
+
+  // 2. G2-A with missing manifestVersion -> R3_P0_6_MANIFEST_VERSION_REQUIRED
+  const g2aNoVer = makePassingSchemeData().G2A;
+  delete g2aNoVer.manifestVersion;
+  assert.equal(evaluateG2A(g2aNoVer).error, 'R3_P0_6_MANIFEST_VERSION_REQUIRED');
+
+  // 3. G2-A with stale/tampered manifestSha256 -> R3_P0_6_MANIFEST_HASH_MISMATCH
+  const g2aBadHash = makePassingSchemeData().G2A;
+  g2aBadHash.manifestSha256 = 'a'.repeat(64);
+  assert.equal(evaluateG2A(g2aBadHash).error, 'R3_P0_6_MANIFEST_HASH_MISMATCH');
+
+  // 4. G2-A with mismatched expectedG2AManifestSha256 baseline pin -> R3_P0_6_MANIFEST_HASH_MISMATCH
+  const g2aValid = makePassingSchemeData().G2A;
+  assert.equal(evaluateG2A(g2aValid, {expectedG2AManifestSha256: 'b'.repeat(64)}).error, 'R3_P0_6_MANIFEST_HASH_MISMATCH');
+  assert.equal(evaluateG2A(g2aValid, {expectedG2AManifestSha256: g2aValid.manifestSha256}).status, 'PASS');
+
+  // 5. G2-B without author Stage 1B positive cohort approval (or non-boolean truthy "true"/1) -> R3_P0_6_G2B_POSITIVE_COHORT_UNAPPROVED
+  for (const badApproval of [false, undefined, 'true', 1, {}]) {
+    const g2bUnapproved = makePassingSchemeData().G2B;
+    g2bUnapproved.positiveCohortApproved = badApproval;
+    assert.equal(evaluateG2B(g2bUnapproved).error, 'R3_P0_6_G2B_POSITIVE_COHORT_UNAPPROVED');
+  }
+  const g2bNoRef = makePassingSchemeData().G2B;
+  delete g2bNoRef.positiveCohortApprovalRef;
+  assert.equal(evaluateG2B(g2bNoRef).error, 'R3_P0_6_G2B_POSITIVE_COHORT_UNAPPROVED');
+});
+
+// ============================================================================
+// TC-P0-6-R4-4: Items 4–5 — Unified G3/G4/G5 Historical Exposure Aggregation, G3 Source Dedup & G5 Required Keys
+// ============================================================================
+test('TC-P0-6-R4-4: auto-aggregates G3/G4/G5 into refAll anti-leakage, deduplicates G3 sourceChapterId, and enforces G5 s1CompatTest + engFixP1Test keys', () => {
+  // 1. G2-B reusing a G4 sourceChapterId (even without external referenceChapters!) -> LEAKAGE_REJECTED
+  const leakFromG4 = makePassingSchemeData();
+  leakFromG4.G2B.chapters[0].sourceChapterId = leakFromG4.G4.sourceChapters[0];
+  leakFromG4.G2B.manifestSha256 = computeCaseManifestSha256(leakFromG4.G2B.chapters);
+  const resLeakG4 = evaluateSchemeG1ToG6('A', leakFromG4);
+  assert.equal(resLeakG4.status, 'LEAKAGE_REJECTED');
+  assert.equal(resLeakG4.error, 'R3_P0_6_DATA_LEAKAGE_DETECTED');
+  assert.ok(resLeakG4.historicalExposureSummary.includedGates.includes('G4'));
+
+  // 2. G6 reusing a G5 deadlock chapter -> LEAKAGE_REJECTED
+  const leakFromG5 = makePassingSchemeData();
+  leakFromG5.G6.chapters[0].sourceChapterId = leakFromG5.G5.deadlockCases[0].chapterId;
+  const resLeakG5 = evaluateSchemeG1ToG6('A', leakFromG5);
+  assert.equal(resLeakG5.status, 'LEAKAGE_REJECTED');
+  assert.equal(resLeakG5.error, 'R3_P0_6_DATA_LEAKAGE_DETECTED');
+
+  // 3. G6 reusing a G3 sourceChapterId -> LEAKAGE_REJECTED
+  const leakFromG3 = makePassingSchemeData();
+  leakFromG3.G6.chapters[0].sourceChapterId = leakFromG3.G3.chapters[0].sourceChapterId;
+  const resLeakG3 = evaluateSchemeG1ToG6('A', leakFromG3);
+  assert.equal(resLeakG3.status, 'LEAKAGE_REJECTED');
+  assert.equal(resLeakG3.error, 'R3_P0_6_DATA_LEAKAGE_DETECTED');
+
+  // 4. G3 with 10 Arm x Chapter instances mapped to ONLY 3 unique sourceChapterIds (QHL-CH1..3) -> UNDERPOWERED (nCh=3 < 10)!
+  const g3ArmMapped = makePassingSchemeData().G3;
+  g3ArmMapped.chapters.forEach((ch, idx) => { ch.sourceChapterId = `STORY-SRC-${(idx % 3) + 1}`; });
+  const rG3Dedup = evaluateG3(g3ArmMapped);
+  assert.equal(rG3Dedup.status, 'UNDERPOWERED');
+  assert.equal(rG3Dedup.sampleTriplet.nCh, 3);
+  assert.equal(rG3Dedup.sampleTriplet.chapterInstances, 10);
+
+  // 5. G5 rejecting arbitrary bogus key `{fake: 'x'}` or missing either required anchor (`s1CompatTest` / `engFixP1Test`)
+  const g5Fake = makePassingSchemeData().G5;
+  g5Fake.compatEvidenceRef = {fake: 'x'};
+  assert.equal(evaluateG5(g5Fake).status, 'FAIL');
+
+  const g5OnlyS1 = makePassingSchemeData().G5;
+  g5OnlyS1.compatEvidenceRef = {s1CompatTest: 'scripts/tests/r3_s1_severity_compat.test.mjs'};
+  assert.equal(evaluateG5(g5OnlyS1).status, 'FAIL');
+
+  const g5Ok = evaluateG5(makePassingSchemeData().G5);
+  assert.equal(g5Ok.status, 'PASS');
+  assert.equal(g5Ok.compatEvidenceAnchorNote, 'reproducible_test_path_anchor_only_not_ci_execution_proof');
 });
