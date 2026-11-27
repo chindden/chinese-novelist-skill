@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
  * P0-6 Comprehensive Statistical, Anti-Leakage & Go/No-Go Engine Test Suite
- * (`TC-P0-6-1A`~`1G`, `TC-P0-6-R2-1`~`R2-4`, `TC-P0-6-R3-1`~`R3-4`, `TC-P0-6-R4-1`~`R4-4`, `TC-P0-6-R5-1`~`R5-2`):
+ * (`TC-P0-6-1A`~`1G`, `TC-P0-6-R2-1`~`R2-4`, `TC-P0-6-R3-1`~`R3-4`, `TC-P0-6-R4-1`~`R4-4`, `TC-P0-6-R5-1`~`R5-2`, `TC-P0-6-R6-1`):
  *   - TC-P0-6-1A: Exact mathematical verification (4x4 confusion matrix, quadratic weighted Kappa, unweighted Kappa, locked B=2000 cluster Bootstrap 95% CI)
  *   - TC-P0-6-1B: Cross-set anti-leakage, retired blacklist (`NH-1..5`, `V22-H1..4`, `OLD-HOLD-1..4`, `DOC-1..6`, `Arm 0..2 Ch 1..3`), merged-G2 ban, duplicate chapterId ban, per-chapter caps
  *   - TC-P0-6-1C: Mandatory `UNDERPOWERED` & `BLOCKED_UNDERPOWERED` enforcement (proving G2-A PASS != G2-B PASS and exact current sample gaps)
@@ -22,7 +22,8 @@
  *   - TC-P0-6-R4-3: Item 3 — G2-A exact frozen `9ch / 40pos / 33neg` + `manifestVersion`/`manifestSha256` pinning & G2-B Stage 1B author positive-cohort approval gate
  *   - TC-P0-6-R4-4: Items 4–5 — Unified G3/G4/G5 historical exposure auto-aggregation, G3 `sourceChapterId` deduplication, and G5 required `s1CompatTest` + `engFixP1Test` anchor keys
  *   - TC-P0-6-R5-1: Round 4 Blocking 1 — G3 mandatory `sourceChapterId` (rejects omitted sourceChapterId, preserves 3-source UNDERPOWERED & explicit independent PASS)
- *   - TC-P0-6-R5-2: Round 4 Blocking 2 — Mandatory out-of-band external pre-frozen manifest SHA-256 for official K=3 G2-A & G2-B across API & CLI + G2-B approval binding
+ *   - TC-P0-6-R5-2: Round 4 Blocking 2 — Mandatory out-of-band external pre-frozen manifest SHA-256 for official K=3 G2-A & G2-B across API & CLI (incl. symmetric G2-A tamper check)
+ *   - TC-P0-6-R6-1: Round 5 Blocking 1 — Mandatory G2-B `positiveCohortApprovedManifestSha256` binding (rejects missing/malformed/mismatched; verified binding output; K=0 readiness unaffected)
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -309,6 +310,7 @@ function makePassingSchemeData({
     }),
   }];
 
+  const g2bManifestSha = computeCaseManifestSha256(g2bChapters);
   return {
     avgReviewLatencyMs,
     G1: {
@@ -323,9 +325,10 @@ function makePassingSchemeData({
     },
     G2B: {
       manifestVersion: 'stage-1b-synthetic-g2b-v1',
-      manifestSha256: computeCaseManifestSha256(g2bChapters),
+      manifestSha256: g2bManifestSha,
       positiveCohortApproved: true,
       positiveCohortApprovalRef: 'STAGE-1B-TEST-APPROVAL-REF',
+      positiveCohortApprovedManifestSha256: g2bManifestSha,
       chapters: g2bChapters,
       runs: g2bRuns,
     },
@@ -447,6 +450,7 @@ test('TC-P0-6-1B: hard rejects chapter/hash overlap, retired blacklist (NH-1..5 
   capG2b.G2B.chapters[0].negatives = 4;
   capG2b.G2B.chapters[0].cases.push({caseId: 'G2B-CH01-NEG4', truthClass: 'NON_BLOCKING', tier: 'BORDERLINE'});
   capG2b.G2B.manifestSha256 = computeCaseManifestSha256(capG2b.G2B.chapters);
+  capG2b.G2B.positiveCohortApprovedManifestSha256 = capG2b.G2B.manifestSha256;
   capG2b.G2B.runs.forEach(r => r.predictions.push({caseId: 'G2B-CH01-NEG4', predictedBlocking: false}));
   assert.equal(
     evaluateG2B(capG2b.G2B, {expectedG2BManifestSha256: capG2b.G2B.manifestSha256}).error,
@@ -494,6 +498,7 @@ test('TC-P0-6-1C: insufficient G2-B / G3 / G4 / G5 / G6 samples force UNDERPOWER
   const g2b19 = makePassingSchemeData().G2B;
   const removedCh = g2b19.chapters.pop();
   g2b19.manifestSha256 = computeCaseManifestSha256(g2b19.chapters);
+  g2b19.positiveCohortApprovedManifestSha256 = g2b19.manifestSha256;
   const removedIds = new Set(removedCh.cases.map(c => c.caseId));
   g2b19.runs.forEach(r => { r.predictions = r.predictions.filter(p => !removedIds.has(p.caseId)); });
   assert.equal(evaluateG2B(g2b19, {expectedG2BManifestSha256: g2b19.manifestSha256}).status, 'UNDERPOWERED');
@@ -502,6 +507,7 @@ test('TC-P0-6-1C: insufficient G2-B / G3 / G4 / G5 / G6 samples force UNDERPOWER
   const g2b2Genres = makePassingSchemeData().G2B;
   g2b2Genres.chapters.forEach((c, i) => { c.genre = i % 2 === 0 ? '悬疑' : '历史'; });
   g2b2Genres.manifestSha256 = computeCaseManifestSha256(g2b2Genres.chapters);
+  g2b2Genres.positiveCohortApprovedManifestSha256 = g2b2Genres.manifestSha256;
   assert.equal(evaluateG2B(g2b2Genres, {expectedG2BManifestSha256: g2b2Genres.manifestSha256}).status, 'UNDERPOWERED');
 
   // G3 with 9 independent source chapters / 9 paragraphs -> UNDERPOWERED
@@ -995,6 +1001,7 @@ test('TC-P0-6-R3-4: enforces controlled 15-genre taxonomy, whitespace normalizat
   const g2bWsTrick = makePassingSchemeData().G2B;
   g2bWsTrick.chapters.forEach((c, i) => { c.genre = i % 3 === 0 ? '科幻' : (i % 3 === 1 ? '科幻 ' : '历史'); });
   g2bWsTrick.manifestSha256 = computeCaseManifestSha256(g2bWsTrick.chapters);
+  g2bWsTrick.positiveCohortApprovedManifestSha256 = g2bWsTrick.manifestSha256;
   const rWs = evaluateG2B(g2bWsTrick, {expectedG2BManifestSha256: g2bWsTrick.manifestSha256});
   assert.equal(rWs.status, 'UNDERPOWERED');
   assert.deepEqual(rWs.sampleTriplet.genres, ['历史', '科幻']);
@@ -1308,27 +1315,31 @@ test('TC-P0-6-R5-2: official K=3 G2-A & G2-B require out-of-band external pre-fr
     'R3_P0_6_EXPECTED_MANIFEST_HASH_REQUIRED'
   );
 
-  // 3. Tampering cases[] AND recomputing internal manifestSha256 in-band STILL fails against pre-frozen external anchor!
+  // 3. Tampering cases[] AND recomputing internal manifestSha256 in-band STILL fails against pre-frozen external anchor
+  //    for BOTH G2-A (symmetric check) and G2-B!
   const preFrozenG2A = baseA.G2A.manifestSha256;
   const preFrozenG2B = baseA.G2B.manifestSha256;
+
+  const tamperedG2A = makePassingSchemeData().G2A;
+  tamperedG2A.chapters[0].cases[0].caseId = 'G2A-CH01-POS1-TAMPERED';
+  tamperedG2A.manifestSha256 = computeCaseManifestSha256(tamperedG2A.chapters); // recomputed in-band!
+  tamperedG2A.runs.forEach(r => { r.predictions[0].caseId = 'G2A-CH01-POS1-TAMPERED'; });
+  assert.equal(
+    evaluateG2A(tamperedG2A, {expectedG2AManifestSha256: preFrozenG2A}).error,
+    'R3_P0_6_MANIFEST_HASH_MISMATCH'
+  );
 
   const tamperedG2B = makePassingSchemeData().G2B;
   tamperedG2B.chapters[0].cases[0].caseId = 'G2B-CH01-POS1-TAMPERED';
   tamperedG2B.manifestSha256 = computeCaseManifestSha256(tamperedG2B.chapters); // recomputed in-band!
+  tamperedG2B.positiveCohortApprovedManifestSha256 = tamperedG2B.manifestSha256;
   tamperedG2B.runs.forEach(r => { r.predictions[0].caseId = 'G2B-CH01-POS1-TAMPERED'; });
   assert.equal(
     evaluateG2B(tamperedG2B, {expectedG2BManifestSha256: preFrozenG2B}).error,
     'R3_P0_6_MANIFEST_HASH_MISMATCH'
   );
 
-  // 4. G2-B positiveCohortApprovedManifestSha256 mismatch -> rejected; matching external hash binds approval to frozen manifest!
-  const mismatchBindG2B = makePassingSchemeData().G2B;
-  mismatchBindG2B.positiveCohortApprovedManifestSha256 = 'e'.repeat(64);
-  assert.equal(
-    evaluateG2B(mismatchBindG2B, {expectedG2BManifestSha256: preFrozenG2B}).error,
-    'R3_P0_6_MANIFEST_HASH_MISMATCH'
-  );
-
+  // 4. Valid pre-frozen external anchors + verified approval hash -> GO_CANDIDATE_SELECTED with verified binding
   const okAdj = adjudicateSchemes(
     {A: baseA, B: baseB, C: baseC},
     {expectedG2AManifestSha256: preFrozenG2A, expectedG2BManifestSha256: preFrozenG2B}
@@ -1337,7 +1348,8 @@ test('TC-P0-6-R5-2: official K=3 G2-A & G2-B require out-of-band external pre-fr
   assert.deepEqual(okAdj.schemes.A.gates.G2B.positiveCohortApprovalBinding, {
     approvalRef: 'STAGE-1B-TEST-APPROVAL-REF',
     manifestVersion: 'stage-1b-synthetic-g2b-v1',
-    manifestSha256: preFrozenG2B,
+    approvedManifestSha256: preFrozenG2B,
+    verificationScope: 'stage_1a_declared_hash_matched_external_anchor_not_stage_1b_archive_custody',
   });
 
   // 5. CLI rejects official K=3 payload if external hash flags are omitted, EVEN IF embedded inside the JSON payload!
@@ -1374,4 +1386,50 @@ test('TC-P0-6-R5-2: official K=3 G2-A & G2-B require out-of-band external pre-fr
   );
   assert.equal(cliWithFlags.status, 0, cliWithFlags.stderr);
   assert.equal(JSON.parse(cliWithFlags.stdout).verdict, 'GO_CANDIDATE_SELECTED');
+});
+
+// ============================================================================
+// TC-P0-6-R6-1: Round 5 Blocking 1 — Mandatory G2-B positiveCohortApprovedManifestSha256 Binding
+// ============================================================================
+test('TC-P0-6-R6-1: G2-B official K=3 requires valid 64-hex positiveCohortApprovedManifestSha256 matching frozen manifest & external anchor (K=0 readiness unaffected)', () => {
+  const preFrozenG2B = makePassingSchemeData().G2B.manifestSha256;
+
+  // 1. Missing positiveCohortApprovedManifestSha256 -> R3_P0_6_G2B_APPROVAL_MANIFEST_HASH_REQUIRED
+  const g2bMissingApprovalHash = makePassingSchemeData().G2B;
+  delete g2bMissingApprovalHash.positiveCohortApprovedManifestSha256;
+  const rMissing = evaluateG2B(g2bMissingApprovalHash, {expectedG2BManifestSha256: preFrozenG2B});
+  assert.equal(rMissing.status, 'INVALID_DESIGN');
+  assert.equal(rMissing.exitCode, 2);
+  assert.equal(rMissing.error, 'R3_P0_6_G2B_APPROVAL_MANIFEST_HASH_REQUIRED');
+  assert.equal(rMissing.positiveCohortApprovalBinding, undefined);
+
+  // 2. Empty or non-64-hex positiveCohortApprovedManifestSha256 -> R3_P0_6_G2B_APPROVAL_MANIFEST_HASH_REQUIRED
+  for (const badHash of ['', '   ', 'not-a-hex64', 'g'.repeat(64)]) {
+    const g2bMalformed = makePassingSchemeData().G2B;
+    g2bMalformed.positiveCohortApprovedManifestSha256 = badHash;
+    const rBad = evaluateG2B(g2bMalformed, {expectedG2BManifestSha256: preFrozenG2B});
+    assert.equal(rBad.status, 'INVALID_DESIGN');
+    assert.equal(rBad.exitCode, 2);
+    assert.equal(rBad.error, 'R3_P0_6_G2B_APPROVAL_MANIFEST_HASH_REQUIRED');
+  }
+
+  // 3. Valid 64-hex format but mismatched against frozen manifest / external anchor -> R3_P0_6_MANIFEST_HASH_MISMATCH
+  const g2bMismatch = makePassingSchemeData().G2B;
+  g2bMismatch.positiveCohortApprovedManifestSha256 = 'e'.repeat(64);
+  const rMismatch = evaluateG2B(g2bMismatch, {expectedG2BManifestSha256: preFrozenG2B});
+  assert.equal(rMismatch.status, 'INVALID_DESIGN');
+  assert.equal(rMismatch.exitCode, 2);
+  assert.equal(rMismatch.error, 'R3_P0_6_MANIFEST_HASH_MISMATCH');
+
+  // 4. Matching positiveCohortApprovedManifestSha256 -> PASS and emits verified binding object
+  const g2bOk = makePassingSchemeData().G2B;
+  const rOk = evaluateG2B(g2bOk, {expectedG2BManifestSha256: preFrozenG2B});
+  assert.equal(rOk.status, 'PASS');
+  assert.equal(rOk.positiveCohortApprovalBinding.approvedManifestSha256, preFrozenG2B);
+  assert.equal(rOk.positiveCohortApprovalBinding.approvalRef, g2bOk.positiveCohortApprovalRef);
+
+  // 5. K=0 readiness audit without any approval hash remains UNDERPOWERED (never requires forged hash)
+  const rReadiness = evaluateG2B({chapters: [], runs: []});
+  assert.equal(rReadiness.status, 'UNDERPOWERED');
+  assert.equal(rReadiness.positiveCohortApprovalBinding, undefined);
 });

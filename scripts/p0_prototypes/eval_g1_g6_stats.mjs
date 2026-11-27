@@ -1238,6 +1238,7 @@ function evaluateG2Core(
   let derivedRuns = [];
   let manifestIndex = null;
   let computedManifestSha256 = null;
+  let verifiedG2bApprovedManifestSha = null;
   if (kRep > 0) {
     // Round 4 Item 2: Protocol-level unique runId + executionEvidenceRef + model/config metadata
     const provCheck = validateRunProvenanceMetadata(runsRaw, gateName);
@@ -1324,8 +1325,9 @@ function evaluateG2Core(
         };
       }
     } else if (gateName === 'G2-B') {
-      // Round 4 Item 3 (G2-B): Positive cohort sizing is an author Stage 1B decision (not invented by Stage 1A engine).
-      // Until author explicitly approves the G2-B positive cohort & manifest, G2-B cannot enter official PASS!
+      // Round 4 Item 3 + Round 6 Blocking 1 (G2-B): Positive cohort sizing is an author Stage 1B decision.
+      // Official K>0 G2-B runs MUST supply positiveCohortApproved===true, non-empty positiveCohortApprovalRef,
+      // AND a mandatory 64-hex positiveCohortApprovedManifestSha256 matching the frozen manifest & external anchor.
       if (manifestIndex.totalPositives <= 0) {
         return {
           gate: gateName,
@@ -1348,21 +1350,34 @@ function evaluateG2Core(
           pass: false,
         };
       }
-      if (
-        g2Data?.positiveCohortApprovedManifestSha256 !== undefined &&
-        (!isNonEmptyString(g2Data.positiveCohortApprovedManifestSha256) ||
-          g2Data.positiveCohortApprovedManifestSha256.trim().toLowerCase() !== computedManifestSha256)
-      ) {
+      const approvedManifestSha = isNonEmptyString(g2Data?.positiveCohortApprovedManifestSha256)
+        ? g2Data.positiveCohortApprovedManifestSha256.trim().toLowerCase()
+        : null;
+      if (!approvedManifestSha || !HEX64_RE.test(approvedManifestSha)) {
+        return {
+          gate: gateName,
+          track,
+          status: 'INVALID_DESIGN',
+          exitCode: 2,
+          error: 'R3_P0_6_G2B_APPROVAL_MANIFEST_HASH_REQUIRED',
+          message: 'G2-B 正式评估（K>0）必须提供合法的 64 位作者审批绑定清册哈希（positiveCohortApprovedManifestSha256），不得缺省。',
+          pass: false,
+        };
+      }
+      if (approvedManifestSha !== computedManifestSha256) {
         return {
           gate: gateName,
           track,
           status: 'INVALID_DESIGN',
           exitCode: 2,
           error: 'R3_P0_6_MANIFEST_HASH_MISMATCH',
-          message: 'G2-B 作者审批绑定的清册哈希（positiveCohortApprovedManifestSha256）与实际冻结清册 SHA-256 不一致。',
+          positiveCohortApprovedManifestSha256: approvedManifestSha,
+          computedManifestSha256,
+          message: 'G2-B 作者审批绑定的清册哈希（positiveCohortApprovedManifestSha256）与实际冻结清册及外部锚点 SHA-256 不一致。',
           pass: false,
         };
       }
+      verifiedG2bApprovedManifestSha = approvedManifestSha;
     }
 
     const derived = deriveRunsFromCasePredictions(runsRaw, manifestIndex, 'g2', gateName);
@@ -1479,13 +1494,14 @@ function evaluateG2Core(
     manifestVersion: g2Data.manifestVersion,
     manifestSha256: computedManifestSha256,
     expectedManifestSha256: expectedManifestSha256.trim().toLowerCase(),
-    ...(gateName === 'G2-B'
+    ...(gateName === 'G2-B' && verifiedG2bApprovedManifestSha
       ? {
           positiveCohortApprovalRef: g2Data.positiveCohortApprovalRef,
           positiveCohortApprovalBinding: {
             approvalRef: g2Data.positiveCohortApprovalRef,
             manifestVersion: g2Data.manifestVersion,
-            manifestSha256: computedManifestSha256,
+            approvedManifestSha256: verifiedG2bApprovedManifestSha,
+            verificationScope: 'stage_1a_declared_hash_matched_external_anchor_not_stage_1b_archive_custody',
           },
         }
       : {}),
