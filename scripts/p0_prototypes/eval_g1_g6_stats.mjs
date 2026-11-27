@@ -4,22 +4,24 @@
  *
  * Implements frozen acceptance protocol `08-工程效率与文学质量双重验收方案.md` (v1.2.3) §2.1 & §3
  * and `P0-Implementation-PRD.md` task `P0-6`:
- *   - Strict separation of `G2-A Regression/Calibration` vs `G2-B Independent Holdout` (ZERO mixing!)
- *   - Hard anti-leakage assertions: zero chapter/source/hash overlap against historical sets AND
- *     internal Holdout provenance & uniqueness (`sourceChapterId` + 64-hex `contentSha256` required & unique)
- *   - Retired blacklist (`NH-1..5`, `V22-H1..4`, `OLD-HOLD-1..4`, `DOC-1..6`, `Arm 0..2 Ch 1..3`, etc.)
- *   - Manifest-to-run strong consistency: every run MUST cover 100% of declared chapters with non-negative
- *     integer counts matching declared positives/negatives/paragraphs and reconciled Bootstrap `nClusters`
- *   - Fair A/B/C side-by-side gate: `adjudicateSchemes()` requires complete `{A, B, C}` AND exact
- *     canonical dataset equivalence across all 3 schemes before allowing `GO_CANDIDATE_SELECTED`
- *   - Deterministic chapter-cluster nonparametric Bootstrap 95% CI (locked B = 2,000)
- *   - Exact ordered 4-class confusion matrix (`BLOCKER`, `MAJOR`, `MINOR`, `SUGGESTION`), quadratic weighted
- *     Kappa (primary, >= 0.85, degenerate marginals strictly undefined / non-passing) + unweighted Kappa +
- *     per-case `caseId`/`sourceChapterId` traceability & 4-class coverage
- *   - Mandatory `UNDERPOWERED` / `BLOCKED_UNDERPOWERED` enforcement whenever fresh independent samples are
- *     below frozen thresholds (NEVER weakens thresholds or fabricates a PASS!)
- *   - Scheme B hard elimination rule (> 1.0 pp recall lag vs A/C in G1 or G6, or ANY 1 BLOCKER miss)
- *   - Multi-winner priority tie-break: (1) G6 BLOCKER=0 & highest recall -> (2) G2-B lowest FPR & lowest variance -> (3) lowest latency
+ *   - Case-level deterministic derivation for G1, G2-A, G2-B, G3, and G6:
+ *     Every executed run MUST evaluate exact declared case manifests (`caseId`, `truthClass`, `tier`),
+ *     and the engine itself derives `tp`, `fp`, `fn`, `tn`, `clearTierFp`, and `blockerMisses` from
+ *     case-level truth x predictions (ZERO self-reported aggregate TP or BLOCKER misses!).
+ *   - Strict separation of `G2-A Regression/Calibration` vs `G2-B Independent Holdout` (ZERO mixing;
+ *     Precision requires bounded positive cases and never silently drops null-precision runs).
+ *   - Cross-set zero-leakage & retired blacklist (`NH-1..5`, `V22-H1..4`, `OLD-HOLD-1..4`, `DOC-1..6`,
+ *     `Arm 0..2 Ch 1..3`, etc.) PLUS Holdout internal provenance & uniqueness (`sourceChapterId` +
+ *     64-hex `contentSha256` required and unique within G2-B / G6).
+ *   - Exact frozen `K_rep` equality (rejects over-budget extra runs) and exact G4 `N_case === 24`
+ *     with per-case `caseId`/`sourceChapterId` traceability, 4-class truth coverage, and strictly
+ *     undefined degenerate Kappa (never 1.0).
+ *   - Canonical 15-genre controlled taxonomy (aligned with `references/webnovel/upstream/references/csv/genre-canonical.md`),
+ *     rejecting unclassified chapters, requiring every included G6 genre to have >= 2 chapters, and
+ *     enforcing Fail-Closed budget ceiling (>6 genres or >16 chapters requires explicit `g6BudgetExpansionApproved`).
+ *   - Complete `{A, B, C}` + case-level canonical dataset equivalence before issuing `GO_CANDIDATE_SELECTED`.
+ *   - Locked B = 2,000 chapter-cluster nonparametric Bootstrap 95% CI, Scheme B hard elimination (>1.0 pp
+ *     recall lag or ANY 1 BLOCKER miss), and frozen multi-winner tie-break priority.
  */
 import fs from 'node:fs';
 import path from 'node:path';
@@ -33,15 +35,41 @@ export const DEFAULT_BOOTSTRAP_SEED = 20261126;
 export const ORDERED_SEVERITIES = Object.freeze(['BLOCKER', 'MAJOR', 'MINOR', 'SUGGESTION']);
 export const REQUIRED_ADJUDICATION_SCHEMES = Object.freeze(['A', 'B', 'C']);
 
+/**
+ * Controlled 15-genre canonical taxonomy aligned verbatim with
+ * `references/webnovel/upstream/references/csv/genre-canonical.md`.
+ */
+export const CANONICAL_GENRES = Object.freeze([
+  '都市',
+  '玄幻',
+  '仙侠',
+  '奇幻',
+  '科幻',
+  '历史',
+  '悬疑',
+  '游戏',
+  '古言',
+  '现言',
+  '幻言',
+  '年代',
+  '种田',
+  '快穿',
+  '衍生',
+]);
+
+const CANONICAL_GENRE_SET = new Set(CANONICAL_GENRES);
 const HEX64_RE = /^[a-f0-9]{64}$/i;
+const POSITIVE_TRUTH_CLASSES = Object.freeze(['BLOCKER', 'MAJOR']);
+const ALLOWED_G2_G6_TRUTH_CLASSES = Object.freeze(['BLOCKER', 'MAJOR', 'NON_BLOCKING']);
+const ALLOWED_NON_BLOCKING_TIERS = Object.freeze(['CLEAR', 'BORDERLINE']);
 
 export const FROZEN_THRESHOLDS = Object.freeze({
   G1: Object.freeze({
     minTrack2Chapters: 9,
     minTrack2Positives: 40,
-    minTrack2Repeats: 3,
+    requiredTrack2Repeats: 3,
     minRegressionChapters: 7,
-    minRegressionRepeats: 1,
+    requiredRegressionRepeats: 1,
     minTrack2Recall: 0.95,
     minRegressionDetectionRate: 1.0,
     maxBlockerMisses: 0,
@@ -49,7 +77,7 @@ export const FROZEN_THRESHOLDS = Object.freeze({
   G2A: Object.freeze({
     minChapters: 9,
     minNegatives: 33,
-    minRepeats: 3,
+    requiredRepeats: 3,
     maxClearTierFpPerRun: 0,
     maxMeanFpr: 0.13,
     maxSingleRunFpr: 0.15,
@@ -60,7 +88,7 @@ export const FROZEN_THRESHOLDS = Object.freeze({
     minNegatives: 60,
     maxCasesPerChapter: 3,
     minGenres: 3,
-    minRepeats: 3,
+    requiredRepeats: 3,
     maxClearTierFpPerRun: 0,
     maxMeanFpr: 0.13,
     maxSingleRunFpr: 0.15,
@@ -70,27 +98,28 @@ export const FROZEN_THRESHOLDS = Object.freeze({
     minChapters: 10,
     minCases: 15,
     maxCasesPerChapter: 2,
-    minRepeats: 3,
+    requiredRepeats: 3,
     minNonBlockingRate: 1.0,
     minNoIssueRate: 0.90,
   }),
   G4: Object.freeze({
     minSourceChapters: 8,
-    minCases: 24,
-    minRepeats: 2,
+    requiredCases: 24,
+    requiredRepeats: 2,
     minQuadraticKappa: 0.85,
     maxSuggestionLoopLeaks: 0,
   }),
   G5: Object.freeze({
     minDeadlockChapters: 3,
     minLegalTropeCases: 1,
-    minRepeats: 1,
+    requiredRepeats: 1,
     minDeadlockBlockRate: 1.0,
     maxLegalTropeBlockRate: 0.0,
   }),
   G6: Object.freeze({
     minGenres: 4,
     maxBudgetGenres: 6,
+    minChaptersPerGenre: 2,
     minChapters: 12,
     maxBudgetChapters: 16,
     minPositives: 30,
@@ -141,6 +170,16 @@ const round6 = x => (typeof x === 'number' && Number.isFinite(x) ? Number(x.toFi
 export function normalizeId(raw) {
   if (typeof raw !== 'string') return '';
   return raw.trim().replace(/\s+/g, '-').toUpperCase();
+}
+
+/**
+ * Normalize and validate a genre tag against the repository's 15-genre controlled taxonomy.
+ */
+export function normalizeCanonicalGenre(raw) {
+  if (typeof raw !== 'string') return null;
+  const cleaned = raw.trim().replace(/\s+/g, '');
+  if (!cleaned || !CANONICAL_GENRE_SET.has(cleaned)) return null;
+  return cleaned;
 }
 
 /**
@@ -196,8 +235,6 @@ export function matchRetiredBlacklist({chapterId = '', sourceChapterId = '', sou
 
 /**
  * Hard anti-leakage assertion between historical/calibration chapters and an independent holdout set (G2-B or G6).
- * Fails closed with violation list if ANY chapter overlaps (by chapterId, sourceChapterId, or contentSha256)
- * or hits the retired blacklist (`NH-1..5`, `V22-H1..4`, `OLD-HOLD-1..4`, `DOC-1..6`, `Arm 0..2 Ch 1..3`, etc.).
  */
 export function assertZeroLeakage(referenceChapters, holdoutChapters, {holdoutName = 'G2-B'} = {}) {
   const refIds = new Set();
@@ -268,7 +305,7 @@ export function assertZeroLeakage(referenceChapters, holdoutChapters, {holdoutNa
 }
 
 /**
- * Blocking 3: Independent Holdout internal provenance & uniqueness verification.
+ * Independent Holdout internal provenance & uniqueness verification.
  * Every non-empty G2-B / G6 holdout chapter MUST carry a valid non-empty `sourceChapterId` AND valid
  * 64-hex `contentSha256`, and NEITHER may repeat under renamed `chapterId`s inside the holdout.
  */
@@ -332,10 +369,6 @@ export function assertHoldoutInternalProvenanceAndUniqueness(chapters, {holdoutN
 
 /**
  * Chapter-level cluster nonparametric Bootstrap 95% CI (locked B = 2,000).
- *
- * Each entry in `clusters` represents ONE independent chapter:
- *   { chapterId: string, numerator: number, denominator: number }
- * Resamples whole chapters with replacement B times and takes the [2.5%, 97.5%] percentiles.
  */
 export function chapterClusterBootstrapCI(
   clusters,
@@ -410,10 +443,6 @@ export function chapterClusterBootstrapCI(
 /**
  * Compute exact 4x4 confusion matrix, Quadratic Weighted Kappa (primary), and Unweighted Cohen's Kappa (auxiliary)
  * for ordered S1 severity labels: ['BLOCKER', 'MAJOR', 'MINOR', 'SUGGESTION'].
- *
- * Blocking 4: When marginals are degenerate (`weightedExp === 0` or `1 - peUnweighted === 0`),
- * Kappa is mathematically undefined and MUST return `null` with `kappaStatus: 'UNDEFINED_DEGENERATE_MARGINALS'`
- * (NEVER fabricated as `1.0`).
  */
 export function computeOrderedKappa(pairs, {labels = ORDERED_SEVERITIES} = {}) {
   const k = labels.length;
@@ -494,90 +523,33 @@ export function computeOrderedKappa(pairs, {labels = ORDERED_SEVERITIES} = {}) {
   };
 }
 
-function summarizeSeries(values) {
-  const valid = values.filter(v => typeof v === 'number' && Number.isFinite(v));
-  if (valid.length === 0) {
-    return {count: 0, mean: null, min: null, max: null, range: null, variance: null};
+/**
+ * Strict series summary: if ANY element in `values` is null/non-finite, marks `hasUndefined: true` and returns null mean
+ * instead of silently dropping undefined runs!
+ */
+function summarizeSeriesStrict(values) {
+  if (!Array.isArray(values) || values.length === 0) {
+    return {count: 0, hasUndefined: false, mean: null, min: null, max: null, range: null, variance: null};
   }
-  const mean = valid.reduce((a, b) => a + b, 0) / valid.length;
-  const min = Math.min(...valid);
-  const max = Math.max(...valid);
+  const hasUndefined = values.some(v => typeof v !== 'number' || !Number.isFinite(v));
+  if (hasUndefined) {
+    return {count: values.length, hasUndefined: true, mean: null, min: null, max: null, range: null, variance: null};
+  }
+  const mean = values.reduce((a, b) => a + b, 0) / values.length;
+  const min = Math.min(...values);
+  const max = Math.max(...values);
   const variance =
-    valid.length > 1
-      ? valid.reduce((acc, v) => acc + (v - mean) * (v - mean), 0) / (valid.length - 1)
+    values.length > 1
+      ? values.reduce((acc, v) => acc + (v - mean) * (v - mean), 0) / (values.length - 1)
       : 0;
   return {
-    count: valid.length,
+    count: values.length,
+    hasUndefined: false,
     mean: round6(mean),
     min: round6(min),
     max: round6(max),
     range: round6(max - min),
     variance: round6(variance),
-  };
-}
-
-function aggregateRunsByChapter(runs, extractFields) {
-  const byChapter = new Map();
-  for (const run of runs || []) {
-    for (const ch of run.chapters || []) {
-      const key = normalizeId(ch.chapterId);
-      if (!key) continue;
-      if (!byChapter.has(key)) {
-        byChapter.set(key, {chapterId: ch.chapterId, numerator: 0, denominator: 0});
-      }
-      const acc = byChapter.get(key);
-      const {numerator, denominator} = extractFields(ch);
-      acc.numerator += numerator;
-      acc.denominator += denominator;
-    }
-  }
-  return [...byChapter.values()];
-}
-
-function summarizeConfusionAcrossRuns(runs) {
-  let tp = 0;
-  let fp = 0;
-  let fn = 0;
-  let tn = 0;
-  let clearTierFp = 0;
-  const perRun = [];
-  for (let idx = 0; idx < (runs || []).length; idx++) {
-    const run = runs[idx];
-    let rTp = 0;
-    let rFp = 0;
-    let rFn = 0;
-    let rTn = 0;
-    let rClearFp = 0;
-    for (const ch of run.chapters || []) {
-      rTp += ch.tp || 0;
-      rFp += ch.fp || 0;
-      rFn += ch.fn || 0;
-      rTn += ch.tn || 0;
-      rClearFp += ch.clearTierFp || 0;
-    }
-    tp += rTp;
-    fp += rFp;
-    fn += rFn;
-    tn += rTn;
-    clearTierFp += rClearFp;
-    const fpr = rFp + rTn > 0 ? rFp / (rFp + rTn) : null;
-    const recall = rTp + rFn > 0 ? rTp / (rTp + rFn) : null;
-    const precision = rTp + rFp > 0 ? rTp / (rTp + rFp) : null;
-    perRun.push({
-      runIndex: idx + 1,
-      tp: rTp,
-      fp: rFp,
-      fn: rFn,
-      tn: rTn,
-      clearTierFp: rClearFp,
-      fpr: round6(fpr),
-      recall: round6(recall),
-      precision: round6(precision),
-    });
-  }
-  return {
-    rawTotalsAcrossRuns: {tp, fp, fn, tn, clearTierFp},
-    perRun,
   };
 }
 
@@ -610,207 +582,441 @@ function assertUniqueChapters(chapters, gateName) {
 }
 
 /**
- * Blocking 1: Strict manifest-to-run chapter coverage AND per-chapter non-negative integer count consistency.
- * Rejects partial-chapter runs masquerading as full N_ch, negative/non-integer counts, inclusion violations
- * (`clearTierFp > fp`, `blockerMisses > fn`, `noIssue > nonBlockingTn`), and per-chapter totals diverging
- * from declared ground-truth counts (`positives`, `negatives`, `paragraphs`).
+ * Validate and index case-level manifests across chapters for G1, G2-A, G2-B, G3, and G6.
+ * Rejects missing case manifests when runs are present, duplicate caseIds, invalid truthClass/tier,
+ * and declared count vs case-array mismatches.
  */
-function assertRunsMatchDeclaredManifest(runs, declaredById, mode, gateName) {
-  for (let idx = 0; idx < (runs || []).length; idx++) {
-    const runChapters = runs[idx]?.chapters;
-    if (!Array.isArray(runChapters)) {
+function buildCaseManifestIndex(chapters, mode, gateName) {
+  const caseById = new Map(); // normCaseId -> {caseId, chapterId, normChapterId, truthClass, tier}
+  const casesByChapter = new Map(); // normChapterId -> array of case entries
+  let totalPositives = 0;
+  let totalNegatives = 0;
+  let totalBlockerTruths = 0;
+  let totalCleanParagraphs = 0;
+
+  for (const ch of chapters || []) {
+    const normCh = normalizeId(ch.chapterId);
+    if (!Array.isArray(ch.cases) || ch.cases.length === 0) {
       return {
         ok: false,
-        code: 'R3_P0_6_INVALID_OBSERVATION_COUNTS',
-        message: `${gateName} 第 ${idx + 1} 轮缺少 chapters 数组。`,
+        code: 'R3_P0_6_CASE_MANIFEST_REQUIRED',
+        message: `${gateName} 章节 ${ch.chapterId} 缺少逐案例真值清册 cases[]，无法独立核验案例等价性与 BLOCKER/TP/FP 指标。`,
       };
     }
-    const runSeen = new Set();
-    for (const ch of runChapters) {
-      const id = normalizeId(ch?.chapterId);
-      if (!id || !declaredById.has(id)) {
-        return {
-          ok: false,
-          code: 'R3_P0_6_UNDECLARED_RUN_CHAPTER',
-          runIndex: idx + 1,
-          chapterId: ch?.chapterId ?? null,
-          message: `${gateName} 第 ${idx + 1} 轮出现未在章节清册中声明的 chapterId：${String(ch?.chapterId)}`,
-        };
-      }
-      if (runSeen.has(id)) {
-        return {
-          ok: false,
-          code: 'R3_P0_6_DUPLICATE_CHAPTER_ID',
-          runIndex: idx + 1,
-          chapterId: ch.chapterId,
-          message: `${gateName} 第 ${idx + 1} 轮重复出现 chapterId：${ch.chapterId}`,
-        };
-      }
-      runSeen.add(id);
+    let chPos = 0;
+    let chNeg = 0;
+    let chClean = 0;
+    const chList = [];
 
-      const decl = declaredById.get(id);
+    for (const item of ch.cases) {
+      if (!isNonEmptyString(item?.caseId)) {
+        return {
+          ok: false,
+          code: 'R3_P0_6_CASE_MANIFEST_INVALID',
+          message: `${gateName} 章节 ${ch.chapterId} 存在缺少 caseId 的案例。`,
+        };
+      }
+      const normCase = normalizeId(item.caseId);
+      if (caseById.has(normCase)) {
+        return {
+          ok: false,
+          code: 'R3_P0_6_DUPLICATE_CASE_ID',
+          caseId: item.caseId,
+          message: `${gateName} 存在重复案例主键 caseId：${item.caseId}。`,
+        };
+      }
+
       if (mode === 'g1') {
-        const tp = ch.tp ?? 0;
-        const fn = ch.fn ?? 0;
-        const blk = ch.blockerMisses ?? 0;
-        if (!isNonNegInt(tp) || !isNonNegInt(fn) || !isNonNegInt(blk) || blk > fn) {
+        if (!POSITIVE_TRUTH_CLASSES.includes(item.truthClass)) {
           return {
             ok: false,
-            code: 'R3_P0_6_INVALID_OBSERVATION_COUNTS',
-            message: `${gateName} 第 ${idx + 1} 轮章节 ${ch.chapterId} 存在非法计数（须非负整数且 blockerMisses <= fn）。`,
+            code: 'R3_P0_6_CASE_MANIFEST_INVALID',
+            message: `${gateName} 案例 ${item.caseId} 的 truthClass 非法（须为 BLOCKER 或 MAJOR）：${String(item.truthClass)}。`,
           };
         }
-        if (!isNonNegInt(decl.positives) || tp + fn !== decl.positives) {
+        chPos++;
+        if (item.truthClass === 'BLOCKER') totalBlockerTruths++;
+      } else if (mode === 'g2' || mode === 'g6') {
+        if (!ALLOWED_G2_G6_TRUTH_CLASSES.includes(item.truthClass)) {
           return {
             ok: false,
-            code: 'R3_P0_6_OBSERVATION_MANIFEST_MISMATCH',
-            message: `${gateName} 第 ${idx + 1} 轮章节 ${ch.chapterId} 观测正例 tp+fn=${tp + fn} 与清册 positives=${decl.positives} 不一致。`,
+            code: 'R3_P0_6_CASE_MANIFEST_INVALID',
+            message: `${gateName} 案例 ${item.caseId} 的 truthClass 非法（须为 BLOCKER / MAJOR / NON_BLOCKING）：${String(item.truthClass)}。`,
           };
         }
-      } else if (mode === 'g2') {
-        const tp = ch.tp ?? 0;
-        const fn = ch.fn ?? 0;
-        const fp = ch.fp ?? 0;
-        const tn = ch.tn ?? 0;
-        const clearFp = ch.clearTierFp ?? 0;
-        if (
-          !isNonNegInt(tp) ||
-          !isNonNegInt(fn) ||
-          !isNonNegInt(fp) ||
-          !isNonNegInt(tn) ||
-          !isNonNegInt(clearFp) ||
-          clearFp > fp
-        ) {
-          return {
-            ok: false,
-            code: 'R3_P0_6_INVALID_OBSERVATION_COUNTS',
-            message: `${gateName} 第 ${idx + 1} 轮章节 ${ch.chapterId} 存在非法计数（须非负整数且 clearTierFp <= fp）。`,
-          };
-        }
-        if (!isNonNegInt(decl.negatives) || fp + tn !== decl.negatives) {
-          return {
-            ok: false,
-            code: 'R3_P0_6_OBSERVATION_MANIFEST_MISMATCH',
-            message: `${gateName} 第 ${idx + 1} 轮章节 ${ch.chapterId} 观测负例 fp+tn=${fp + tn} 与清册 negatives=${decl.negatives} 不一致。`,
-          };
-        }
-        if (decl.positives !== undefined && (!isNonNegInt(decl.positives) || tp + fn !== decl.positives)) {
-          return {
-            ok: false,
-            code: 'R3_P0_6_OBSERVATION_MANIFEST_MISMATCH',
-            message: `${gateName} 第 ${idx + 1} 轮章节 ${ch.chapterId} 观测正例 tp+fn=${tp + fn} 与清册 positives=${decl.positives} 不一致。`,
-          };
+        if (item.truthClass === 'NON_BLOCKING') {
+          if (!ALLOWED_NON_BLOCKING_TIERS.includes(item.tier)) {
+            return {
+              ok: false,
+              code: 'R3_P0_6_CASE_MANIFEST_INVALID',
+              message: `${gateName} 非阻断案例 ${item.caseId} 必须标注 tier（CLEAR 或 BORDERLINE）。`,
+            };
+          }
+          chNeg++;
+        } else {
+          chPos++;
+          if (item.truthClass === 'BLOCKER') totalBlockerTruths++;
         }
       } else if (mode === 'g3') {
-        const blkFp = ch.blockingFp ?? 0;
-        const nonBlkTn = ch.nonBlockingTn ?? 0;
-        const noIssue = ch.noIssue ?? 0;
-        if (
-          !isNonNegInt(blkFp) ||
-          !isNonNegInt(nonBlkTn) ||
-          !isNonNegInt(noIssue) ||
-          noIssue > nonBlkTn
-        ) {
+        if (item.truthClass !== 'CLEAN_PARAGRAPH') {
           return {
             ok: false,
-            code: 'R3_P0_6_INVALID_OBSERVATION_COUNTS',
-            message: `${gateName} 第 ${idx + 1} 轮章节 ${ch.chapterId} 存在非法计数（须非负整数且 noIssue <= nonBlockingTn）。`,
+            code: 'R3_P0_6_CASE_MANIFEST_INVALID',
+            message: `${gateName} 清白段落案例 ${item.caseId} 的 truthClass 须为 CLEAN_PARAGRAPH。`,
           };
         }
-        if (!isNonNegInt(decl.paragraphs) || blkFp + nonBlkTn !== decl.paragraphs) {
-          return {
-            ok: false,
-            code: 'R3_P0_6_OBSERVATION_MANIFEST_MISMATCH',
-            message: `${gateName} 第 ${idx + 1} 轮章节 ${ch.chapterId} 观测段落数=${blkFp + nonBlkTn} 与清册 paragraphs=${decl.paragraphs} 不一致。`,
-          };
-        }
-      } else if (mode === 'g6') {
-        const tp = ch.tp ?? 0;
-        const fn = ch.fn ?? 0;
-        const fp = ch.fp ?? 0;
-        const tn = ch.tn ?? 0;
-        const clearFp = ch.clearTierFp ?? 0;
-        const blk = ch.blockerMisses ?? 0;
-        if (
-          !isNonNegInt(tp) ||
-          !isNonNegInt(fn) ||
-          !isNonNegInt(fp) ||
-          !isNonNegInt(tn) ||
-          !isNonNegInt(clearFp) ||
-          !isNonNegInt(blk) ||
-          clearFp > fp ||
-          blk > fn
-        ) {
-          return {
-            ok: false,
-            code: 'R3_P0_6_INVALID_OBSERVATION_COUNTS',
-            message: `${gateName} 第 ${idx + 1} 轮章节 ${ch.chapterId} 存在非法计数（须非负整数且 clearTierFp <= fp, blockerMisses <= fn）。`,
-          };
-        }
-        if (!isNonNegInt(decl.positives) || tp + fn !== decl.positives) {
-          return {
-            ok: false,
-            code: 'R3_P0_6_OBSERVATION_MANIFEST_MISMATCH',
-            message: `${gateName} 第 ${idx + 1} 轮章节 ${ch.chapterId} 观测正例 tp+fn=${tp + fn} 与清册 positives=${decl.positives} 不一致。`,
-          };
-        }
-        if (!isNonNegInt(decl.negatives) || fp + tn !== decl.negatives) {
-          return {
-            ok: false,
-            code: 'R3_P0_6_OBSERVATION_MANIFEST_MISMATCH',
-            message: `${gateName} 第 ${idx + 1} 轮章节 ${ch.chapterId} 观测负例 fp+tn=${fp + tn} 与清册 negatives=${decl.negatives} 不一致。`,
-          };
-        }
+        chClean++;
       }
+
+      const entry = {
+        caseId: item.caseId,
+        normCaseId: normCase,
+        chapterId: ch.chapterId,
+        normChapterId: normCh,
+        truthClass: item.truthClass,
+        tier: item.tier ?? null,
+      };
+      caseById.set(normCase, entry);
+      chList.push(entry);
     }
 
-    if (runSeen.size !== declaredById.size) {
-      const missing = [...declaredById.keys()].filter(id => !runSeen.has(id));
+    if (mode === 'g1' && ch.positives !== undefined && ch.positives !== chPos) {
       return {
         ok: false,
-        code: 'R3_P0_6_RUN_CHAPTER_COVERAGE_MISMATCH',
-        runIndex: idx + 1,
-        observedChapters: runSeen.size,
-        declaredChapters: declaredById.size,
-        missingChapters: missing,
-        message: `${gateName} 第 ${idx + 1} 轮仅覆盖 ${runSeen.size}/${declaredById.size} 个声明章节（缺失：${missing.slice(0, 5).join(', ')}），严禁声明多章实测少章。`,
+        code: 'R3_P0_6_OBSERVATION_MANIFEST_MISMATCH',
+        message: `${gateName} 章节 ${ch.chapterId} 声明 positives=${ch.positives} 与 cases[] 中正例数 ${chPos} 不一致。`,
       };
     }
+    if ((mode === 'g2' || mode === 'g6') && ch.positives !== undefined && ch.positives !== chPos) {
+      return {
+        ok: false,
+        code: 'R3_P0_6_OBSERVATION_MANIFEST_MISMATCH',
+        message: `${gateName} 章节 ${ch.chapterId} 声明 positives=${ch.positives} 与 cases[] 中正例数 ${chPos} 不一致。`,
+      };
+    }
+    if ((mode === 'g2' || mode === 'g6') && ch.negatives !== undefined && ch.negatives !== chNeg) {
+      return {
+        ok: false,
+        code: 'R3_P0_6_OBSERVATION_MANIFEST_MISMATCH',
+        message: `${gateName} 章节 ${ch.chapterId} 声明 negatives=${ch.negatives} 与 cases[] 中负例数 ${chNeg} 不一致。`,
+      };
+    }
+    if (mode === 'g3' && ch.paragraphs !== undefined && ch.paragraphs !== chClean) {
+      return {
+        ok: false,
+        code: 'R3_P0_6_OBSERVATION_MANIFEST_MISMATCH',
+        message: `${gateName} 章节 ${ch.chapterId} 声明 paragraphs=${ch.paragraphs} 与 cases[] 中段落数 ${chClean} 不一致。`,
+      };
+    }
+
+    totalPositives += chPos;
+    totalNegatives += chNeg;
+    totalCleanParagraphs += chClean;
+    casesByChapter.set(normCh, {
+      chapterId: ch.chapterId,
+      cases: chList,
+      positives: chPos,
+      negatives: chNeg,
+      paragraphs: chClean,
+    });
   }
-  return {ok: true};
+
+  return {
+    ok: true,
+    caseById,
+    casesByChapter,
+    totalPositives,
+    totalNegatives,
+    totalBlockerTruths,
+    totalCleanParagraphs,
+  };
 }
 
 /**
- * Evaluate G1: Track 2 High-Recall Defense (Regression/Calibration) + 7-Chapter Known Regression.
+ * Derive exact per-chapter & per-run confusion counts strictly from case-level predictions joined against
+ * the validated case manifest. ZERO self-reported aggregate integers (TP/FP/FN/TN/clearTierFp/blockerMisses)
+ * are trusted!
+ */
+function deriveRunsFromCasePredictions(runs, manifestIndex, mode, gateName) {
+  const derivedRuns = [];
+
+  for (let rIdx = 0; rIdx < (runs || []).length; rIdx++) {
+    const run = runs[rIdx];
+    const preds = run?.predictions;
+    if (!Array.isArray(preds)) {
+      return {
+        ok: false,
+        code: 'R3_P0_6_CASE_PREDICTIONS_REQUIRED',
+        message: `${gateName} 第 ${rIdx + 1} 轮缺少逐案例 predictions[] 数组（禁止仅提交自报汇总整数）。`,
+      };
+    }
+
+    const predByCase = new Map();
+    for (const p of preds) {
+      if (!isNonEmptyString(p?.caseId) || typeof p?.predictedBlocking !== 'boolean') {
+        return {
+          ok: false,
+          code: 'R3_P0_6_INVALID_CASE_PREDICTION',
+          message: `${gateName} 第 ${rIdx + 1} 轮存在非法预测项（须含非空 caseId 与布尔型 predictedBlocking）。`,
+        };
+      }
+      const normCase = normalizeId(p.caseId);
+      if (!manifestIndex.caseById.has(normCase)) {
+        return {
+          ok: false,
+          code: 'R3_P0_6_UNDECLARED_PREDICTION_CASE',
+          runIndex: rIdx + 1,
+          caseId: p.caseId,
+          message: `${gateName} 第 ${rIdx + 1} 轮预测包含未在清册中声明的 caseId：${p.caseId}。`,
+        };
+      }
+      if (predByCase.has(normCase)) {
+        return {
+          ok: false,
+          code: 'R3_P0_6_DUPLICATE_PREDICTION_CASE',
+          runIndex: rIdx + 1,
+          caseId: p.caseId,
+          message: `${gateName} 第 ${rIdx + 1} 轮重复预测 caseId：${p.caseId}。`,
+        };
+      }
+      if (mode === 'g3') {
+        if (typeof p.noIssue !== 'boolean') {
+          return {
+            ok: false,
+            code: 'R3_P0_6_INVALID_CASE_PREDICTION',
+            message: `${gateName} 第 ${rIdx + 1} 轮清白段落案例 ${p.caseId} 须含布尔型 noIssue。`,
+          };
+        }
+        if (p.predictedBlocking && p.noIssue) {
+          return {
+            ok: false,
+            code: 'R3_P0_6_INVALID_OBSERVATION_COUNTS',
+            message: `${gateName} 第 ${rIdx + 1} 轮案例 ${p.caseId} 同时标记 predictedBlocking=true 与 noIssue=true，逻辑矛盾。`,
+          };
+        }
+      }
+      predByCase.set(normCase, p);
+    }
+
+    if (predByCase.size !== manifestIndex.caseById.size) {
+      const missingCases = [...manifestIndex.caseById.keys()].filter(cid => !predByCase.has(cid));
+      return {
+        ok: false,
+        code: 'R3_P0_6_RUN_CASE_COVERAGE_MISMATCH',
+        runIndex: rIdx + 1,
+        observedCases: predByCase.size,
+        declaredCases: manifestIndex.caseById.size,
+        missingCases: missingCases.slice(0, 10),
+        message: `${gateName} 第 ${rIdx + 1} 轮仅覆盖 ${predByCase.size}/${manifestIndex.caseById.size} 个声明案例（缺失：${missingCases.slice(0, 5).join(', ')}）。`,
+      };
+    }
+
+    const chapterCounts = [];
+    for (const [, chEntry] of manifestIndex.casesByChapter.entries()) {
+      let tp = 0;
+      let fn = 0;
+      let fp = 0;
+      let tn = 0;
+      let clearTierFp = 0;
+      let blockerMisses = 0;
+      let blockingFp = 0;
+      let nonBlockingTn = 0;
+      let noIssue = 0;
+
+      for (const c of chEntry.cases) {
+        const pred = predByCase.get(c.normCaseId);
+        if (mode === 'g3') {
+          if (pred.predictedBlocking) {
+            blockingFp++;
+          } else {
+            nonBlockingTn++;
+            if (pred.noIssue) noIssue++;
+          }
+        } else if (c.truthClass === 'NON_BLOCKING') {
+          if (pred.predictedBlocking) {
+            fp++;
+            if (c.tier === 'CLEAR') clearTierFp++;
+          } else {
+            tn++;
+          }
+        } else {
+          // Positive truth (BLOCKER or MAJOR)
+          if (pred.predictedBlocking) {
+            tp++;
+          } else {
+            fn++;
+            if (c.truthClass === 'BLOCKER') blockerMisses++;
+          }
+        }
+      }
+
+      chapterCounts.push({
+        chapterId: chEntry.chapterId,
+        tp,
+        fn,
+        fp,
+        tn,
+        clearTierFp,
+        blockerMisses,
+        blockingFp,
+        nonBlockingTn,
+        noIssue,
+      });
+    }
+    derivedRuns.push({chapters: chapterCounts});
+  }
+
+  return {ok: true, runs: derivedRuns};
+}
+
+function aggregateRunsByChapter(runs, extractFields) {
+  const byChapter = new Map();
+  for (const run of runs || []) {
+    for (const ch of run.chapters || []) {
+      const key = normalizeId(ch.chapterId);
+      if (!key) continue;
+      if (!byChapter.has(key)) {
+        byChapter.set(key, {chapterId: ch.chapterId, numerator: 0, denominator: 0});
+      }
+      const acc = byChapter.get(key);
+      const {numerator, denominator} = extractFields(ch);
+      acc.numerator += numerator;
+      acc.denominator += denominator;
+    }
+  }
+  return [...byChapter.values()];
+}
+
+function summarizeConfusionAcrossRuns(runs) {
+  let tp = 0;
+  let fp = 0;
+  let fn = 0;
+  let tn = 0;
+  let clearTierFp = 0;
+  let blockerMisses = 0;
+  const perRun = [];
+  for (let idx = 0; idx < (runs || []).length; idx++) {
+    const run = runs[idx];
+    let rTp = 0;
+    let rFp = 0;
+    let rFn = 0;
+    let rTn = 0;
+    let rClearFp = 0;
+    let rBlkMiss = 0;
+    for (const ch of run.chapters || []) {
+      rTp += ch.tp || 0;
+      rFp += ch.fp || 0;
+      rFn += ch.fn || 0;
+      rTn += ch.tn || 0;
+      rClearFp += ch.clearTierFp || 0;
+      rBlkMiss += ch.blockerMisses || 0;
+    }
+    tp += rTp;
+    fp += rFp;
+    fn += rFn;
+    tn += rTn;
+    clearTierFp += rClearFp;
+    blockerMisses += rBlkMiss;
+    const fpr = rFp + rTn > 0 ? rFp / (rFp + rTn) : null;
+    const recall = rTp + rFn > 0 ? rTp / (rTp + rFn) : null;
+    const precision = rTp + rFp > 0 ? rTp / (rTp + rFp) : null;
+    perRun.push({
+      runIndex: idx + 1,
+      tp: rTp,
+      fp: rFp,
+      fn: rFn,
+      tn: rTn,
+      clearTierFp: rClearFp,
+      blockerMisses: rBlkMiss,
+      fpr: round6(fpr),
+      recall: round6(recall),
+      precision: round6(precision),
+    });
+  }
+  return {
+    rawTotalsAcrossRuns: {tp, fp, fn, tn, clearTierFp, blockerMisses},
+    perRun,
+  };
+}
+
+function countDeclaredChapterField(chapters, field, caseFilter = null) {
+  return (chapters || []).reduce((acc, ch) => {
+    if (Array.isArray(ch?.cases)) {
+      return acc + (caseFilter ? ch.cases.filter(caseFilter).length : ch.cases.length);
+    }
+    return acc + (isNonNegInt(ch?.[field]) ? ch[field] : 0);
+  }, 0);
+}
+
+/**
+ * Evaluate G1: Track 2 High-Recall Defense (Regression/Calibration, exact K=3) + 7-Chapter Regression (exact K=1).
+ * Derives TP, FN, and BLOCKER misses directly from case-level predictions.
  */
 export function evaluateG1(g1Data, {seed = DEFAULT_BOOTSTRAP_SEED, iterations = BOOTSTRAP_ITERATIONS} = {}) {
   const th = FROZEN_THRESHOLDS.G1;
   const track2Chapters = g1Data?.track2?.chapters || [];
-  const track2Runs = g1Data?.track2?.runs || [];
+  const track2RunsRaw = g1Data?.track2?.runs || [];
   const regChapters = g1Data?.regression7?.chapters || [];
-  const regRuns = g1Data?.regression7?.runs || [];
+  const regRunsRaw = g1Data?.regression7?.runs || [];
 
   const uT2 = assertUniqueChapters(track2Chapters, 'G1.track2');
   if (!uT2.ok) return {gate: 'G1', status: 'INVALID_DESIGN', exitCode: 2, error: uT2.code, message: uT2.message, pass: false};
-  const rT2 = assertRunsMatchDeclaredManifest(track2Runs, uT2.byId, 'g1', 'G1.track2');
-  if (!rT2.ok) return {gate: 'G1', status: 'INVALID_DESIGN', exitCode: 2, error: rT2.code, message: rT2.message, pass: false};
   const uReg = assertUniqueChapters(regChapters, 'G1.regression7');
   if (!uReg.ok) return {gate: 'G1', status: 'INVALID_DESIGN', exitCode: 2, error: uReg.code, message: uReg.message, pass: false};
-  const rReg = assertRunsMatchDeclaredManifest(regRuns, uReg.byId, 'g1', 'G1.regression7');
-  if (!rReg.ok) return {gate: 'G1', status: 'INVALID_DESIGN', exitCode: 2, error: rReg.code, message: rReg.message, pass: false};
+
+  const kRepTrack2 = track2RunsRaw.length;
+  const kRepReg = regRunsRaw.length;
+
+  // Blocking 3: Exact frozen K_rep enforcement (reject over-budget runs!)
+  if (kRepTrack2 > th.requiredTrack2Repeats) {
+    return {
+      gate: 'G1',
+      status: 'INVALID_DESIGN',
+      exitCode: 2,
+      error: 'R3_P0_6_REPEAT_COUNT_EXCEEDS_FROZEN_DESIGN',
+      message: `G1.track2 重复轮次 K=${kRepTrack2} 超出冻结设计值 K=${th.requiredTrack2Repeats}。`,
+      pass: false,
+    };
+  }
+  if (kRepReg > th.requiredRegressionRepeats) {
+    return {
+      gate: 'G1',
+      status: 'INVALID_DESIGN',
+      exitCode: 2,
+      error: 'R3_P0_6_REPEAT_COUNT_EXCEEDS_FROZEN_DESIGN',
+      message: `G1.regression7 重复轮次 K=${kRepReg} 超出冻结设计值 K=${th.requiredRegressionRepeats}。`,
+      pass: false,
+    };
+  }
 
   const nChTrack2 = track2Chapters.length;
-  const nPosTrack2 = track2Chapters.reduce((acc, c) => acc + (c.positives || 0), 0);
-  const kRepTrack2 = track2Runs.length;
+  const nPosTrack2 = countDeclaredChapterField(track2Chapters, 'positives', c => POSITIVE_TRUTH_CLASSES.includes(c?.truthClass));
   const nChReg = regChapters.length;
-  const kRepReg = regRuns.length;
+
+  // Validate case manifests & predictions whenever runs are present
+  let derivedT2Runs = [];
+  let derivedRegRuns = [];
+  if (kRepTrack2 > 0) {
+    const idxT2 = buildCaseManifestIndex(track2Chapters, 'g1', 'G1.track2');
+    if (!idxT2.ok) return {gate: 'G1', status: 'INVALID_DESIGN', exitCode: 2, error: idxT2.code, message: idxT2.message, pass: false};
+    const dT2 = deriveRunsFromCasePredictions(track2RunsRaw, idxT2, 'g1', 'G1.track2');
+    if (!dT2.ok) return {gate: 'G1', status: 'INVALID_DESIGN', exitCode: 2, error: dT2.code, message: dT2.message, pass: false};
+    derivedT2Runs = dT2.runs;
+  }
+  if (kRepReg > 0) {
+    const idxReg = buildCaseManifestIndex(regChapters, 'g1', 'G1.regression7');
+    if (!idxReg.ok) return {gate: 'G1', status: 'INVALID_DESIGN', exitCode: 2, error: idxReg.code, message: idxReg.message, pass: false};
+    const dReg = deriveRunsFromCasePredictions(regRunsRaw, idxReg, 'g1', 'G1.regression7');
+    if (!dReg.ok) return {gate: 'G1', status: 'INVALID_DESIGN', exitCode: 2, error: dReg.code, message: dReg.message, pass: false};
+    derivedRegRuns = dReg.runs;
+  }
 
   const gaps = [];
   if (nChTrack2 < th.minTrack2Chapters) gaps.push(`Track2 N_ch=${nChTrack2} < ${th.minTrack2Chapters}`);
   if (nPosTrack2 < th.minTrack2Positives) gaps.push(`Track2 N_pos=${nPosTrack2} < ${th.minTrack2Positives}`);
-  if (kRepTrack2 < th.minTrack2Repeats) gaps.push(`Track2 K_rep=${kRepTrack2} < ${th.minTrack2Repeats}`);
+  if (kRepTrack2 < th.requiredTrack2Repeats) gaps.push(`Track2 K_rep=${kRepTrack2} < ${th.requiredTrack2Repeats}`);
   if (nChReg < th.minRegressionChapters) gaps.push(`Regression7 N_ch=${nChReg} < ${th.minRegressionChapters}`);
-  if (kRepReg < th.minRegressionRepeats) gaps.push(`Regression7 K_rep=${kRepReg} < ${th.minRegressionRepeats}`);
+  if (kRepReg < th.requiredRegressionRepeats) gaps.push(`Regression7 K_rep=${kRepReg} < ${th.requiredRegressionRepeats}`);
 
   if (gaps.length > 0) {
     return {
@@ -827,11 +1033,11 @@ export function evaluateG1(g1Data, {seed = DEFAULT_BOOTSTRAP_SEED, iterations = 
     };
   }
 
-  const t2Summary = summarizeConfusionAcrossRuns(track2Runs);
-  const t2RecallSeries = summarizeSeries(t2Summary.perRun.map(r => r.recall));
-  const t2Clusters = aggregateRunsByChapter(track2Runs, c => ({
-    numerator: c.tp || 0,
-    denominator: (c.tp || 0) + (c.fn || 0),
+  const t2Summary = summarizeConfusionAcrossRuns(derivedT2Runs);
+  const t2RecallSeries = summarizeSeriesStrict(t2Summary.perRun.map(r => r.recall));
+  const t2Clusters = aggregateRunsByChapter(derivedT2Runs, c => ({
+    numerator: c.tp,
+    denominator: c.tp + c.fn,
   }));
   const t2RecallBootstrap = chapterClusterBootstrapCI(t2Clusters, {iterations, seed});
 
@@ -850,21 +1056,15 @@ export function evaluateG1(g1Data, {seed = DEFAULT_BOOTSTRAP_SEED, iterations = 
     };
   }
 
-  const regSummary = summarizeConfusionAcrossRuns(regRuns);
-  const regRecallSeries = summarizeSeries(regSummary.perRun.map(r => r.recall));
-
-  let totalBlockerMisses = 0;
-  for (const run of [...track2Runs, ...regRuns]) {
-    for (const ch of run.chapters || []) {
-      totalBlockerMisses += ch.blockerMisses || 0;
-    }
-  }
+  const regSummary = summarizeConfusionAcrossRuns(derivedRegRuns);
+  const regRecallSeries = summarizeSeriesStrict(regSummary.perRun.map(r => r.recall));
+  const totalBlockerMisses = t2Summary.rawTotalsAcrossRuns.blockerMisses + regSummary.rawTotalsAcrossRuns.blockerMisses;
 
   const failures = [];
-  if (t2RecallSeries.mean === null || t2RecallSeries.mean < th.minTrack2Recall) {
+  if (t2RecallSeries.hasUndefined || t2RecallSeries.mean === null || t2RecallSeries.mean < th.minTrack2Recall) {
     failures.push(`Track2 recall mean=${t2RecallSeries.mean} < ${th.minTrack2Recall}`);
   }
-  if (regRecallSeries.min === null || regRecallSeries.min < th.minRegressionDetectionRate) {
+  if (regRecallSeries.hasUndefined || regRecallSeries.min === null || regRecallSeries.min < th.minRegressionDetectionRate) {
     failures.push(`Regression7 detection rate=${regRecallSeries.min} < ${th.minRegressionDetectionRate}`);
   }
   if (totalBlockerMisses > th.maxBlockerMisses) {
@@ -905,24 +1105,95 @@ function evaluateG2Core(
   {seed = DEFAULT_BOOTSTRAP_SEED, iterations = BOOTSTRAP_ITERATIONS, requireGenres = false, maxCasesPerChapter = null} = {}
 ) {
   const chapters = g2Data?.chapters || [];
-  const runs = g2Data?.runs || [];
+  const runsRaw = g2Data?.runs || [];
 
   const uCheck = assertUniqueChapters(chapters, gateName);
   if (!uCheck.ok) {
     return {gate: gateName, track, status: 'INVALID_DESIGN', exitCode: 2, error: uCheck.code, message: uCheck.message, pass: false};
   }
-  const rCheck = assertRunsMatchDeclaredManifest(runs, uCheck.byId, 'g2', gateName);
-  if (!rCheck.ok) {
-    return {gate: gateName, track, status: 'INVALID_DESIGN', exitCode: 2, error: rCheck.code, message: rCheck.message, pass: false};
+
+  const kRep = runsRaw.length;
+  if (kRep > thresholds.requiredRepeats) {
+    return {
+      gate: gateName,
+      track,
+      status: 'INVALID_DESIGN',
+      exitCode: 2,
+      error: 'R3_P0_6_REPEAT_COUNT_EXCEEDS_FROZEN_DESIGN',
+      message: `${gateName} 重复轮次 K=${kRep} 超出冻结设计值 K=${thresholds.requiredRepeats}。`,
+      pass: false,
+    };
+  }
+
+  // Blocking 4: Controlled canonical genre validation for G2-B (trim/normalize, no unclassified chapters)
+  const genreSet = new Set();
+  if (requireGenres) {
+    for (const ch of chapters) {
+      const normG = normalizeCanonicalGenre(ch?.genre);
+      if (!normG) {
+        return {
+          gate: gateName,
+          track,
+          status: 'INVALID_DESIGN',
+          exitCode: 2,
+          error: 'R3_P0_6_INVALID_OR_MISSING_GENRE',
+          chapterId: ch.chapterId,
+          rawGenre: ch?.genre ?? null,
+          message: `${gateName} 章节 ${ch.chapterId} 缺少题材或题材不在 15 个受控规范题材词表中：${String(ch?.genre)}。`,
+          pass: false,
+        };
+      }
+      genreSet.add(normG);
+    }
+  } else {
+    for (const ch of chapters) {
+      const normG = normalizeCanonicalGenre(ch?.genre);
+      if (normG) genreSet.add(normG);
+    }
+  }
+  const genres = [...genreSet].sort();
+
+  let derivedRuns = [];
+  let manifestIndex = null;
+  if (kRep > 0) {
+    manifestIndex = buildCaseManifestIndex(chapters, 'g2', gateName);
+    if (!manifestIndex.ok) {
+      return {gate: gateName, track, status: 'INVALID_DESIGN', exitCode: 2, error: manifestIndex.code, message: manifestIndex.message, pass: false};
+    }
+    // Blocking 1: G2 Precision requires bounded positive cases in the declared case manifest!
+    if (manifestIndex.totalPositives <= 0) {
+      return {
+        gate: gateName,
+        track,
+        status: 'INVALID_DESIGN',
+        exitCode: 2,
+        error: 'R3_P0_6_G2_POSITIVE_MANIFEST_REQUIRED_FOR_PRECISION',
+        message: `${gateName} 缺少声明正例案例（positives=0），无法基于受控清册计算 Precision >= 88%，严禁凭空注入 TP。`,
+        pass: false,
+      };
+    }
+    const derived = deriveRunsFromCasePredictions(runsRaw, manifestIndex, 'g2', gateName);
+    if (!derived.ok) {
+      return {gate: gateName, track, status: 'INVALID_DESIGN', exitCode: 2, error: derived.code, message: derived.message, pass: false};
+    }
+    derivedRuns = derived.runs;
   }
 
   const nCh = chapters.length;
-  const nNeg = chapters.reduce((acc, c) => acc + (c.negatives || 0), 0);
-  const kRep = runs.length;
-  const genres = [...new Set(chapters.map(c => c?.genre).filter(isNonEmptyString))];
+  const nNeg = manifestIndex
+    ? manifestIndex.totalNegatives
+    : countDeclaredChapterField(chapters, 'negatives', c => c?.truthClass === 'NON_BLOCKING');
+  const nPos = manifestIndex
+    ? manifestIndex.totalPositives
+    : countDeclaredChapterField(chapters, 'positives', c => POSITIVE_TRUTH_CLASSES.includes(c?.truthClass));
 
   if (maxCasesPerChapter !== null) {
-    const capViolations = chapters.filter(c => (c.negatives || 0) > maxCasesPerChapter);
+    const capViolations = chapters.filter(ch => {
+      const negCount = Array.isArray(ch.cases)
+        ? ch.cases.filter(c => c?.truthClass === 'NON_BLOCKING').length
+        : (ch.negatives || 0);
+      return negCount > maxCasesPerChapter;
+    });
     if (capViolations.length > 0) {
       return {
         gate: gateName,
@@ -931,7 +1202,7 @@ function evaluateG2Core(
         exitCode: 2,
         error: 'R3_P0_6_G2B_CHAPTER_CASE_CAP_EXCEEDED',
         pass: false,
-        offendingChapters: capViolations.map(c => ({chapterId: c.chapterId, negatives: c.negatives})),
+        offendingChapters: capViolations.map(c => ({chapterId: c.chapterId})),
       };
     }
   }
@@ -942,7 +1213,7 @@ function evaluateG2Core(
   if (requireGenres && genres.length < thresholds.minGenres) {
     gaps.push(`genres=${genres.length} < ${thresholds.minGenres} (need +${thresholds.minGenres - genres.length})`);
   }
-  if (kRep < thresholds.minRepeats) gaps.push(`K_rep=${kRep} < ${thresholds.minRepeats}`);
+  if (kRep < thresholds.requiredRepeats) gaps.push(`K_rep=${kRep} < ${thresholds.requiredRepeats}`);
 
   if (gaps.length > 0) {
     return {
@@ -952,20 +1223,20 @@ function evaluateG2Core(
       g2aPassDoesNotImplyG2bPass: true,
       doNotExtrapolatePrecisionToProduction: true,
       status: 'UNDERPOWERED',
-      sampleTriplet: {nCh, nNeg, kRep, genres},
+      sampleTriplet: {nCh, nPos, nNeg, kRep, genres},
       gaps,
       pass: false,
     };
   }
 
-  const summary = summarizeConfusionAcrossRuns(runs);
-  const fprSeries = summarizeSeries(summary.perRun.map(r => r.fpr));
-  const precisionSeries = summarizeSeries(summary.perRun.map(r => r.precision));
+  const summary = summarizeConfusionAcrossRuns(derivedRuns);
+  const fprSeries = summarizeSeriesStrict(summary.perRun.map(r => r.fpr));
+  const precisionSeries = summarizeSeriesStrict(summary.perRun.map(r => r.precision));
   const maxClearFp = Math.max(...summary.perRun.map(r => r.clearTierFp));
 
-  const fprClusters = aggregateRunsByChapter(runs, c => ({
-    numerator: c.fp || 0,
-    denominator: (c.fp || 0) + (c.tn || 0),
+  const fprClusters = aggregateRunsByChapter(derivedRuns, c => ({
+    numerator: c.fp,
+    denominator: c.fp + c.tn,
   }));
   const fprBootstrap = chapterClusterBootstrapCI(fprClusters, {iterations, seed});
 
@@ -977,15 +1248,15 @@ function evaluateG2Core(
       g2aPassDoesNotImplyG2bPass: true,
       doNotExtrapolatePrecisionToProduction: true,
       status: 'UNDERPOWERED',
-      sampleTriplet: {nCh: fprBootstrap.nClusters, nNeg, kRep, genres},
+      sampleTriplet: {nCh: fprBootstrap.nClusters, nPos, nNeg, kRep, genres},
       gaps: [`effective negative clusters=${fprBootstrap.nClusters} < ${thresholds.minChapters}`],
       pass: false,
     };
   }
 
-  const precisionClusters = aggregateRunsByChapter(runs, c => ({
-    numerator: c.tp || 0,
-    denominator: (c.tp || 0) + (c.fp || 0),
+  const precisionClusters = aggregateRunsByChapter(derivedRuns, c => ({
+    numerator: c.tp,
+    denominator: c.tp + c.fp,
   }));
   const precisionBootstrap = chapterClusterBootstrapCI(precisionClusters, {iterations, seed: seed + 1});
 
@@ -993,13 +1264,15 @@ function evaluateG2Core(
   if (maxClearFp > thresholds.maxClearTierFpPerRun) {
     failures.push(`Clear-tier FP max=${maxClearFp} > ${thresholds.maxClearTierFpPerRun}`);
   }
-  if (fprSeries.mean === null || fprSeries.mean > thresholds.maxMeanFpr) {
+  if (fprSeries.hasUndefined || fprSeries.mean === null || fprSeries.mean > thresholds.maxMeanFpr) {
     failures.push(`FPR 3-run mean=${fprSeries.mean} > ${thresholds.maxMeanFpr}`);
   }
-  if (fprSeries.max === null || fprSeries.max > thresholds.maxSingleRunFpr) {
+  if (fprSeries.hasUndefined || fprSeries.max === null || fprSeries.max > thresholds.maxSingleRunFpr) {
     failures.push(`FPR single-run max=${fprSeries.max} > ${thresholds.maxSingleRunFpr}`);
   }
-  if (precisionSeries.mean === null || precisionSeries.mean < thresholds.minPrecision) {
+  if (precisionSeries.hasUndefined || precisionSeries.mean === null) {
+    failures.push('R3_P0_6_PRECISION_UNDEFINED: at least one run has TP+FP=0 (null precision cannot be silently dropped)');
+  } else if (precisionSeries.mean < thresholds.minPrecision) {
     failures.push(`Test-set precision mean=${precisionSeries.mean} < ${thresholds.minPrecision}`);
   }
 
@@ -1011,7 +1284,7 @@ function evaluateG2Core(
     doNotExtrapolatePrecisionToProduction: true,
     status: failures.length === 0 ? 'PASS' : 'FAIL',
     pass: failures.length === 0,
-    sampleTriplet: {nCh, effectiveClusters: fprBootstrap.nClusters, nNeg, kRep, genres},
+    sampleTriplet: {nCh, effectiveClusters: fprBootstrap.nClusters, nPos, nNeg, kRep, genres},
     rawTotalsAcrossRuns: summary.rawTotalsAcrossRuns,
     perRun: summary.perRun,
     clearTierFpMaxPerRun: maxClearFp,
@@ -1024,24 +1297,18 @@ function evaluateG2Core(
 }
 
 /**
- * Evaluate G2-A (Historical Regression/Calibration FPR control).
- * STRICTLY SEPARATE from G2-B — passing G2-A NEVER implies passing G2-B!
+ * Evaluate G2-A (Historical Regression/Calibration FPR control, exact K=3).
  */
 export function evaluateG2A(g2aData, opts = {}) {
   return evaluateG2Core('G2-A', 'regression_calibration', g2aData, FROZEN_THRESHOLDS.G2A, opts);
 }
 
 /**
- * Evaluate G2-B (Independent Holdout Non-Blocking Generalization).
- * Runs hard cross-set zero-overlap, retired blacklist, AND internal provenance/uniqueness checks FIRST.
+ * Evaluate G2-B (Independent Holdout Non-Blocking Generalization, exact K=3).
  */
 export function evaluateG2B(g2bData, {referenceChapters = [], seed = DEFAULT_BOOTSTRAP_SEED, iterations = BOOTSTRAP_ITERATIONS} = {}) {
   const declaredChapters = g2bData?.chapters || [];
-  const allG2bChapters = [
-    ...declaredChapters,
-    ...(g2bData?.runs || []).flatMap(r => r?.chapters || []),
-  ];
-  const leakage = assertZeroLeakage(referenceChapters, allG2bChapters, {holdoutName: 'G2-B'});
+  const leakage = assertZeroLeakage(referenceChapters, declaredChapters, {holdoutName: 'G2-B'});
   if (!leakage.ok) {
     return {
       gate: 'G2-B',
@@ -1076,23 +1343,47 @@ export function evaluateG2B(g2bData, {referenceChapters = [], seed = DEFAULT_BOO
 }
 
 /**
- * Evaluate G3 (Clean Paragraphs Zero False-Blocking).
+ * Evaluate G3 (Clean Paragraphs Zero False-Blocking, exact K=3).
  */
 export function evaluateG3(g3Data, {seed = DEFAULT_BOOTSTRAP_SEED, iterations = BOOTSTRAP_ITERATIONS} = {}) {
   const th = FROZEN_THRESHOLDS.G3;
   const chapters = g3Data?.chapters || [];
-  const runs = g3Data?.runs || [];
+  const runsRaw = g3Data?.runs || [];
 
   const uCheck = assertUniqueChapters(chapters, 'G3');
   if (!uCheck.ok) return {gate: 'G3', status: 'INVALID_DESIGN', exitCode: 2, error: uCheck.code, message: uCheck.message, pass: false};
-  const rCheck = assertRunsMatchDeclaredManifest(runs, uCheck.byId, 'g3', 'G3');
-  if (!rCheck.ok) return {gate: 'G3', status: 'INVALID_DESIGN', exitCode: 2, error: rCheck.code, message: rCheck.message, pass: false};
+
+  const kRep = runsRaw.length;
+  if (kRep > th.requiredRepeats) {
+    return {
+      gate: 'G3',
+      status: 'INVALID_DESIGN',
+      exitCode: 2,
+      error: 'R3_P0_6_REPEAT_COUNT_EXCEEDS_FROZEN_DESIGN',
+      message: `G3 重复轮次 K=${kRep} 超出冻结设计值 K=${th.requiredRepeats}。`,
+      pass: false,
+    };
+  }
+
+  let derivedRuns = [];
+  let manifestIndex = null;
+  if (kRep > 0) {
+    manifestIndex = buildCaseManifestIndex(chapters, 'g3', 'G3');
+    if (!manifestIndex.ok) return {gate: 'G3', status: 'INVALID_DESIGN', exitCode: 2, error: manifestIndex.code, message: manifestIndex.message, pass: false};
+    const derived = deriveRunsFromCasePredictions(runsRaw, manifestIndex, 'g3', 'G3');
+    if (!derived.ok) return {gate: 'G3', status: 'INVALID_DESIGN', exitCode: 2, error: derived.code, message: derived.message, pass: false};
+    derivedRuns = derived.runs;
+  }
 
   const nCh = chapters.length;
-  const nCases = chapters.reduce((acc, c) => acc + (c.paragraphs || 0), 0);
-  const kRep = runs.length;
+  const nCases = manifestIndex
+    ? manifestIndex.totalCleanParagraphs
+    : countDeclaredChapterField(chapters, 'paragraphs');
 
-  const capViolations = chapters.filter(c => (c.paragraphs || 0) > th.maxCasesPerChapter);
+  const capViolations = chapters.filter(ch => {
+    const paraCount = Array.isArray(ch.cases) ? ch.cases.length : (ch.paragraphs || 0);
+    return paraCount > th.maxCasesPerChapter;
+  });
   if (capViolations.length > 0) {
     return {
       gate: 'G3',
@@ -1100,14 +1391,14 @@ export function evaluateG3(g3Data, {seed = DEFAULT_BOOTSTRAP_SEED, iterations = 
       exitCode: 2,
       error: 'R3_P0_6_G3_CHAPTER_PARAGRAPH_CAP_EXCEEDED',
       pass: false,
-      offendingChapters: capViolations.map(c => ({chapterId: c.chapterId, paragraphs: c.paragraphs})),
+      offendingChapters: capViolations.map(c => ({chapterId: c.chapterId})),
     };
   }
 
   const gaps = [];
   if (nCh < th.minChapters) gaps.push(`N_ch=${nCh} < ${th.minChapters} (need +${th.minChapters - nCh})`);
   if (nCases < th.minCases) gaps.push(`N_case=${nCases} < ${th.minCases} (need +${th.minCases - nCases})`);
-  if (kRep < th.minRepeats) gaps.push(`K_rep=${kRep} < ${th.minRepeats}`);
+  if (kRep < th.requiredRepeats) gaps.push(`K_rep=${kRep} < ${th.requiredRepeats}`);
 
   if (gaps.length > 0) {
     return {
@@ -1125,20 +1416,16 @@ export function evaluateG3(g3Data, {seed = DEFAULT_BOOTSTRAP_SEED, iterations = 
   let totalEvaluated = 0;
   const perRun = [];
 
-  for (let idx = 0; idx < runs.length; idx++) {
+  for (let idx = 0; idx < derivedRuns.length; idx++) {
     let rBlkFp = 0;
     let rNonBlkTn = 0;
     let rNoIssue = 0;
     let rTotal = 0;
-    for (const ch of runs[idx].chapters || []) {
-      const fp = ch.blockingFp || 0;
-      const tn = ch.nonBlockingTn || 0;
-      const ni = ch.noIssue || 0;
-      const tot = fp + tn;
-      rBlkFp += fp;
-      rNonBlkTn += tn;
-      rNoIssue += ni;
-      rTotal += tot;
+    for (const ch of derivedRuns[idx].chapters || []) {
+      rBlkFp += ch.blockingFp;
+      rNonBlkTn += ch.nonBlockingTn;
+      rNoIssue += ch.noIssue;
+      rTotal += ch.blockingFp + ch.nonBlockingTn;
     }
     totalBlockingFp += rBlkFp;
     totalNonBlockingTn += rNonBlkTn;
@@ -1158,9 +1445,9 @@ export function evaluateG3(g3Data, {seed = DEFAULT_BOOTSTRAP_SEED, iterations = 
   const nonBlockingRate = totalEvaluated > 0 ? totalNonBlockingTn / totalEvaluated : null;
   const noIssueRate = totalEvaluated > 0 ? totalNoIssue / totalEvaluated : null;
 
-  const noIssueClusters = aggregateRunsByChapter(runs, c => ({
-    numerator: c.noIssue || 0,
-    denominator: (c.blockingFp || 0) + (c.nonBlockingTn || 0),
+  const noIssueClusters = aggregateRunsByChapter(derivedRuns, c => ({
+    numerator: c.noIssue,
+    denominator: c.blockingFp + c.nonBlockingTn,
   }));
   const noIssueBootstrap = chapterClusterBootstrapCI(noIssueClusters, {iterations, seed});
 
@@ -1174,9 +1461,9 @@ export function evaluateG3(g3Data, {seed = DEFAULT_BOOTSTRAP_SEED, iterations = 
     };
   }
 
-  const nonBlockingClusters = aggregateRunsByChapter(runs, c => ({
-    numerator: c.nonBlockingTn || 0,
-    denominator: (c.blockingFp || 0) + (c.nonBlockingTn || 0),
+  const nonBlockingClusters = aggregateRunsByChapter(derivedRuns, c => ({
+    numerator: c.nonBlockingTn,
+    denominator: c.blockingFp + c.nonBlockingTn,
   }));
   const nonBlockingBootstrap = chapterClusterBootstrapCI(nonBlockingClusters, {iterations, seed: seed + 1});
 
@@ -1204,14 +1491,7 @@ export function evaluateG3(g3Data, {seed = DEFAULT_BOOTSTRAP_SEED, iterations = 
 }
 
 /**
- * Evaluate G4 (Ordered 4-Class Severity Stability via Quadratic Weighted Kappa >= 0.85 & Zero SUGGESTION Leak).
- *
- * Blocking 4 hardening:
- *  - Every evaluated probe MUST carry `caseId` & `sourceChapterId` (unique `caseId` per run, consistent truth across runs).
- *  - Independent source chapter count N_ch is derived from actual observed `sourceChapterId`s in `runs[].pairs`,
- *    and MUST reconcile with any declared `sourceChapters` list (blocks "declare 8 chapters, test 1 chapter").
- *  - Ground-truth labels MUST cover all 4 ordered S1 classes (`BLOCKER`, `MAJOR`, `MINOR`, `SUGGESTION`).
- *  - Degenerate marginals (`quadraticWeightedKappa === null`) NEVER pass G4.
+ * Evaluate G4 (Ordered 4-Class Severity Stability: exact N_case = 24, exact K = 2, kappa_w >= 0.85, 0 SUGGESTION leak).
  */
 export function evaluateG4(g4Data) {
   const th = FROZEN_THRESHOLDS.G4;
@@ -1219,15 +1499,39 @@ export function evaluateG4(g4Data) {
   const runs = g4Data?.runs || [];
   const kRep = runs.length;
 
-  // When runs are empty (e.g., readiness audit with K=0), report exact UNDERPOWERED gaps cleanly.
+  // Blocking 3: Exact K=2 check
+  if (kRep > th.requiredRepeats) {
+    return {
+      gate: 'G4',
+      status: 'INVALID_DESIGN',
+      exitCode: 2,
+      error: 'R3_P0_6_REPEAT_COUNT_EXCEEDS_FROZEN_DESIGN',
+      message: `G4 重复轮次 K=${kRep} 超出冻结设计值 K=${th.requiredRepeats}。`,
+      pass: false,
+    };
+  }
+
+  // Blocking 3: Exact declared N_case === 24 check (if non-zero / >24)
+  if (g4Data?.nCases !== undefined && g4Data.nCases !== th.requiredCases && (kRep > 0 || g4Data.nCases > th.requiredCases)) {
+    return {
+      gate: 'G4',
+      status: 'INVALID_DESIGN',
+      exitCode: 2,
+      error: 'R3_P0_6_G4_CASE_COUNT_MUST_BE_EXACT_24',
+      declaredCases: g4Data.nCases,
+      message: `G4 冻结探针数量必须严格等于 ${th.requiredCases}（当前声明 ${String(g4Data.nCases)}）。`,
+      pass: false,
+    };
+  }
+
   if (kRep === 0) {
     const nCases = g4Data?.nCases ?? 0;
     const gaps = [];
     if (declaredSourceChapters.length < th.minSourceChapters) {
       gaps.push(`independentSourceChapters=${declaredSourceChapters.length} < ${th.minSourceChapters} (need +${th.minSourceChapters - declaredSourceChapters.length})`);
     }
-    if (nCases < th.minCases) gaps.push(`N_case=${nCases} < ${th.minCases}`);
-    gaps.push(`K_rep=0 < ${th.minRepeats}`);
+    if (nCases < th.requiredCases) gaps.push(`N_case=${nCases} < ${th.requiredCases}`);
+    gaps.push(`K_rep=0 < ${th.requiredRepeats}`);
     return {
       gate: 'G4',
       status: 'UNDERPOWERED',
@@ -1237,7 +1541,6 @@ export function evaluateG4(g4Data) {
     };
   }
 
-  // Validate per-case traceability, uniqueness, and cross-run ground-truth consistency
   let baselineProbeKey = null;
   const observedSourceSet = new Set();
   const observedTruthClasses = new Set();
@@ -1247,6 +1550,29 @@ export function evaluateG4(g4Data) {
     if (!Array.isArray(pairs)) {
       return {gate: 'G4', status: 'INVALID_DESIGN', exitCode: 2, error: 'R3_P0_6_G4_CASE_TRACEABILITY_MISSING', pass: false};
     }
+    if (pairs.length !== th.requiredCases) {
+      return {
+        gate: 'G4',
+        status: 'INVALID_DESIGN',
+        exitCode: 2,
+        error: 'R3_P0_6_G4_CASE_COUNT_MUST_BE_EXACT_24',
+        runIndex: idx + 1,
+        observedCases: pairs.length,
+        message: `G4 第 ${idx + 1} 轮实际案例数为 ${pairs.length}，必须严格等于冻结值 ${th.requiredCases}。`,
+        pass: false,
+      };
+    }
+    if (g4Data?.nCases !== undefined && g4Data.nCases !== pairs.length) {
+      return {
+        gate: 'G4',
+        status: 'INVALID_DESIGN',
+        exitCode: 2,
+        error: 'R3_P0_6_G4_CASE_COUNT_MUST_BE_EXACT_24',
+        message: `G4 声明案例数 ${g4Data.nCases} 与第 ${idx + 1} 轮实际案例数 ${pairs.length} 不一致。`,
+        pass: false,
+      };
+    }
+
     const seenCaseIds = new Set();
     const runProbeManifest = [];
     for (const p of pairs) {
@@ -1310,25 +1636,22 @@ export function evaluateG4(g4Data) {
     };
   }
 
-  const nCases = runs[0].pairs.length;
   const gaps = [];
   if (observedSources.length < th.minSourceChapters) {
     gaps.push(`independentSourceChapters=${observedSources.length} < ${th.minSourceChapters} (need +${th.minSourceChapters - observedSources.length})`);
   }
-  if (nCases < th.minCases) gaps.push(`N_case=${nCases} < ${th.minCases}`);
-  if (kRep < th.minRepeats) gaps.push(`K_rep=${kRep} < ${th.minRepeats}`);
+  if (kRep < th.requiredRepeats) gaps.push(`K_rep=${kRep} < ${th.requiredRepeats}`);
 
   if (gaps.length > 0) {
     return {
       gate: 'G4',
       status: 'UNDERPOWERED',
-      sampleTriplet: {nSourceChapters: observedSources.length, nCases, kRep},
+      sampleTriplet: {nSourceChapters: observedSources.length, nCases: th.requiredCases, kRep},
       gaps,
       pass: false,
     };
   }
 
-  // Must cover all 4 S1 ordered classes in ground truth
   const missingClasses = ORDERED_SEVERITIES.filter(c => !observedTruthClasses.has(c));
   if (missingClasses.length > 0) {
     return {
@@ -1412,7 +1735,7 @@ export function evaluateG4(g4Data) {
     gate: 'G4',
     status: failures.length === 0 ? 'PASS' : 'FAIL',
     pass: failures.length === 0,
-    sampleTriplet: {nSourceChapters: observedSources.length, nCases, kRep},
+    sampleTriplet: {nSourceChapters: observedSources.length, nCases: th.requiredCases, kRep},
     perRun,
     pooled: {
       n: pooled.n,
@@ -1463,10 +1786,14 @@ export function evaluateG5(g5Data) {
   const deadlockBlockRate = deadlockBlocked / deadlockCases.length;
 
   const legalBlocked = legalTropeCases.filter(c => c.blocking === true).length;
+  const legalUnresolved = legalTropeCases.filter(c => typeof c.blocking !== 'boolean').length;
   const legalBlockRate = legalBlocked / legalTropeCases.length;
 
   const s1CompatPassed = g5Data?.s1CompatPassed === true;
   const engFixP1Passed = g5Data?.engFixP1Passed === true;
+  const hasVerifiableCompatRef =
+    isPlainObject(compatEvidenceRef) &&
+    Object.values(compatEvidenceRef).some(v => isNonEmptyString(v));
 
   const failures = [];
   if (deadlockBlockRate < th.minDeadlockBlockRate || deadlockWhitewashedToPass > 0) {
@@ -1475,8 +1802,12 @@ export function evaluateG5(g5Data) {
   if (legalBlockRate > th.maxLegalTropeBlockRate) {
     failures.push(`legalTropeBlockRate=${round6(legalBlockRate)} > 0`);
   }
+  if (legalUnresolved > 0) {
+    failures.push(`legalTropeCases has ${legalUnresolved} unresolved/non-boolean blocking decisions`);
+  }
   if (!s1CompatPassed) failures.push('S1 bidirectional compatibility check failed');
   if (!engFixP1Passed) failures.push('ENG-FIX-P1 compatibility check failed');
+  if (!hasVerifiableCompatRef) failures.push('G5 requires non-empty compatEvidenceRef pointing to verifiable compatibility test artifacts');
 
   return {
     gate: 'G5',
@@ -1494,15 +1825,17 @@ export function evaluateG5(g5Data) {
 }
 
 /**
- * Evaluate G6 (Cross-Genre Holdout Limited-Budget Engineering Admission Screen, K=1).
- * Explicitly framed as limited-budget engineering screening — NEVER as statistical proof of 90% production recall.
+ * Evaluate G6 (Cross-Genre Holdout Limited-Budget Engineering Admission Screen, exact K=1).
  */
-export function evaluateG6(g6Data, {referenceChapters = [], seed = DEFAULT_BOOTSTRAP_SEED, iterations = BOOTSTRAP_ITERATIONS} = {}) {
+export function evaluateG6(
+  g6Data,
+  {referenceChapters = [], seed = DEFAULT_BOOTSTRAP_SEED, iterations = BOOTSTRAP_ITERATIONS, g6BudgetExpansionApproved = false} = {}
+) {
   const th = FROZEN_THRESHOLDS.G6;
   const chapters = g6Data?.chapters || [];
-  const runs = g6Data?.runs || [];
-  const allG6Chapters = [...chapters, ...runs.flatMap(r => r?.chapters || [])];
-  const leakage = assertZeroLeakage(referenceChapters, allG6Chapters, {holdoutName: 'G6'});
+  const runsRaw = g6Data?.runs || [];
+
+  const leakage = assertZeroLeakage(referenceChapters, chapters, {holdoutName: 'G6'});
   if (!leakage.ok) {
     return {
       gate: 'G6',
@@ -1534,12 +1867,8 @@ export function evaluateG6(g6Data, {referenceChapters = [], seed = DEFAULT_BOOTS
   if (!uCheck.ok) {
     return {gate: 'G6', status: 'INVALID_DESIGN', exitCode: 2, error: uCheck.code, message: uCheck.message, pass: false};
   }
-  const rCheck = assertRunsMatchDeclaredManifest(runs, uCheck.byId, 'g6', 'G6');
-  if (!rCheck.ok) {
-    return {gate: 'G6', status: 'INVALID_DESIGN', exitCode: 2, error: rCheck.code, message: rCheck.message, pass: false};
-  }
 
-  const kRep = runs.length;
+  const kRep = runsRaw.length;
   if (kRep > th.requiredRepeats) {
     return {
       gate: 'G6',
@@ -1552,27 +1881,78 @@ export function evaluateG6(g6Data, {referenceChapters = [], seed = DEFAULT_BOOTS
     };
   }
 
+  // Blocking 4: Every chapter MUST carry a valid canonical genre (no unclassified chapters!)
   const genreCounts = new Map();
   for (const ch of chapters) {
-    if (isNonEmptyString(ch?.genre)) {
-      genreCounts.set(ch.genre, (genreCounts.get(ch.genre) || 0) + 1);
+    const normG = normalizeCanonicalGenre(ch?.genre);
+    if (!normG) {
+      return {
+        gate: 'G6',
+        track: 'independent_cross_genre_holdout',
+        framing: 'limited_budget_engineering_screen_not_production_recall_proof',
+        status: 'INVALID_DESIGN',
+        exitCode: 2,
+        error: 'R3_P0_6_INVALID_OR_MISSING_GENRE',
+        chapterId: ch.chapterId,
+        rawGenre: ch?.genre ?? null,
+        message: `G6 章节 ${ch.chapterId} 缺少题材或题材不在 15 个受控规范题材词表中：${String(ch?.genre)}。`,
+        pass: false,
+      };
     }
+    genreCounts.set(normG, (genreCounts.get(normG) || 0) + 1);
   }
-  const genres = [...genreCounts.keys()];
-  const genresWithMin2 = [...genreCounts.entries()].filter(([, cnt]) => cnt >= 2).map(([g]) => g);
+  const genres = [...genreCounts.keys()].sort();
+  const underRepresentedGenres = [...genreCounts.entries()]
+    .filter(([, cnt]) => cnt < th.minChaptersPerGenre)
+    .map(([g, cnt]) => ({genre: g, chapters: cnt}));
 
   const nCh = chapters.length;
-  const nPos = chapters.reduce((acc, c) => acc + (c.positives || 0), 0);
-  const nNeg = chapters.reduce((acc, c) => acc + (c.negatives || 0), 0);
-  const budgetStatus =
-    genres.length > th.maxBudgetGenres || nCh > th.maxBudgetChapters
-      ? 'EXCEEDS_FROZEN_BUDGET_REQUIRES_AUTHOR_APPROVAL'
-      : 'WITHIN_FROZEN_BUDGET';
+  const exceedsBudget = genres.length > th.maxBudgetGenres || nCh > th.maxBudgetChapters;
+  const budgetStatus = exceedsBudget
+    ? (g6BudgetExpansionApproved ? 'EXCEEDS_FROZEN_BUDGET_APPROVED' : 'EXCEEDS_FROZEN_BUDGET_REQUIRES_AUTHOR_APPROVAL')
+    : 'WITHIN_FROZEN_BUDGET';
+
+  if (exceedsBudget && !g6BudgetExpansionApproved) {
+    return {
+      gate: 'G6',
+      track: 'independent_cross_genre_holdout',
+      framing: 'limited_budget_engineering_screen_not_production_recall_proof',
+      budgetStatus,
+      status: 'INVALID_DESIGN',
+      exitCode: 2,
+      error: 'R3_P0_6_G6_BUDGET_EXCEEDED_UNAPPROVED',
+      message: `G6 样本超出冻结预算上限（题材 ${genres.length}/6，章数 ${nCh}/16），未经作者显式批准（g6BudgetExpansionApproved）不得继续正式裁决。`,
+      pass: false,
+    };
+  }
+
+  let derivedRuns = [];
+  let manifestIndex = null;
+  if (kRep > 0) {
+    manifestIndex = buildCaseManifestIndex(chapters, 'g6', 'G6');
+    if (!manifestIndex.ok) {
+      return {gate: 'G6', status: 'INVALID_DESIGN', exitCode: 2, error: manifestIndex.code, message: manifestIndex.message, pass: false};
+    }
+    const derived = deriveRunsFromCasePredictions(runsRaw, manifestIndex, 'g6', 'G6');
+    if (!derived.ok) {
+      return {gate: 'G6', status: 'INVALID_DESIGN', exitCode: 2, error: derived.code, message: derived.message, pass: false};
+    }
+    derivedRuns = derived.runs;
+  }
+
+  const nPos = manifestIndex
+    ? manifestIndex.totalPositives
+    : countDeclaredChapterField(chapters, 'positives', c => POSITIVE_TRUTH_CLASSES.includes(c?.truthClass));
+  const nNeg = manifestIndex
+    ? manifestIndex.totalNegatives
+    : countDeclaredChapterField(chapters, 'negatives', c => c?.truthClass === 'NON_BLOCKING');
 
   const gaps = [];
   if (genres.length < th.minGenres) gaps.push(`genres=${genres.length} < ${th.minGenres}`);
-  if (genresWithMin2.length < th.minGenres) {
-    gaps.push(`genresWith>=2Chapters=${genresWithMin2.length} < ${th.minGenres}`);
+  if (underRepresentedGenres.length > 0) {
+    gaps.push(
+      `underRepresentedGenres(<${th.minChaptersPerGenre}ch): ${underRepresentedGenres.map(u => `${u.genre}(${u.chapters})`).join(', ')}`
+    );
   }
   if (nCh < th.minChapters) gaps.push(`N_ch=${nCh} < ${th.minChapters} (need +${th.minChapters - nCh})`);
   if (nPos < th.minPositives) gaps.push(`N_pos=${nPos} < ${th.minPositives} (need +${th.minPositives - nPos})`);
@@ -1592,8 +1972,7 @@ export function evaluateG6(g6Data, {referenceChapters = [], seed = DEFAULT_BOOTS
     };
   }
 
-  const run = runs[0];
-  const runChapters = run.chapters || [];
+  const runChapters = derivedRuns[0].chapters;
   let tp = 0;
   let fp = 0;
   let fn = 0;
@@ -1603,13 +1982,13 @@ export function evaluateG6(g6Data, {referenceChapters = [], seed = DEFAULT_BOOTS
   const heavyChapters = [];
 
   for (const ch of runChapters) {
-    tp += ch.tp || 0;
-    fp += ch.fp || 0;
-    fn += ch.fn || 0;
-    tn += ch.tn || 0;
-    clearTierFp += ch.clearTierFp || 0;
-    blockerMisses += ch.blockerMisses || 0;
-    const totalCasesInCh = (ch.tp || 0) + (ch.fn || 0) + (ch.fp || 0) + (ch.tn || 0);
+    tp += ch.tp;
+    fp += ch.fp;
+    fn += ch.fn;
+    tn += ch.tn;
+    clearTierFp += ch.clearTierFp;
+    blockerMisses += ch.blockerMisses;
+    const totalCasesInCh = ch.tp + ch.fn + ch.fp + ch.tn;
     if (totalCasesInCh > th.clusterWeightDisclosureCaseCap) {
       heavyChapters.push({chapterId: ch.chapterId, totalCases: totalCasesInCh});
     }
@@ -1617,15 +1996,15 @@ export function evaluateG6(g6Data, {referenceChapters = [], seed = DEFAULT_BOOTS
 
   const recallClusters = runChapters.map(c => ({
     chapterId: c.chapterId,
-    numerator: c.tp || 0,
-    denominator: (c.tp || 0) + (c.fn || 0),
+    numerator: c.tp,
+    denominator: c.tp + c.fn,
   }));
   const recallBootstrap = chapterClusterBootstrapCI(recallClusters, {iterations, seed});
 
   const fprClusters = runChapters.map(c => ({
     chapterId: c.chapterId,
-    numerator: c.fp || 0,
-    denominator: (c.fp || 0) + (c.tn || 0),
+    numerator: c.fp,
+    denominator: c.fp + c.tn,
   }));
   const fprBootstrap = chapterClusterBootstrapCI(fprClusters, {iterations, seed: seed + 1});
 
@@ -1701,12 +2080,11 @@ export function evaluateG6(g6Data, {referenceChapters = [], seed = DEFAULT_BOOTS
 /**
  * Evaluate a single scheme across all 7 separated gates (G1, G2-A, G2-B, G3, G4, G5, G6).
  * Strictly forbids merged `G2` key (`R3_P0_6_MERGED_G2_FORBIDDEN`).
- * Suitable for single-scheme diagnostics without issuing a formal A/B/C winner.
  */
 export function evaluateSchemeG1ToG6(
   schemeName,
   schemeData,
-  {referenceChapters = [], seed = DEFAULT_BOOTSTRAP_SEED, iterations = BOOTSTRAP_ITERATIONS} = {}
+  {referenceChapters = [], seed = DEFAULT_BOOTSTRAP_SEED, iterations = BOOTSTRAP_ITERATIONS, g6BudgetExpansionApproved = false} = {}
 ) {
   if (isPlainObject(schemeData) && Object.hasOwn(schemeData, 'G2')) {
     return {
@@ -1736,7 +2114,12 @@ export function evaluateSchemeG1ToG6(
   const G3 = evaluateG3(schemeData?.G3, {seed: seed + 30, iterations});
   const G4 = evaluateG4(schemeData?.G4);
   const G5 = evaluateG5(schemeData?.G5);
-  const G6 = evaluateG6(schemeData?.G6, {referenceChapters: refAll, seed: seed + 40, iterations});
+  const G6 = evaluateG6(schemeData?.G6, {
+    referenceChapters: refAll,
+    seed: seed + 40,
+    iterations,
+    g6BudgetExpansionApproved,
+  });
 
   const gates = {G1, G2A, G2B, G3, G4, G5, G6};
   const gateList = Object.values(gates);
@@ -1797,17 +2180,26 @@ function normalizeChapterManifestForEquivalence(chapters) {
       chapterId: normalizeId(c?.chapterId),
       sourceChapterId: isNonEmptyString(c?.sourceChapterId) ? normalizeId(c.sourceChapterId) : null,
       contentSha256: isNonEmptyString(c?.contentSha256) ? c.contentSha256.trim().toLowerCase() : null,
-      genre: isNonEmptyString(c?.genre) ? c.genre.trim() : null,
+      genre: normalizeCanonicalGenre(c?.genre) ?? (isNonEmptyString(c?.genre) ? c.genre.trim() : null),
       positives: c?.positives ?? null,
       negatives: c?.negatives ?? null,
       paragraphs: c?.paragraphs ?? null,
+      cases: Array.isArray(c?.cases)
+        ? c.cases
+            .map(item => ({
+              caseId: normalizeId(item?.caseId),
+              truthClass: item?.truthClass ?? null,
+              tier: item?.tier ?? null,
+            }))
+            .sort((a, b) => a.caseId.localeCompare(b.caseId, 'en'))
+        : null,
     }))
     .sort((a, b) => a.chapterId.localeCompare(b.chapterId, 'en'));
 }
 
 /**
- * Blocking 2: Extract canonical evaluation dataset signature for a scheme so A, B, and C are guaranteed
- * to be adjudicated on the EXACT SAME frozen chapters, source IDs, content hashes, case keys, and truth labels.
+ * Extract canonical case-level evaluation dataset signature for a scheme so A, B, and C are guaranteed
+ * to be adjudicated on the EXACT SAME frozen chapters, source IDs, content hashes, caseIds, truthClasses, and tiers.
  */
 export function extractSchemeDatasetSignature(schemeData) {
   const g4Run0Pairs = Array.isArray(schemeData?.G4?.runs?.[0]?.pairs)
@@ -1876,7 +2268,7 @@ function assertFairABCEquivalence(schemesPayload) {
       ok: false,
       code: 'R3_P0_6_UNEQUAL_EVALUATION_DATASET',
       mismatchedGates,
-      message: `A / B / C 三方案在以下门禁使用了不等价的评测集（章节 ID、来源章、内容哈希或真值标注不一致）：${mismatchedGates.join(', ')}。`,
+      message: `A / B / C 三方案在以下门禁使用了不等价的评测集（章节 ID、来源章、内容哈希、案例主键或真值标注不一致）：${mismatchedGates.join(', ')}。`,
     };
   }
   return {ok: true};
@@ -1884,12 +2276,10 @@ function assertFairABCEquivalence(schemesPayload) {
 
 /**
  * Side-by-side Go / No-Go adjudication across Schemes A, B, and C (frozen `08` §1.1 & §3).
- *
- * Blocking 2: Requires complete `{A, B, C}` AND exact canonical dataset equivalence across all 3 schemes.
  */
 export function adjudicateSchemes(
   schemesPayload,
-  {referenceChapters = [], seed = DEFAULT_BOOTSTRAP_SEED, iterations = BOOTSTRAP_ITERATIONS} = {}
+  {referenceChapters = [], seed = DEFAULT_BOOTSTRAP_SEED, iterations = BOOTSTRAP_ITERATIONS, g6BudgetExpansionApproved = false} = {}
 ) {
   const fairness = assertFairABCEquivalence(schemesPayload);
   if (!fairness.ok) {
@@ -1915,6 +2305,7 @@ export function adjudicateSchemes(
       referenceChapters,
       seed,
       iterations,
+      g6BudgetExpansionApproved,
     });
     if (evaluated[name].status === 'LEAKAGE_REJECTED' || evaluated[name].status === 'INVALID_DESIGN') {
       return {
@@ -1959,7 +2350,6 @@ export function adjudicateSchemes(
     }
   }
 
-  // Check if any scheme hit UNDERPOWERED on mandatory gates (especially G2-B / G6 / G3 / G4 / G5)
   const anyUnderpowered = Object.values(evaluated).some(s => s.underpoweredGates.length > 0);
   if (anyUnderpowered) {
     const sampleGaps = {};
@@ -2007,10 +2397,6 @@ export function adjudicateSchemes(
     };
   }
 
-  // Frozen tie-break priority (`08` §1.1 rule 3):
-  //   1. Highest G6 recall (BLOCKER misses = 0 already enforced)
-  //   2. Lowest G2-B 3-round mean FPR, then lowest G2-B 3-round FPR variance
-  //   3. Lowest end-to-end review latency
   const ranked = [...passingCandidates].sort((x, y) => {
     const xG6 = x.gates.G6.recallClusterBootstrap95CI.point ?? -1;
     const yG6 = y.gates.G6.recallClusterBootstrap95CI.point ?? -1;
@@ -2046,7 +2432,7 @@ export function adjudicateSchemes(
       g2bFprVariance: s.gates.G2B.fprSummary.variance,
       avgReviewLatencyMs: s.avgReviewLatencyMs,
     })),
-    allowProductionMerge: false, // Still requires GPT-6 ACCEPTED + author approval + Phase 2 if applicable!
+    allowProductionMerge: false,
     requiresGpt6AcceptanceAndAuthorApproval: true,
     eliminations,
     schemes: evaluated,
@@ -2060,6 +2446,7 @@ function parseCliArgs(argv) {
     if (rest[i] === '--input' && rest[i + 1]) opts.input = rest[++i];
     else if (rest[i] === '--out' && rest[i + 1]) opts.out = rest[++i];
     else if (rest[i] === '--seed' && rest[i + 1]) opts.seed = Number(rest[++i]);
+    else if (rest[i] === '--approve-g6-budget-expansion') opts.g6BudgetExpansionApproved = true;
   }
   return {cmd, opts};
 }
@@ -2086,6 +2473,7 @@ if (isDirectCli) {
       referenceChapters: payload.referenceChapters || [],
       seed,
       iterations: payload.iterations ?? BOOTSTRAP_ITERATIONS,
+      g6BudgetExpansionApproved: opts.g6BudgetExpansionApproved === true || payload.g6BudgetExpansionApproved === true,
     });
     const outText = JSON.stringify(result, null, 2) + '\n';
     if (opts.out) {

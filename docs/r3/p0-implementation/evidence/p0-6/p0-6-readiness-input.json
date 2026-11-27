@@ -60,15 +60,15 @@
       },
       "G2A": {
         "chapters": [
-          {"chapterId": "ARM0-CH1", "negatives": 3},
-          {"chapterId": "ARM0-CH2", "negatives": 3},
-          {"chapterId": "ARM0-CH3", "negatives": 3},
-          {"chapterId": "ARM1-CH1", "negatives": 4},
-          {"chapterId": "ARM1-CH2", "negatives": 4},
-          {"chapterId": "ARM1-CH3", "negatives": 4},
-          {"chapterId": "ARM2-CH1", "negatives": 4},
-          {"chapterId": "ARM2-CH2", "negatives": 4},
-          {"chapterId": "ARM2-CH3", "negatives": 4}
+          {"chapterId": "ARM0-CH1", "positives": 4, "negatives": 3},
+          {"chapterId": "ARM0-CH2", "positives": 4, "negatives": 3},
+          {"chapterId": "ARM0-CH3", "positives": 4, "negatives": 3},
+          {"chapterId": "ARM1-CH1", "positives": 4, "negatives": 4},
+          {"chapterId": "ARM1-CH2", "positives": 4, "negatives": 4},
+          {"chapterId": "ARM1-CH3", "positives": 5, "negatives": 4},
+          {"chapterId": "ARM2-CH1", "positives": 5, "negatives": 4},
+          {"chapterId": "ARM2-CH2", "positives": 5, "negatives": 4},
+          {"chapterId": "ARM2-CH3", "positives": 5, "negatives": 4}
         ],
         "runs": []
       },
@@ -148,15 +148,15 @@
       },
       "G2A": {
         "chapters": [
-          {"chapterId": "ARM0-CH1", "negatives": 3},
-          {"chapterId": "ARM0-CH2", "negatives": 3},
-          {"chapterId": "ARM0-CH3", "negatives": 3},
-          {"chapterId": "ARM1-CH1", "negatives": 4},
-          {"chapterId": "ARM1-CH2", "negatives": 4},
-          {"chapterId": "ARM1-CH3", "negatives": 4},
-          {"chapterId": "ARM2-CH1", "negatives": 4},
-          {"chapterId": "ARM2-CH2", "negatives": 4},
-          {"chapterId": "ARM2-CH3", "negatives": 4}
+          {"chapterId": "ARM0-CH1", "positives": 4, "negatives": 3},
+          {"chapterId": "ARM0-CH2", "positives": 4, "negatives": 3},
+          {"chapterId": "ARM0-CH3", "positives": 4, "negatives": 3},
+          {"chapterId": "ARM1-CH1", "positives": 4, "negatives": 4},
+          {"chapterId": "ARM1-CH2", "positives": 4, "negatives": 4},
+          {"chapterId": "ARM1-CH3", "positives": 5, "negatives": 4},
+          {"chapterId": "ARM2-CH1", "positives": 5, "negatives": 4},
+          {"chapterId": "ARM2-CH2", "positives": 5, "negatives": 4},
+          {"chapterId": "ARM2-CH3", "positives": 5, "negatives": 4}
         ],
         "runs": []
       },
@@ -236,15 +236,15 @@
       },
       "G2A": {
         "chapters": [
-          {"chapterId": "ARM0-CH1", "negatives": 3},
-          {"chapterId": "ARM0-CH2", "negatives": 3},
-          {"chapterId": "ARM0-CH3", "negatives": 3},
-          {"chapterId": "ARM1-CH1", "negatives": 4},
-          {"chapterId": "ARM1-CH2", "negatives": 4},
-          {"chapterId": "ARM1-CH3", "negatives": 4},
-          {"chapterId": "ARM2-CH1", "negatives": 4},
-          {"chapterId": "ARM2-CH2", "negatives": 4},
-          {"chapterId": "ARM2-CH3", "negatives": 4}
+          {"chapterId": "ARM0-CH1", "positives": 4, "negatives": 3},
+          {"chapterId": "ARM0-CH2", "positives": 4, "negatives": 3},
+          {"chapterId": "ARM0-CH3", "positives": 4, "negatives": 3},
+          {"chapterId": "ARM1-CH1", "positives": 4, "negatives": 4},
+          {"chapterId": "ARM1-CH2", "positives": 4, "negatives": 4},
+          {"chapterId": "ARM1-CH3", "positives": 5, "negatives": 4},
+          {"chapterId": "ARM2-CH1", "positives": 5, "negatives": 4},
+          {"chapterId": "ARM2-CH2", "positives": 5, "negatives": 4},
+          {"chapterId": "ARM2-CH3", "positives": 5, "negatives": 4}
         ],
         "runs": []
       },

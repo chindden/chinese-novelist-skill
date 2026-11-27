@@ -29,6 +29,7 @@
       "G2-A": {
         "sampleTriplet": {
           "nCh": 9,
+          "nPos": 40,
           "nNeg": 33,
           "kRep": 0,
           "genres": []
@@ -40,6 +41,7 @@
       "G2-B": {
         "sampleTriplet": {
           "nCh": 0,
+          "nPos": 0,
           "nNeg": 0,
           "kRep": 0,
           "genres": []
@@ -95,7 +97,6 @@
         },
         "gaps": [
           "genres=0 < 4",
-          "genresWith>=2Chapters=0 < 4",
           "N_ch=0 < 12 (need +12)",
           "N_pos=0 < 30 (need +30)",
           "N_neg=0 < 40 (need +40)",
@@ -124,6 +125,7 @@
       "G2-A": {
         "sampleTriplet": {
           "nCh": 9,
+          "nPos": 40,
           "nNeg": 33,
           "kRep": 0,
           "genres": []
@@ -135,6 +137,7 @@
       "G2-B": {
         "sampleTriplet": {
           "nCh": 0,
+          "nPos": 0,
           "nNeg": 0,
           "kRep": 0,
           "genres": []
@@ -190,7 +193,6 @@
         },
         "gaps": [
           "genres=0 < 4",
-          "genresWith>=2Chapters=0 < 4",
           "N_ch=0 < 12 (need +12)",
           "N_pos=0 < 30 (need +30)",
           "N_neg=0 < 40 (need +40)",
@@ -219,6 +221,7 @@
       "G2-A": {
         "sampleTriplet": {
           "nCh": 9,
+          "nPos": 40,
           "nNeg": 33,
           "kRep": 0,
           "genres": []
@@ -230,6 +233,7 @@
       "G2-B": {
         "sampleTriplet": {
           "nCh": 0,
+          "nPos": 0,
           "nNeg": 0,
           "kRep": 0,
           "genres": []
@@ -285,7 +289,6 @@
         },
         "gaps": [
           "genres=0 < 4",
-          "genresWith>=2Chapters=0 < 4",
           "N_ch=0 < 12 (need +12)",
           "N_pos=0 < 30 (need +30)",
           "N_neg=0 < 40 (need +40)",
@@ -331,6 +334,7 @@
           "status": "UNDERPOWERED",
           "sampleTriplet": {
             "nCh": 9,
+            "nPos": 40,
             "nNeg": 33,
             "kRep": 0,
             "genres": []
@@ -349,6 +353,7 @@
           "status": "UNDERPOWERED",
           "sampleTriplet": {
             "nCh": 0,
+            "nPos": 0,
             "nNeg": 0,
             "kRep": 0,
             "genres": []
@@ -424,7 +429,6 @@
           },
           "gaps": [
             "genres=0 < 4",
-            "genresWith>=2Chapters=0 < 4",
             "N_ch=0 < 12 (need +12)",
             "N_pos=0 < 30 (need +30)",
             "N_neg=0 < 40 (need +40)",
@@ -482,6 +486,7 @@
           "status": "UNDERPOWERED",
           "sampleTriplet": {
             "nCh": 9,
+            "nPos": 40,
             "nNeg": 33,
             "kRep": 0,
             "genres": []
@@ -500,6 +505,7 @@
           "status": "UNDERPOWERED",
           "sampleTriplet": {
             "nCh": 0,
+            "nPos": 0,
             "nNeg": 0,
             "kRep": 0,
             "genres": []
@@ -575,7 +581,6 @@
           },
           "gaps": [
             "genres=0 < 4",
-            "genresWith>=2Chapters=0 < 4",
             "N_ch=0 < 12 (need +12)",
             "N_pos=0 < 30 (need +30)",
             "N_neg=0 < 40 (need +40)",
@@ -633,6 +638,7 @@
           "status": "UNDERPOWERED",
           "sampleTriplet": {
             "nCh": 9,
+            "nPos": 40,
             "nNeg": 33,
             "kRep": 0,
             "genres": []
@@ -651,6 +657,7 @@
           "status": "UNDERPOWERED",
           "sampleTriplet": {
             "nCh": 0,
+            "nPos": 0,
             "nNeg": 0,
             "kRep": 0,
             "genres": []
@@ -726,7 +733,6 @@
           },
           "gaps": [
             "genres=0 < 4",
-            "genresWith>=2Chapters=0 < 4",
             "N_ch=0 < 12 (need +12)",
             "N_pos=0 < 30 (need +30)",
             "N_neg=0 < 40 (need +40)",
