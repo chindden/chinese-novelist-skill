@@ -1,0 +1,583 @@
+{
+  "schemaVersion": "1.0",
+  "dataBoundaryDeclaration": "0 bytes of raw novel prose, 0 local filesystem paths, 0 raw historical titles; full original exposure registry and inventory remain strictly inside Project A local Vault.",
+  "version": "v1-historical",
+  "previousVersionSha256": null,
+  "vaultAllocationV1Sha256": "1c4d8be40610dfea7d0d20b3e31afc4608f7e5253e22836b96e1d1fd7785df6f",
+  "vaultArtifactAnchors": {
+    "exposureRegistrySha256": "7744a07830c94c20f6a78f21cef3587e3bd247e3257258ab6848b7279a74b21e",
+    "inventorySha256": "81587be43cd1e01b0d4756e8aab1b9b035a6f039ae781b649c1aedf0fd35157e",
+    "g4Selected9Sha256": "9cb97d98eaa91333b4dd9e6423888360e7fa9cf3298d01d1079bb74a7bb42c19",
+    "g4Unselected11Sha256": "976c4f89026031cea6b7b015821f8fdaf0bc92a2ebe0c3d298d9a4120ec3ad09",
+    "dedupCalibrationSha256": "031c169218ac686c74be44698f48df47e0477764bb450f2d1847710176429a10"
+  },
+  "historicalInventorySummary": {
+    "totalAccessibleManuscriptFilesAudited": 175,
+    "distinctWorksAudited": 7,
+    "internalExposedWorks": 5,
+    "externalPublicRefWorks": 2,
+    "accessibleUnknownWorksOnDisk": 0,
+    "uninventoriedNewManuscriptFilesSinceP00": 0,
+    "unknownFailClosedPolicy": "Any unarchived/inaccessible external history is exposureAuditStatus=\"unknown\" -> EXCLUDED_UNKNOWN (0 admitted to G2-B or G6).",
+    "fiveStateCounts": {
+      "ELIGIBLE_ASSIGNED": 1,
+      "EXCLUDED_EXPOSED": 6,
+      "EXCLUDED_UNKNOWN": 0,
+      "RESERVE": 0,
+      "UNASSIGNED": 0
+    }
+  },
+  "assignments": [
+    {
+      "sourceWorkId": "HIST-WORK-02",
+      "canonicalGenre": "仙侠",
+      "exposureAuditStatus": "exposed",
+      "allocationStatus": "EXCLUDED_EXPOSED",
+      "assignedGate": null,
+      "reason": "Fully retired / excluded from all Stage 1B gates."
+    },
+    {
+      "sourceWorkId": "HIST-WORK-01",
+      "canonicalGenre": "仙侠",
+      "exposureAuditStatus": "exposed",
+      "allocationStatus": "EXCLUDED_EXPOSED",
+      "assignedGate": null,
+      "reason": "Historical regression corpus ONLY: G1 (9ch/40pos + 7ch reg), G2-A (frozen 9ch/40pos/33neg), G3-Plan A & G4-Plan A via EXC-HIST-QHL-G3-G4 (QHL-CH1..3), and G5 legitimate-trope controls (CAL-49/62/11). Strictly EXCLUDED from G2-B & G6."
+    },
+    {
+      "sourceWorkId": "HIST-WORK-03",
+      "canonicalGenre": "都市",
+      "exposureAuditStatus": "exposed",
+      "allocationStatus": "EXCLUDED_EXPOSED",
+      "assignedGate": null,
+      "reason": "Fully retired / excluded from all Stage 1B gates."
+    },
+    {
+      "sourceWorkId": "HIST-WORK-05",
+      "canonicalGenre": "历史",
+      "exposureAuditStatus": "exposed",
+      "allocationStatus": "ELIGIBLE_ASSIGNED",
+      "assignedGate": "G5",
+      "reason": "Historical known planning-deadlock reference ONLY: V22-H4 (1 of 3 required G5 deadlock chapters). Strictly EXCLUDED from G2-B & G6."
+    },
+    {
+      "sourceWorkId": "HIST-WORK-04",
+      "canonicalGenre": "悬疑",
+      "exposureAuditStatus": "exposed",
+      "allocationStatus": "EXCLUDED_EXPOSED",
+      "assignedGate": null,
+      "reason": "Fully retired / excluded from all Stage 1B gates."
+    },
+    {
+      "sourceWorkId": "EXT-REF-02",
+      "canonicalGenre": "衍生",
+      "exposureAuditStatus": "exposed",
+      "allocationStatus": "EXCLUDED_EXPOSED",
+      "assignedGate": null,
+      "reason": "Fully retired / excluded from all Stage 1B gates."
+    },
+    {
+      "sourceWorkId": "EXT-REF-01",
+      "canonicalGenre": "历史",
+      "exposureAuditStatus": "exposed",
+      "allocationStatus": "EXCLUDED_EXPOSED",
+      "assignedGate": null,
+      "reason": "Fully retired / excluded from all Stage 1B gates."
+    }
+  ],
+  "exceptionAssignments": [
+    {
+      "exceptionId": "EXC-HIST-QHL-G3-G4",
+      "sourceWorkId": "HIST-WORK-01",
+      "sourceChapterIds": [
+        "QHL-CH1",
+        "QHL-CH2",
+        "QHL-CH3"
+      ],
+      "allowedGates": [
+        "G3",
+        "G4"
+      ],
+      "rationale": "Unique explicitly whitelisted historical regression cross-gate reuse per v0.2.5 §3.1 & §7.1 (disclosed transparently as shared historical source chapters, NOT independent evidence; strictly excluded from G2-B & G6).",
+      "g3RepresentativeCaseIds": [
+        {
+          "sourceChapterId": "QHL-CH1",
+          "calId": "CAL-07",
+          "pairwiseMaxJaccard5": 0
+        },
+        {
+          "sourceChapterId": "QHL-CH2",
+          "calId": "CAL-46",
+          "pairwiseMaxJaccard5": 0
+        },
+        {
+          "sourceChapterId": "QHL-CH3",
+          "calId": "CAL-17",
+          "pairwiseMaxJaccard5": 0
+        }
+      ],
+      "g4SelectedCaseIds": [
+        {
+          "caseId": "FC-03",
+          "sourceChapterId": "QHL-CH1",
+          "historicalOriginalTruth": "MINOR"
+        },
+        {
+          "caseId": "FC-02",
+          "sourceChapterId": "QHL-CH1",
+          "historicalOriginalTruth": "SUGGESTION"
+        },
+        {
+          "caseId": "FC-14",
+          "sourceChapterId": "QHL-CH1",
+          "historicalOriginalTruth": "SUGGESTION"
+        },
+        {
+          "caseId": "FC-11",
+          "sourceChapterId": "QHL-CH2",
+          "historicalOriginalTruth": "MAJOR"
+        },
+        {
+          "caseId": "FC-23",
+          "sourceChapterId": "QHL-CH2",
+          "historicalOriginalTruth": "MINOR"
+        },
+        {
+          "caseId": "FC-16",
+          "sourceChapterId": "QHL-CH2",
+          "historicalOriginalTruth": "SUGGESTION"
+        },
+        {
+          "caseId": "FC-19",
+          "sourceChapterId": "QHL-CH3",
+          "historicalOriginalTruth": "MAJOR"
+        },
+        {
+          "caseId": "FC-18",
+          "sourceChapterId": "QHL-CH3",
+          "historicalOriginalTruth": "MINOR"
+        },
+        {
+          "caseId": "FC-20",
+          "sourceChapterId": "QHL-CH3",
+          "historicalOriginalTruth": "SUGGESTION"
+        }
+      ]
+    }
+  ],
+  "g4Mulberry32PreRegistration": {
+    "prngAlgorithm": "Mulberry32 (identical to scripts/p0_prototypes/eval_g1_g6_stats.mjs#createMulberry32)",
+    "seed": 20261128,
+    "canonicalSort": "sourceChapterId ASC, caseId ASC (UTF-8 lexicographical)",
+    "traversalOrder": "Outer: QHL-CH1 -> QHL-CH2 -> QHL-CH3; Inner: MAJOR -> MINOR -> SUGGESTION (single continuous stream across all non-empty strata, no per-stratum reset)",
+    "fisherYatesRule": "for (let i = n - 1; i >= 1; i--) { const j = Math.floor(nextFloat() * (i + 1)); swap(arr[i], arr[j]); }",
+    "historicalTruthAlterationCount": 0,
+    "selectedCount": 9,
+    "unselectedCount": 11,
+    "selectedClassDistribution": {
+      "BLOCKER": 0,
+      "MAJOR": 2,
+      "MINOR": 3,
+      "SUGGESTION": 4
+    },
+    "selectedChapterDistribution": {
+      "QHL-CH1": 3,
+      "QHL-CH2": 3,
+      "QHL-CH3": 3
+    },
+    "selectedCases": [
+      {
+        "caseId": "FC-03",
+        "sourceChapterId": "QHL-CH1",
+        "origId": "FC-CAL-18",
+        "historicalOriginalTruth": "MINOR",
+        "stratumRankAfterShuffle": 1
+      },
+      {
+        "caseId": "FC-02",
+        "sourceChapterId": "QHL-CH1",
+        "origId": "SUG-01",
+        "historicalOriginalTruth": "SUGGESTION",
+        "stratumRankAfterShuffle": 1
+      },
+      {
+        "caseId": "FC-14",
+        "sourceChapterId": "QHL-CH1",
+        "origId": "SUG-02",
+        "historicalOriginalTruth": "SUGGESTION",
+        "stratumRankAfterShuffle": 2
+      },
+      {
+        "caseId": "FC-11",
+        "sourceChapterId": "QHL-CH2",
+        "origId": "FC-CAL-24",
+        "historicalOriginalTruth": "MAJOR",
+        "stratumRankAfterShuffle": 1
+      },
+      {
+        "caseId": "FC-23",
+        "sourceChapterId": "QHL-CH2",
+        "origId": "FC-CAL-62",
+        "historicalOriginalTruth": "MINOR",
+        "stratumRankAfterShuffle": 1
+      },
+      {
+        "caseId": "FC-16",
+        "sourceChapterId": "QHL-CH2",
+        "origId": "SUG-06",
+        "historicalOriginalTruth": "SUGGESTION",
+        "stratumRankAfterShuffle": 1
+      },
+      {
+        "caseId": "FC-19",
+        "sourceChapterId": "QHL-CH3",
+        "origId": "FC-CAL-36",
+        "historicalOriginalTruth": "MAJOR",
+        "stratumRankAfterShuffle": 1
+      },
+      {
+        "caseId": "FC-18",
+        "sourceChapterId": "QHL-CH3",
+        "origId": "FC-CAL-06",
+        "historicalOriginalTruth": "MINOR",
+        "stratumRankAfterShuffle": 1
+      },
+      {
+        "caseId": "FC-20",
+        "sourceChapterId": "QHL-CH3",
+        "origId": "SUG-04",
+        "historicalOriginalTruth": "SUGGESTION",
+        "stratumRankAfterShuffle": 1
+      }
+    ],
+    "unselectedCases": [
+      {
+        "caseId": "FC-13",
+        "sourceChapterId": "QHL-CH2",
+        "origId": "FC-CAL-67",
+        "historicalOriginalTruth": "MAJOR",
+        "stratumRankAfterShuffle": 2
+      },
+      {
+        "caseId": "FC-22",
+        "sourceChapterId": "QHL-CH2",
+        "origId": "FC-CAL-65",
+        "historicalOriginalTruth": "MAJOR",
+        "stratumRankAfterShuffle": 3
+      },
+      {
+        "caseId": "FC-06",
+        "sourceChapterId": "QHL-CH2",
+        "origId": "FC-CAL-29",
+        "historicalOriginalTruth": "MAJOR",
+        "stratumRankAfterShuffle": 4
+      },
+      {
+        "caseId": "FC-04",
+        "sourceChapterId": "QHL-CH2",
+        "origId": "FC-CAL-22",
+        "historicalOriginalTruth": "MAJOR",
+        "stratumRankAfterShuffle": 5
+      },
+      {
+        "caseId": "FC-07",
+        "sourceChapterId": "QHL-CH2",
+        "origId": "FC-CAL-14",
+        "historicalOriginalTruth": "MINOR",
+        "stratumRankAfterShuffle": 2
+      },
+      {
+        "caseId": "FC-21",
+        "sourceChapterId": "QHL-CH2",
+        "origId": "FC-CAL-30",
+        "historicalOriginalTruth": "MINOR",
+        "stratumRankAfterShuffle": 3
+      },
+      {
+        "caseId": "FC-05",
+        "sourceChapterId": "QHL-CH3",
+        "origId": "FC-CAL-61",
+        "historicalOriginalTruth": "MAJOR",
+        "stratumRankAfterShuffle": 2
+      },
+      {
+        "caseId": "FC-24",
+        "sourceChapterId": "QHL-CH3",
+        "origId": "FC-CAL-27",
+        "historicalOriginalTruth": "MAJOR",
+        "stratumRankAfterShuffle": 3
+      },
+      {
+        "caseId": "FC-01",
+        "sourceChapterId": "QHL-CH3",
+        "origId": "FC-CAL-40",
+        "historicalOriginalTruth": "MINOR",
+        "stratumRankAfterShuffle": 2
+      },
+      {
+        "caseId": "FC-10",
+        "sourceChapterId": "QHL-CH3",
+        "origId": "SUG-03",
+        "historicalOriginalTruth": "SUGGESTION",
+        "stratumRankAfterShuffle": 2
+      },
+      {
+        "caseId": "FC-15",
+        "sourceChapterId": "QHL-CH3",
+        "origId": "SUG-05",
+        "historicalOriginalTruth": "SUGGESTION",
+        "stratumRankAfterShuffle": 3
+      }
+    ],
+    "prngTrace": [
+      {
+        "drawIndex": 1,
+        "stratum": "QHL-CH1|SUGGESTION",
+        "n": 2,
+        "i": 1,
+        "u": 0.962726176949,
+        "j": 1,
+        "swappedIds": [
+          "FC-14",
+          "FC-14"
+        ]
+      },
+      {
+        "drawIndex": 2,
+        "stratum": "QHL-CH2|MAJOR",
+        "n": 5,
+        "i": 4,
+        "u": 0.188371984055,
+        "j": 0,
+        "swappedIds": [
+          "FC-22",
+          "FC-04"
+        ]
+      },
+      {
+        "drawIndex": 3,
+        "stratum": "QHL-CH2|MAJOR",
+        "n": 5,
+        "i": 3,
+        "u": 0.350458944216,
+        "j": 1,
+        "swappedIds": [
+          "FC-13",
+          "FC-06"
+        ]
+      },
+      {
+        "drawIndex": 4,
+        "stratum": "QHL-CH2|MAJOR",
+        "n": 5,
+        "i": 2,
+        "u": 0.087887418922,
+        "j": 0,
+        "swappedIds": [
+          "FC-11",
+          "FC-22"
+        ]
+      },
+      {
+        "drawIndex": 5,
+        "stratum": "QHL-CH2|MAJOR",
+        "n": 5,
+        "i": 1,
+        "u": 0.88117289939,
+        "j": 1,
+        "swappedIds": [
+          "FC-13",
+          "FC-13"
+        ]
+      },
+      {
+        "drawIndex": 6,
+        "stratum": "QHL-CH2|MINOR",
+        "n": 3,
+        "i": 2,
+        "u": 0.500784994802,
+        "j": 1,
+        "swappedIds": [
+          "FC-23",
+          "FC-21"
+        ]
+      },
+      {
+        "drawIndex": 7,
+        "stratum": "QHL-CH2|MINOR",
+        "n": 3,
+        "i": 1,
+        "u": 0.459170424612,
+        "j": 0,
+        "swappedIds": [
+          "FC-23",
+          "FC-07"
+        ]
+      },
+      {
+        "drawIndex": 8,
+        "stratum": "QHL-CH3|MAJOR",
+        "n": 3,
+        "i": 2,
+        "u": 0.752384816296,
+        "j": 2,
+        "swappedIds": [
+          "FC-24",
+          "FC-24"
+        ]
+      },
+      {
+        "drawIndex": 9,
+        "stratum": "QHL-CH3|MAJOR",
+        "n": 3,
+        "i": 1,
+        "u": 0.437696474837,
+        "j": 0,
+        "swappedIds": [
+          "FC-19",
+          "FC-05"
+        ]
+      },
+      {
+        "drawIndex": 10,
+        "stratum": "QHL-CH3|MINOR",
+        "n": 2,
+        "i": 1,
+        "u": 0.242856146535,
+        "j": 0,
+        "swappedIds": [
+          "FC-18",
+          "FC-01"
+        ]
+      },
+      {
+        "drawIndex": 11,
+        "stratum": "QHL-CH3|SUGGESTION",
+        "n": 3,
+        "i": 2,
+        "u": 0.598977986723,
+        "j": 1,
+        "swappedIds": [
+          "FC-20",
+          "FC-15"
+        ]
+      },
+      {
+        "drawIndex": 12,
+        "stratum": "QHL-CH3|SUGGESTION",
+        "n": 3,
+        "i": 1,
+        "u": 0.283296347829,
+        "j": 0,
+        "swappedIds": [
+          "FC-20",
+          "FC-10"
+        ]
+      }
+    ]
+  },
+  "nonHoldoutDedupCalibration": {
+    "schemaVersion": "1.0",
+    "method": "NFKC + strip whitespace/punctuation/symbols -> character 5-gram Jaccard similarity on non-Holdout historical chapters (14 representative chapters across 5 works)",
+    "empiricalBands": {
+      "sameChapterRevision": {
+        "pairCount": 1,
+        "min": 0.575913,
+        "max": 0.575913
+      },
+      "sameWorkDiffArmSameChapter": {
+        "pairCount": 5,
+        "min": 0.017199,
+        "max": 0.022583
+      },
+      "sameWorkDiffChapter": {
+        "pairCount": 15,
+        "min": 0.001257,
+        "max": 0.007126
+      },
+      "diffWorkSameGenre": {
+        "pairCount": 18,
+        "min": 0,
+        "max": 0.001457
+      },
+      "diffWorkDiffGenre": {
+        "pairCount": 52,
+        "min": 0,
+        "max": 0.000604
+      }
+    },
+    "calibratedThresholds": {
+      "deterministicHardReject": "Exact rawContentSha256 match OR normalizedContentSha256 match OR identical sourceWorkId",
+      "nearDuplicateHoldManualReview": {
+        "char5GramJaccardGte": 0.015,
+        "orLongestCommonNormalizedSubstringCjkGte": 25,
+        "disposition": "HOLD / MANUAL_REVIEW_REQUIRED (never auto-reject; reject only if human review confirms copy/paraphrase; otherwise log written waiver for independent industry cliché)",
+        "rationale": "0.015 sits 10x above max observed cross-work same-genre background (0.0015) while still catching independent arm rewrites of the exact same outline (0.0172-0.0226)."
+      }
+    }
+  },
+  "gapSummary": {
+    "formula": "Delta_N_g = max(0, T_g - R_g)",
+    "byGate": {
+      "G1": {
+        "targetChapters": 9,
+        "historicalReusableChapters": 9,
+        "gapChapters": 0,
+        "note": "Historical 9ch/40pos + 7ch regression already complete"
+      },
+      "G2-A": {
+        "targetChapters": 9,
+        "historicalReusableChapters": 9,
+        "gapChapters": 0,
+        "note": "Frozen 9ch/40pos/33neg already complete"
+      },
+      "G2-B": {
+        "targetChapters": 20,
+        "historicalReusableChapters": 0,
+        "gapChapters": 20,
+        "plan": "D1-B: 4 canonical genres x 5ch (72 pos [18B+54M], 60 non-blocking [30C+30B])"
+      },
+      "G6": {
+        "targetChapters": 16,
+        "historicalReusableChapters": 0,
+        "gapChapters": 16,
+        "plan": "D2-A: 4 canonical genres x 4ch (32 pos [10B+22M], 48 non-blocking [24C+24B]), 6-dim work-level mutually exclusive with G2-B"
+      },
+      "G3": {
+        "targetChapters": 10,
+        "historicalReusableChapters": 3,
+        "gapChapters": 7,
+        "plan": "G3-Plan A: 3 historical QHL-CH1..3 (1 frozen rep draft x 1 clean para each = 3 para) + 7 new ch x 2 clean para = 10 ch / 17 clean para (>=15)"
+      },
+      "G4": {
+        "targetChapters": 8,
+        "historicalReusableChapters": 3,
+        "gapChapters": 5,
+        "plan": "G4-Plan A: 3 historical QHL-CH1..3 (9 Mulberry32 real cases: 0B+2M+3m+4S, 0 truth altered) + 5 new ch x 3 cases = 15 new cases (6B+4M+3m+2S) -> exact 24 cases (6B+6M+6m+6S)"
+      },
+      "G5": {
+        "targetChapters": 3,
+        "historicalReusableChapters": 1,
+        "gapChapters": 2,
+        "plan": "Frozen minimum: 1 historical deadlock (V22-H4 / HIST-WORK-05) + 2 new independent deadlock chapters (S1B-G5-DL-02, S1B-G5-DL-03) + 3 historical legitimate tropes (CAL-49/62/11)"
+      },
+      "RESERVE_FIFO": {
+        "targetChapters": 4,
+        "historicalReusableChapters": 0,
+        "gapChapters": 4,
+        "plan": "Pre-registered FIFO reserve pool: 4 chapters (1 per core canonical genre; 2 structured for G2-B quotas + 2 for G6 quotas), keyed strictly by original creatorIntendedLabel"
+      }
+    },
+    "totalCoreNewChaptersRequired": 50,
+    "reservePoolChaptersRequired": 4,
+    "totalNewChaptersIncludingReserve": 54
+  },
+  "changeEvents": [
+    {
+      "eventId": "CE-V1-001",
+      "timestampUtc": "2026-11-27T16:13:11.828Z",
+      "action": "INITIAL_HISTORICAL_INVENTORY_AND_ALLOCATION",
+      "summary": "Audited 7 distinct accessible historical works (175 manuscript files; 5 internal exposed + 2 external public ref exposed; 0 unknown admitted). Computed exact true gaps: core=50 chapters (G2-B:20, G6:16, G3:7, G4:5, G5:2) + reserve=4 chapters = 54 chapters total."
+    }
+  ]
+}

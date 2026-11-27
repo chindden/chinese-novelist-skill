@@ -1,0 +1,29 @@
+{
+  "schemaVersion": "1.0",
+  "recordedAtUtc": "2026-11-27T16:13:11.828Z",
+  "governanceBaselines": {
+    "experimentDesignV025Commit": "c55fa4a89a694ad372b5bddcae547758a4a87b85",
+    "experimentDesignGpt6AcceptedCommentId": 7221482725,
+    "workPackageAgreementV10Commit": "77b21609c38920285702f03ce01a4817575f7298",
+    "workPackageAgreementGpt6AcceptedCommentId": 7222475128,
+    "issueNumber": 10
+  },
+  "authorSignOff": {
+    "workPackageAgreementV10Approved": true,
+    "wp1Authorized": true,
+    "decisions": {
+      "D1": "D1-B (G2-B 20 chapters / 72 positives [18B+54M] / 60 non-blocking [30C+30B])",
+      "D2": "D2-A (G2-B vs G6 6-dim work-level mutual exclusion, G6 = 16 chapters)",
+      "D3": "D3-C (Historical eligible reuse first via 00c v1-historical; GPT-6 creates only true gaps)",
+      "D4": "D4-A (Immutable configManifestSha256; default WP3 Project A zero-context cold-start subagents with honest same-family & unverified underlying file-access disclosure; default WP5 Project B native batched subagents with checkpoint/resume; T1/T2 cross-project handoff & author offline key custody)",
+      "D5": "D5-A (Keep GitHub Issue #10 OPEN)"
+    },
+    "pendingAuthorApprovals": {
+      "wp1DynamicBudgetApproval": "PENDING",
+      "v2FinalAllocationApproval": "PENDING",
+      "positiveCohortApprovalRef": "PENDING (to be bound after WP3 DQ-1..4)",
+      "t1SealApproval": "PENDING",
+      "t2KeyReleaseApproval": "PENDING"
+    }
+  }
+}

@@ -500,15 +500,15 @@ flowchart LR
 #### 10. 实际证据记录
 | 证据项 | 当前记录 |
 |---|---|
-| **独立 Commit SHA** | `待实施` |
-| **修改文件与 Diff 摘要** | `待实施` |
-| **测试命令与结果** | `待实施` |
-| **生产主模板零改动验证输出** | `待实施` |
+| **独立 Commit SHA** | `77fe7ea7631781293d973cbe1e7864a51434db7c`（Round 4 验收基线；前置基线 `59245b5222c5ca96395504095c70611760153892`；交付记录见 Issue `#9` Comment `7209682482`） |
+| **修改文件与 Diff 摘要** | 隔离原型实现与测试（`scripts/p0_prototypes/`、`references/v3/prototypes/`、`scripts/tests/r3_p0_prototypes.test.mjs`）；Round 4 仅修改 3 个文件，零改动生产主模板与 R2 |
+| **测试命令与结果** | Neon 本地 Linux VM 实测（GPT-6 未独立复跑，无 GitHub CI 记录）：P0-4/P0-5 专项 `35/35` PASS，Node `117/117` PASS，独立脚本 `10/10` PASS，Python `12/12` PASS，全仓 `24/24` 测试文件通过 |
+| **生产主模板零改动验证输出** | 已在 Issue `#9` Round 4（Comment `7209790256`）核验通过，生产主模板与主路由 0 字节改动 |
 
 #### 11. GPT-6 验收状态
-- **当前状态**：`NOT_STARTED`
-- **GPT-6 验收结论**：`NOT_SUBMITTED`
-- **审核时间与意见**：`—`
+- **当前状态**：**`ACCEPTED`**（验收基线 `77fe7ea7631781293d973cbe1e7864a51434db7c`，WP1 前置管理状态同步）
+- **GPT-6 验收结论**：**`ACCEPTED`**（`2026-11-27T04:25:45Z`，Issue `#9` Comment `7209790256`，第四轮独立复审通过）
+- **审核时间与意见**：`2026-11-27T04:25:45Z` 确认隔离原型工程验收通过（不代表文学质量提升，不授权生产主模板/主路由切换，具体见 Issue `#9` Comment `7209790256`）
 
 ---
 
@@ -622,5 +622,5 @@ flowchart LR
 | **`P0-2` · 写手语域防火墙** | `NOT_STARTED` | `—` | `—` | `NOT_SUBMITTED` | `—` | — |
 | **`P0-3` · `precheck v2`** | `NOT_STARTED` | `—` | `—` | `NOT_SUBMITTED` | `—` | — |
 | **`P0-4` · 复合审读指纹与 Fail-Closed** | `NOT_STARTED` | `—` | `—` | `NOT_SUBMITTED` | `—` | — |
-| **`P0-5` · A/B/C 三方案审稿原型** | `NOT_STARTED` | `—` | `—` | `NOT_SUBMITTED` | `—` | — |
+| **`P0-5` · A/B/C 三方案审稿原型** | **`ACCEPTED`** | `77fe7ea7631781293d973cbe1e7864a51434db7c`（Round 4 验收基线） | `2026-11-27` | **`ACCEPTED`**（第四轮复审） | **`2026-11-27T04:25:45Z`** | Issue `#9` Comment `7209790256` 确认隔离原型工程验收通过（零改动生产主模板/R2；不代表文学质量提升，不授权生产切换；WP1 前置管理状态同步） |
 | **`P0-6` · G1–G6 统计与文学质量验收** | `NOT_STARTED` | `—` | `—` | `NOT_SUBMITTED` | `—` | 预登记风险：`G2-B` 当前处于 `underpowered`（0/20 章、0/60 案例） |
