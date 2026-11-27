@@ -25,7 +25,7 @@ import {
   deepFreeze,
   loadPrototypeTemplate,
   compileSharedReviewBasePack,
-  verifyPlanningSliceMatchesFingerprint,
+  verifyBasePackFingerprintBinding,
   buildSchemeBPass2Input,
   shouldTriggerSchemeCStage2,
   buildSchemeCStage2Input,
@@ -58,15 +58,23 @@ function buildFullStageInput(scheme, stage, protocolMode, templateKey, basePack)
 }
 
 function checkSharedBasePackIntegrity(shared) {
-  const expectedSha = shared?.fingerprintComponents?.planningSliceSha256;
-  if (!expectedSha) return null;
-  const check = verifyPlanningSliceMatchesFingerprint(shared.planningCoreSlice, expectedSha);
-  if (!check.ok) {
+  const binding = verifyBasePackFingerprintBinding(shared);
+  if (!binding.ok) {
     return {
-      code: 'R3_PLANNING_SLICE_HASH_MISMATCH',
-      message: `共享底座 planningCoreSlice 哈希与五元组 planningSliceSha256 不一致（expected=${check.expectedSha256}, actual=${check.actualSha256}）。`,
-      expectedPlanningSliceSha256: check.expectedSha256,
-      actualPlanningSliceSha256: check.actualSha256,
+      code: binding.code,
+      message: binding.message,
+      ...(binding.expectedPlanningSliceSha256 !== undefined
+        ? {expectedPlanningSliceSha256: binding.expectedPlanningSliceSha256}
+        : {}),
+      ...(binding.actualPlanningSliceSha256 !== undefined
+        ? {actualPlanningSliceSha256: binding.actualPlanningSliceSha256}
+        : {}),
+      ...(binding.expectedReviewFingerprint !== undefined
+        ? {expectedReviewFingerprint: binding.expectedReviewFingerprint}
+        : {}),
+      ...(binding.recomputedReviewFingerprint !== undefined
+        ? {recomputedReviewFingerprint: binding.recomputedReviewFingerprint}
+        : {}),
     };
   }
   return null;

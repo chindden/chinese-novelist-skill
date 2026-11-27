@@ -31,9 +31,10 @@ import {
   R3_FINAL_REPORT_SCHEMA,
   applyR3Review,
   buildPlanningSlice,
+  canonicalJson,
   validateR3ReviewReport,
 } from '../r3_review_kernel.mjs';
-import {readPlan} from '../v3_common.mjs';
+import {readPlan, sha256} from '../v3_common.mjs';
 import {
   CONTEXT_WINDOW_RADIUS_CHARS,
   PROTOTYPE_TEMPLATE_FILES,
@@ -42,6 +43,7 @@ import {
   buildLocalContextExcerpt,
   compileSharedReviewBasePack,
   verifyPlanningSliceMatchesFingerprint,
+  verifyBasePackFingerprintBinding,
 } from '../p0_prototypes/review_pack_compiler.mjs';
 import {
   assertWriterRevisionBatchSafe,
@@ -2123,5 +2125,117 @@ test('TC-P0-5-R3-5: planningCoreSlice canonical SHA-256 is verified against plan
   }
   assert.equal(modelCalls, 0);
 });
+
+// ============================================================================
+// TC-P0-5-R4-1: 删除或伪造非法 fingerprintComponents / planningSliceSha256 均 Fail-Closed（0 次模型调用）
+// ============================================================================
+test('TC-P0-5-R4-1: missing or malformed planningSliceSha256 / fingerprintComponents fails closed across A, B, and C with 0 model calls', async t => {
+  const {root} = makeSandboxProject(t);
+  const basePack = compileSharedReviewBasePack(root, 2);
+  assert.equal(basePack.ok, true);
+
+  const missingSliceSha = structuredClone(basePack);
+  delete missingSliceSha.fingerprintComponents.planningSliceSha256;
+
+  const malformedSliceSha = structuredClone(basePack);
+  malformedSliceSha.fingerprintComponents.planningSliceSha256 = 'not-a-valid-hex64';
+
+  const missingComponents = structuredClone(basePack);
+  delete missingComponents.fingerprintComponents;
+
+  let modelCalls = 0;
+  const failAdapter = () => {
+    modelCalls++;
+    throw new Error('Model adapter must never run when fingerprintComponents are missing or malformed');
+  };
+
+  for (const badPack of [missingSliceSha, malformedSliceSha, missingComponents]) {
+    const bindCheck = verifyBasePackFingerprintBinding(badPack);
+    assert.equal(bindCheck.ok, false);
+    assert.equal(bindCheck.code, 'R3_BASE_PACK_FINGERPRINT_COMPONENTS_INVALID');
+
+    const resA = await runSchemeA(root, 2, {runSingleStage: failAdapter}, {basePack: badPack});
+    const resB = await runSchemeB(
+      root,
+      2,
+      {runPass1Discovery: failAdapter, runPass2Calibration: failAdapter},
+      {basePack: badPack}
+    );
+    const resC = await runSchemeC(
+      root,
+      2,
+      {runStage1HighRecall: failAdapter, runStage2Triage: failAdapter},
+      {basePack: badPack}
+    );
+
+    for (const r of [resA, resB, resC]) {
+      assert.equal(r.ok, false);
+      assert.equal(r.exitCode, 2);
+      assert.equal(r.stage, 'base_pack_integrity');
+      assert.equal(r.calls.total, 0);
+      assert.ok(r.errors.some(e => e.code === 'R3_BASE_PACK_FINGERPRINT_COMPONENTS_INVALID'));
+    }
+  }
+  assert.equal(modelCalls, 0);
+});
+
+// ============================================================================
+// TC-P0-5-R4-2: 同时篡改 planningCoreSlice 与组件哈希但保留原 reviewFingerprint -> 五元组重算拦截（0 次模型调用）
+// ============================================================================
+test('TC-P0-5-R4-2: coordinated tampering of planningCoreSlice and planningSliceSha256 with original reviewFingerprint fails closed across A, B, and C with 0 model calls', async t => {
+  const {root} = makeSandboxProject(t);
+  const basePack = compileSharedReviewBasePack(root, 2);
+  assert.equal(basePack.ok, true);
+
+  const tamperedPack = structuredClone(basePack);
+  tamperedPack.planningCoreSlice.outlineCore = `${tamperedPack.planningCoreSlice.outlineCore}\n【注入的伪造核心契约】`;
+  const forgedSliceSha = sha256(Buffer.from(canonicalJson(tamperedPack.planningCoreSlice), 'utf8'));
+  tamperedPack.fingerprintComponents.planningSliceSha256 = forgedSliceSha;
+  // Retain original reviewFingerprint untouched!
+  assert.equal(tamperedPack.reviewFingerprint, basePack.reviewFingerprint);
+
+  // Slice hash alone would match the forged component hash, proving re-binding to reviewFingerprint is essential!
+  assert.equal(
+    verifyPlanningSliceMatchesFingerprint(
+      tamperedPack.planningCoreSlice,
+      tamperedPack.fingerprintComponents.planningSliceSha256
+    ).ok,
+    true
+  );
+
+  const bindCheck = verifyBasePackFingerprintBinding(tamperedPack);
+  assert.equal(bindCheck.ok, false);
+  assert.equal(bindCheck.code, 'R3_BASE_PACK_FINGERPRINT_BINDING_MISMATCH');
+
+  let modelCalls = 0;
+  const failAdapter = () => {
+    modelCalls++;
+    throw new Error('Model adapter must never run when recomputed five-tuple fingerprint mismatches reviewFingerprint');
+  };
+
+  const resA = await runSchemeA(root, 2, {runSingleStage: failAdapter}, {basePack: tamperedPack});
+  const resB = await runSchemeB(
+    root,
+    2,
+    {runPass1Discovery: failAdapter, runPass2Calibration: failAdapter},
+    {basePack: tamperedPack}
+  );
+  const resC = await runSchemeC(
+    root,
+    2,
+    {runStage1HighRecall: failAdapter, runStage2Triage: failAdapter},
+    {basePack: tamperedPack}
+  );
+
+  for (const r of [resA, resB, resC]) {
+    assert.equal(r.ok, false);
+    assert.equal(r.exitCode, 2);
+    assert.equal(r.stage, 'base_pack_integrity');
+    assert.equal(r.calls.total, 0);
+    assert.ok(r.errors.some(e => e.code === 'R3_BASE_PACK_FINGERPRINT_BINDING_MISMATCH'));
+  }
+  assert.equal(modelCalls, 0);
+});
+
 
 

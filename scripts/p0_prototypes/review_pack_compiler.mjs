@@ -62,16 +62,94 @@ export function deepFreeze(value, seen = new WeakSet()) {
   return Object.freeze(value);
 }
 
+const HEX64_RE = /^[a-f0-9]{64}$/;
+
 /**
  * Verify that an assembled `planningCoreSlice` hashes to the exact canonical SHA-256 bound in `reviewFingerprint`.
  * Closes any TOCTOU window between `computeReviewFingerprint()` and `buildPlanningSlice()`.
  */
 export function verifyPlanningSliceMatchesFingerprint(planningCoreSlice, expectedSha256) {
+  if (!isPlainObject(planningCoreSlice)) {
+    return {
+      ok: false,
+      expectedSha256: typeof expectedSha256 === 'string' ? expectedSha256 : null,
+      actualSha256: null,
+    };
+  }
   const actualSha256 = sha256(Buffer.from(canonicalJson(planningCoreSlice), 'utf8'));
   return {
-    ok: typeof expectedSha256 === 'string' && actualSha256 === expectedSha256,
-    expectedSha256: expectedSha256 ?? null,
+    ok: typeof expectedSha256 === 'string' && HEX64_RE.test(expectedSha256) && actualSha256 === expectedSha256,
+    expectedSha256: typeof expectedSha256 === 'string' ? expectedSha256 : null,
     actualSha256,
+  };
+}
+
+/**
+ * Strictly verify (Fail-Closed) that a shared basePack has valid five-tuple `fingerprintComponents`,
+ * that `planningCoreSlice` hashes to `fingerprintComponents.planningSliceSha256`, AND that recomputing
+ * the canonical five-tuple fingerprint reproduces `basePack.reviewFingerprint` verbatim.
+ */
+export function verifyBasePackFingerprintBinding(basePack) {
+  const fc = basePack?.fingerprintComponents;
+  const reviewFp = basePack?.reviewFingerprint;
+  if (
+    !isPlainObject(fc) ||
+    typeof reviewFp !== 'string' ||
+    !HEX64_RE.test(reviewFp) ||
+    typeof fc.manuscriptSha256 !== 'string' ||
+    !HEX64_RE.test(fc.manuscriptSha256) ||
+    typeof fc.planningSliceSha256 !== 'string' ||
+    !HEX64_RE.test(fc.planningSliceSha256) ||
+    typeof fc.ledgerSliceSha256 !== 'string' ||
+    !HEX64_RE.test(fc.ledgerSliceSha256) ||
+    typeof fc.hardConstraintsHash !== 'string' ||
+    !HEX64_RE.test(fc.hardConstraintsHash) ||
+    !isNonEmptyString(fc.protocolVersion)
+  ) {
+    return {
+      ok: false,
+      code: 'R3_BASE_PACK_FINGERPRINT_COMPONENTS_INVALID',
+      message: '共享底座缺少合法的五元组 fingerprintComponents 或 reviewFingerprint，已按 Fail-Closed 拒绝执行。',
+    };
+  }
+
+  const sliceCheck = verifyPlanningSliceMatchesFingerprint(basePack.planningCoreSlice, fc.planningSliceSha256);
+  if (!sliceCheck.ok) {
+    return {
+      ok: false,
+      code: 'R3_PLANNING_SLICE_HASH_MISMATCH',
+      message: `共享底座 planningCoreSlice 哈希与五元组 planningSliceSha256 不一致（expected=${sliceCheck.expectedSha256}, actual=${sliceCheck.actualSha256}）。`,
+      expectedPlanningSliceSha256: sliceCheck.expectedSha256,
+      actualPlanningSliceSha256: sliceCheck.actualSha256,
+    };
+  }
+
+  const recomputedReviewFingerprint = sha256(
+    Buffer.from(
+      canonicalJson({
+        manuscriptSha256: fc.manuscriptSha256,
+        planningSliceSha256: sliceCheck.actualSha256,
+        ledgerSliceSha256: fc.ledgerSliceSha256,
+        hardConstraintsHash: fc.hardConstraintsHash,
+        protocolVersion: fc.protocolVersion,
+      }),
+      'utf8'
+    )
+  );
+  if (recomputedReviewFingerprint !== reviewFp) {
+    return {
+      ok: false,
+      code: 'R3_BASE_PACK_FINGERPRINT_BINDING_MISMATCH',
+      message: `共享底座五元组重算指纹与 reviewFingerprint 不一致（expected=${reviewFp}, recomputed=${recomputedReviewFingerprint}），疑似组件哈希与总指纹脱节。`,
+      expectedReviewFingerprint: reviewFp,
+      recomputedReviewFingerprint,
+    };
+  }
+
+  return {
+    ok: true,
+    planningCoreSliceSha256: sliceCheck.actualSha256,
+    recomputedReviewFingerprint,
   };
 }
 
@@ -339,6 +417,19 @@ export function compileSharedReviewBasePack(
       error: 'R3_PLANNING_SLICE_HASH_MISMATCH',
       expectedPlanningSliceSha256: rec.fingerprintComponents?.planningSliceSha256 ?? liveFp.components.planningSliceSha256,
       actualPlanningSliceSha256: liveSliceCheck.actualSha256,
+    };
+  }
+  const bindingCheck = verifyBasePackFingerprintBinding({
+    reviewFingerprint: rec.reviewFingerprint,
+    fingerprintComponents: rec.fingerprintComponents,
+    planningCoreSlice,
+  });
+  if (!bindingCheck.ok) {
+    return {
+      ok: false,
+      exitCode: 2,
+      error: bindingCheck.code,
+      message: bindingCheck.message,
     };
   }
 
