@@ -114,6 +114,23 @@ export function routeFinalReviewReport(report, {compileWriterCard = false, chapt
     ? report.planningConflictAdvisories
     : [];
 
+  // B2: OR6 hard rule — MINOR/SUGGESTION cannot carry upstream_planning or finalized_canon (matches r3_review_kernel.mjs)
+  const nonBlockingConflict = report.issues.filter(
+    i =>
+      isPlainObject(i) &&
+      (i.severity === 'MINOR' || i.severity === 'SUGGESTION') &&
+      FORBIDDEN_WRITER_BATCH_SCOPES.includes(i.impactScope)
+  );
+  if (nonBlockingConflict.length > 0) {
+    return {
+      ok: false,
+      exitCode: 2,
+      error: 'R3_OR6_NON_BLOCKING_CANNOT_HOLD_CONFLICT_SCOPE',
+      message: `OR6 违约：MINOR/SUGGESTION 不得携带 upstream_planning 或 finalized_canon（严禁降级洗白规划/定稿冲突，共 ${nonBlockingConflict.length} 条；合法大纲桥段请归入 planningConflictAdvisories）。`,
+      offendingIssues: nonBlockingConflict.map(i => ({id: i.id ?? null, severity: i.severity, impactScope: i.impactScope})),
+    };
+  }
+
   const blockingIssues = report.issues.filter(
     i => isPlainObject(i) && (i.severity === 'BLOCKER' || i.severity === 'MAJOR')
   );

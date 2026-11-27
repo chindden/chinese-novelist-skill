@@ -6,20 +6,22 @@
  * Ensures Scheme A, Scheme B, and Scheme C receive the EXACT SAME shared foundation:
  *   - `precheck v2` (`P0-3`)
  *   - five-tuple `reviewFingerprint` + immutable snapshot freeze (`P0-4`)
- *   - core planning slice + N-1 ledger slice
- *   - `NEEDS_SEMANTIC_AUDIT` (`NSA-NNN`) clues
+ *   - EXACT P0-4 `buildPlanningSlice()` planning context (B6: 100% parity with fingerprint)
+ *   - N-1 ledger slice & `NEEDS_SEMANTIC_AUDIT` (`NSA-NNN`) clues
  *
  * Also constructs strictly isolated lightweight Stage-2 / Pass-2 input packs:
- *   - Scheme B Pass 2: ONLY candidate list + ±300-char verbatim excerpts + core planning slice (NO full chapter!)
- *   - Scheme C Stage 2: ONLY flagged BLOCKER/MAJOR + planningConflictAdvisories + non-pass NSA + ±300-char excerpts
+ *   - Context window radius strictly locked to +-300 chars (`CONTEXT_WINDOW_RADIUS_CHARS = 300`, B3)
+ *   - `paragraphIndex`-anchored quote localization (Fail-Closed on ambiguous duplicate quotes, B3)
+ *   - Scheme B Pass 2: ONLY candidate list + +-300-char verbatim excerpts + P0-4 planning slice (NO full chapter!)
+ *   - Scheme C Stage 2: ONLY flagged BLOCKER/MAJOR + planningConflictAdvisories + non-pass NSA + +-300-char excerpts
  */
 import fs from 'node:fs';
 import path from 'node:path';
 import {fileURLToPath} from 'node:url';
 import {projectRoot, readPlan, safeFile, sha256} from '../v3_common.mjs';
 import {verifySnapshot} from '../r3_snapshots.mjs';
-import {splitR3Markdown} from '../r3_plan_sections.mjs';
 import {
+  buildPlanningSlice,
   computeReviewFingerprint,
   prepareR3Review,
   R3_REVIEW_PROTOCOL_VERSION,
@@ -56,25 +58,126 @@ export function loadPrototypeTemplate(key) {
 }
 
 /**
- * Extract verbatim ±radius character context window around `quote` inside `manuscriptText`.
- * Never returns the full manuscript if `manuscriptText` is larger than `quote.length + 2 * radius`.
+ * Locate 1-indexed body paragraph spans matching `precheck_v2_common.mjs` `extractBodyParagraphs()`.
+ * Returns exact `[startOffset, endOffset)` character positions inside `rawText`.
  */
-export function buildLocalContextExcerpt(manuscriptText, quote, radius = CONTEXT_WINDOW_RADIUS_CHARS) {
+export function locateBodyParagraphSpans(rawText) {
+  if (typeof rawText !== 'string') return [];
+  let offset = 0;
+  if (rawText.startsWith('\uFEFF')) {
+    offset = 1;
+  }
+  const withoutBom = rawText.slice(offset);
+  const headMatch = withoutBom.match(/^[ \t]*#[ \t]+[^\r\n]*(?:\r?\n)+/);
+  if (headMatch) {
+    offset += headMatch[0].length;
+  }
+  const body = rawText.slice(offset);
+  const hasBlankLineSep = /\r?\n[ \t]*\r?\n/.test(body.trim());
+  const sepRe = hasBlankLineSep ? /\r?\n[ \t]*\r?\n+/g : /\r?\n+/g;
+
+  const spans = [];
+  let cursor = 0;
+  const pushPart = (partStart, partEnd) => {
+    const rawPart = body.slice(partStart, partEnd);
+    const trimmed = rawPart.trim();
+    if (!trimmed || /^[-*_]{3,}$/.test(trimmed)) return;
+    const leadWs = rawPart.length - rawPart.trimStart().length;
+    const startOffset = offset + partStart + leadWs;
+    const endOffset = startOffset + trimmed.length;
+    spans.push({
+      paragraphIndex: spans.length + 1,
+      startOffset,
+      endOffset,
+      text: trimmed,
+    });
+  };
+
+  let m;
+  while ((m = sepRe.exec(body)) !== null) {
+    pushPart(cursor, m.index);
+    cursor = m.index + m[0].length;
+  }
+  pushPart(cursor, body.length);
+  return spans;
+}
+
+function findAllOccurrences(haystack, needle) {
+  const positions = [];
+  let pos = 0;
+  while (pos <= haystack.length - needle.length) {
+    const hit = haystack.indexOf(needle, pos);
+    if (hit < 0) break;
+    positions.push(hit);
+    pos = hit + 1;
+  }
+  return positions;
+}
+
+/**
+ * Extract verbatim +-300 character context window around `quote` inside `manuscriptText` (B3).
+ *
+ * Strict baseline rules:
+ *  - `radius` MUST strictly equal `CONTEXT_WINDOW_RADIUS_CHARS` (300); any override fails closed.
+ *  - When `paragraphIndex` (1-indexed) is provided, locates `quote` strictly inside that paragraph.
+ *  - When `paragraphIndex` is omitted, requires `quote` to occur uniquely once across the chapter;
+ *    duplicate occurrences without unambiguous `paragraphIndex` fail closed (`R3_AMBIGUOUS_DUPLICATE_QUOTE`).
+ */
+export function buildLocalContextExcerpt(manuscriptText, quote, optionsOrRadius = {}) {
   if (typeof manuscriptText !== 'string' || !isNonEmptyString(quote)) {
     throw new Error('R3_CONTEXT_EXCERPT_INVALID_INPUT');
   }
-  if (!Number.isSafeInteger(radius) || radius < 0 || radius > 1000) {
-    throw new Error('R3_CONTEXT_EXCERPT_INVALID_RADIUS');
+  const opts = typeof optionsOrRadius === 'number'
+    ? {radius: optionsOrRadius}
+    : (isPlainObject(optionsOrRadius) ? optionsOrRadius : {});
+  const radius = opts.radius ?? CONTEXT_WINDOW_RADIUS_CHARS;
+  const paragraphIndex = opts.paragraphIndex ?? null;
+
+  if (radius !== CONTEXT_WINDOW_RADIUS_CHARS) {
+    throw new Error(`R3_CONTEXT_WINDOW_RADIUS_LOCKED: expected=${CONTEXT_WINDOW_RADIUS_CHARS} actual=${String(radius)}`);
   }
-  const idx = manuscriptText.indexOf(quote);
-  if (idx < 0) {
-    throw new Error('R3_QUOTE_NOT_IN_FROZEN_MANUSCRIPT');
+
+  let matchOffset = -1;
+  let resolvedParagraphIndex = null;
+
+  if (paragraphIndex !== null && paragraphIndex !== undefined) {
+    if (!Number.isSafeInteger(paragraphIndex) || paragraphIndex < 1) {
+      throw new Error('R3_QUOTE_PARAGRAPH_INVALID');
+    }
+    const spans = locateBodyParagraphSpans(manuscriptText);
+    const span = spans[paragraphIndex - 1];
+    if (!span) {
+      throw new Error(`R3_QUOTE_PARAGRAPH_OUT_OF_RANGE:${paragraphIndex}`);
+    }
+    const paraHits = findAllOccurrences(span.text, quote);
+    if (paraHits.length === 0) {
+      throw new Error(`R3_QUOTE_PARAGRAPH_MISMATCH:${paragraphIndex}`);
+    }
+    if (paraHits.length > 1) {
+      throw new Error(`R3_AMBIGUOUS_DUPLICATE_QUOTE:paragraph=${paragraphIndex}`);
+    }
+    matchOffset = span.startOffset + paraHits[0];
+    resolvedParagraphIndex = paragraphIndex;
+  } else {
+    const allHits = findAllOccurrences(manuscriptText, quote);
+    if (allHits.length === 0) {
+      throw new Error('R3_QUOTE_NOT_IN_FROZEN_MANUSCRIPT');
+    }
+    if (allHits.length > 1) {
+      throw new Error(`R3_AMBIGUOUS_DUPLICATE_QUOTE:count=${allHits.length}`);
+    }
+    matchOffset = allHits[0];
+    const spans = locateBodyParagraphSpans(manuscriptText);
+    const containing = spans.find(s => matchOffset >= s.startOffset && matchOffset < s.endOffset);
+    resolvedParagraphIndex = containing ? containing.paragraphIndex : null;
   }
-  const start = Math.max(0, idx - radius);
-  const end = Math.min(manuscriptText.length, idx + quote.length + radius);
+
+  const start = Math.max(0, matchOffset - radius);
+  const end = Math.min(manuscriptText.length, matchOffset + quote.length + radius);
   return {
     quote,
-    matchOffset: idx,
+    paragraphIndex: resolvedParagraphIndex,
+    matchOffset,
     windowStart: start,
     windowEnd: end,
     truncatedBefore: start > 0,
@@ -87,59 +190,6 @@ function readOptionalFileUtf8(root, relPath) {
   const f = safeFile(root, relPath);
   if (!f) return null;
   return fs.readFileSync(f, 'utf8');
-}
-
-function extractCorePlanningSummary(root, plan, chapterNumber) {
-  const chEntry = (plan.chapters || []).find(c => c?.chapterNumber === chapterNumber) ?? null;
-  const outlineRaw = readOptionalFileUtf8(root, '01-大纲.md');
-  const charsRaw = readOptionalFileUtf8(root, '00-人物档案.md');
-  const styleRaw = readOptionalFileUtf8(root, '03-文风基准.md');
-
-  let outlineCore = outlineRaw;
-  let currentVolumeText = null;
-  if (outlineRaw) {
-    try {
-      const split = splitR3Markdown('01-大纲.md', outlineRaw);
-      outlineCore = split.core;
-      const volId = Number.isSafeInteger(chEntry?.volume) ? chEntry.volume : 1;
-      const vol = split.volumes.find(v => v.volId === volId) ?? split.volumes[split.volumes.length - 1] ?? null;
-      currentVolumeText = vol ? vol.text : null;
-    } catch {
-      outlineCore = outlineRaw;
-    }
-  }
-
-  let charCore = charsRaw;
-  if (charsRaw) {
-    try {
-      charCore = splitR3Markdown('00-人物档案.md', charsRaw).core;
-    } catch {
-      charCore = charsRaw;
-    }
-  }
-
-  let styleCore = styleRaw;
-  if (styleRaw) {
-    try {
-      styleCore = splitR3Markdown('03-文风基准.md', styleRaw).core;
-    } catch {
-      styleCore = styleRaw;
-    }
-  }
-
-  return {
-    chapterNumber,
-    chapterTitle: chEntry?.title ?? null,
-    chapterOutline: chEntry?.outline ?? chEntry?.summary ?? null,
-    outlineCore,
-    currentVolumeText,
-    charCore,
-    styleCore,
-    hardConstraints: {
-      global: plan.hardConstraints ?? null,
-      chapter: chEntry?.hardConstraints ?? null,
-    },
-  };
 }
 
 function extractLedgerSummaryUpto(root, chapterNumber) {
@@ -168,7 +218,7 @@ function extractLedgerSummaryUpto(root, chapterNumber) {
 
 /**
  * Compile the shared base review pack used identically by Schemes A, B, and C.
- * Guarantees zero attribution confounding across the three candidate architectures.
+ * Reuses P0-4 `buildPlanningSlice()` directly so model context matches `planningSliceSha256` 100% (B6).
  */
 export function compileSharedReviewBasePack(
   projectDir,
@@ -226,6 +276,13 @@ export function compileSharedReviewBasePack(
     };
   }
 
+  const chapterEntry = (plan.chapters || []).find(c => c?.chapterNumber === chapterNumber);
+  if (!chapterEntry) {
+    return {ok: false, exitCode: 2, error: 'R3_FP_CHAPTER_NOT_IN_PLAN'};
+  }
+  // B6: Direct reuse of P0-4 pure read-only buildPlanningSlice() — zero field drift!
+  const planningCoreSlice = buildPlanningSlice(root, plan, chapterEntry, chapterNumber);
+
   return {
     ok: true,
     exitCode: 0,
@@ -239,7 +296,11 @@ export function compileSharedReviewBasePack(
     manuscriptPath: packet.manuscriptPath,
     manuscriptText,
     needsSemanticAudit: packet.needsSemanticAudit,
-    planningCoreSlice: extractCorePlanningSummary(root, plan, chapterNumber),
+    planningCoreSlice,
+    hardConstraints: {
+      global: plan.hardConstraints ?? null,
+      chapter: chapterEntry.hardConstraints ?? null,
+    },
     ledgerSlice: extractLedgerSummaryUpto(root, chapterNumber),
     snapshot: rec.snapshot,
     inputPath: rec.inputPath,
@@ -249,10 +310,10 @@ export function compileSharedReviewBasePack(
 /**
  * Construct Scheme B Pass 2 lightweight input package.
  *
- * STRICT CONTEXT ISOLATION CONTRACT (PRD TC-P0-5-2):
+ * STRICT CONTEXT ISOLATION CONTRACT (PRD TC-P0-5-2 & B3 & B6):
  *  - MUST NOT include full chapter `manuscriptText`.
- *  - Includes ONLY: Pass 1 candidate list + ±300-char verbatim context window per candidate + core planning slice
- *    + inherited `dimensionAuditSlots`, `semanticAuditResolutions`, `preserveStrengths`, and fingerprint bindings.
+ *  - Radius strictly locked to 300 chars; locates quotes using `paragraphIndex` (Fail-Closed on ambiguity).
+ *  - Includes exact P0-4 `planningCoreSlice` + candidates with +-300-char excerpts + Pass 1 evidence.
  */
 export function buildSchemeBPass2Input(basePack, pass1Report, {radius = CONTEXT_WINDOW_RADIUS_CHARS} = {}) {
   if (!basePack?.ok || typeof basePack.manuscriptText !== 'string') {
@@ -261,20 +322,28 @@ export function buildSchemeBPass2Input(basePack, pass1Report, {radius = CONTEXT_
   if (!isPlainObject(pass1Report) || !Array.isArray(pass1Report.candidates)) {
     throw new Error('R3_SCHEME_B_INVALID_PASS1_REPORT');
   }
+  if (radius !== CONTEXT_WINDOW_RADIUS_CHARS) {
+    throw new Error(`R3_CONTEXT_WINDOW_RADIUS_LOCKED: expected=${CONTEXT_WINDOW_RADIUS_CHARS} actual=${String(radius)}`);
+  }
 
-  const candidatesWithContext = pass1Report.candidates.map(cand => ({
-    candidateId: cand.candidateId,
-    dimension: cand.dimension,
-    paragraphIndex: cand.paragraphIndex ?? null,
-    quote: cand.quote,
-    objectiveContradiction: cand.objectiveContradiction,
-    suspectedImpactScope: cand.suspectedImpactScope,
-    contextWindow: buildLocalContextExcerpt(basePack.manuscriptText, cand.quote, radius),
-  }));
+  const candidatesWithContext = pass1Report.candidates.map(cand => {
+    const contextWindow = buildLocalContextExcerpt(basePack.manuscriptText, cand.quote, {
+      radius,
+      paragraphIndex: cand.paragraphIndex ?? null,
+    });
+    return {
+      candidateId: cand.candidateId,
+      dimension: cand.dimension,
+      paragraphIndex: contextWindow.paragraphIndex,
+      quote: cand.quote,
+      objectiveContradiction: cand.objectiveContradiction,
+      suspectedImpactScope: cand.suspectedImpactScope,
+      contextWindow,
+    };
+  });
 
   const template = loadPrototypeTemplate('B_PASS2');
 
-  // Deliberately omit `manuscriptText` and full ledger so Pass 2 stays lightweight and context-isolated!
   return {
     scheme: 'B',
     stage: 'pass2_calibration',
@@ -287,6 +356,7 @@ export function buildSchemeBPass2Input(basePack, pass1Report, {radius = CONTEXT_
     reviewFingerprint: basePack.reviewFingerprint,
     manuscriptHashes: basePack.manuscriptHashes,
     planningCoreSlice: basePack.planningCoreSlice,
+    hardConstraints: basePack.hardConstraints,
     dimensionAuditSlots: pass1Report.dimensionAuditSlots,
     semanticAuditResolutions: pass1Report.semanticAuditResolutions,
     preserveStrengths: pass1Report.preserveStrengths ?? [],
@@ -296,12 +366,6 @@ export function buildSchemeBPass2Input(basePack, pass1Report, {radius = CONTEXT_
 
 /**
  * Deterministic short-circuit evaluator for Scheme C Stage 2 (PRD §3.2 & TC-P0-5-3).
- *
- * Short-circuits (skip Stage 2 -> 0 extra calls) IFF:
- *  - Stage 1 decision === 'pass_candidate'
- *  - Stage 1 has 0 BLOCKER/MAJOR issues
- *  - Stage 1 has 0 planningConflictAdvisories
- *  - ALL Stage 1 semanticAuditResolutions have status === 'pass'
  */
 export function shouldTriggerSchemeCStage2(stage1Report) {
   const reasons = [];
@@ -336,18 +400,25 @@ export function shouldTriggerSchemeCStage2(stage1Report) {
 }
 
 /**
- * Construct Scheme C Stage 2 lightweight triage input (ONLY flagged issues, advisories, and non-pass NSA items).
+ * Construct Scheme C Stage 2 lightweight triage input (ONLY flagged issues, advisories, non-pass NSA,
+ * and `nonBlockingIssuesCarried`, with radius strictly locked to 300 chars and exact P0-4 `planningCoreSlice`).
  */
 export function buildSchemeCStage2Input(basePack, stage1Report, {radius = CONTEXT_WINDOW_RADIUS_CHARS} = {}) {
   if (!basePack?.ok || typeof basePack.manuscriptText !== 'string') {
     throw new Error('R3_SCHEME_C_INVALID_BASE_PACK');
+  }
+  if (radius !== CONTEXT_WINDOW_RADIUS_CHARS) {
+    throw new Error(`R3_CONTEXT_WINDOW_RADIUS_LOCKED: expected=${CONTEXT_WINDOW_RADIUS_CHARS} actual=${String(radius)}`);
   }
   const issues = Array.isArray(stage1Report?.issues) ? stage1Report.issues : [];
   const flaggedIssuesWithContext = issues
     .filter(i => i?.severity === 'BLOCKER' || i?.severity === 'MAJOR')
     .map(i => ({
       ...i,
-      contextWindow: buildLocalContextExcerpt(basePack.manuscriptText, i.quote, radius),
+      contextWindow: buildLocalContextExcerpt(basePack.manuscriptText, i.quote, {
+        radius,
+        paragraphIndex: i.paragraphIndex ?? null,
+      }),
     }));
 
   const nsaById = new Map((basePack.needsSemanticAudit || []).map(a => [a.auditId, a]));
@@ -357,7 +428,10 @@ export function buildSchemeCStage2Input(basePack, stage1Report, {radius = CONTEX
       const clue = nsaById.get(r.auditId);
       let contextWindow = null;
       if (clue?.anchorQuote && basePack.manuscriptText.includes(clue.anchorQuote)) {
-        contextWindow = buildLocalContextExcerpt(basePack.manuscriptText, clue.anchorQuote, radius);
+        contextWindow = buildLocalContextExcerpt(basePack.manuscriptText, clue.anchorQuote, {
+          radius,
+          paragraphIndex: clue.paragraphIndex ?? null,
+        });
       }
       return {...r, clue: clue ?? null, contextWindow};
     });
@@ -376,6 +450,7 @@ export function buildSchemeCStage2Input(basePack, stage1Report, {radius = CONTEX
     reviewFingerprint: basePack.reviewFingerprint,
     manuscriptHashes: basePack.manuscriptHashes,
     planningCoreSlice: basePack.planningCoreSlice,
+    hardConstraints: basePack.hardConstraints,
     stage1Decision: stage1Report.decision,
     dimensionAuditSlots: stage1Report.dimensionAuditSlots,
     semanticAuditResolutions: stage1Report.semanticAuditResolutions,

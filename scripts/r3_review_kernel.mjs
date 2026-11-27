@@ -183,7 +183,7 @@ function extractChapterOutlineRaw(outlineText, chapterNumber) {
 /**
  * Extract deterministic planning slice (chapter outline + core contracts + current volume anchor).
  */
-function buildPlanningSlice(root, plan, chapterEntry, chapterNumber) {
+export function buildPlanningSlice(root, plan, chapterEntry, chapterNumber) {
   const chapterMeta = {
     chapterNumber: chapterEntry.chapterNumber,
     title: chapterEntry.title ?? null,
@@ -1106,12 +1106,20 @@ export function validateR3ReviewReport(projectDir, chapterNumber, reportObj, {al
           if (!isArcDeferredMajor || issue.blocking === true) {
             hasBlockingIssue = true;
           }
-        } else if (issue.impactScope !== undefined && !ALLOWED_IMPACT_SCOPES.includes(issue.impactScope)) {
-          addErr(
-            'R3_INVALID_IMPACT_SCOPE',
-            `${idLabel} impactScope 非法：${String(issue.impactScope)}。`,
-            {issueId: issue.id}
-          );
+        } else if (issue.impactScope !== undefined) {
+          if (!ALLOWED_IMPACT_SCOPES.includes(issue.impactScope)) {
+            addErr(
+              'R3_INVALID_IMPACT_SCOPE',
+              `${idLabel} impactScope 非法：${String(issue.impactScope)}。`,
+              {issueId: issue.id}
+            );
+          } else if (issue.impactScope === 'upstream_planning' || issue.impactScope === 'finalized_canon') {
+            addErr(
+              'R3_OR6_NON_BLOCKING_CANNOT_HOLD_CONFLICT_SCOPE',
+              `${idLabel}（${issue.severity}）不得携带 ${issue.impactScope}（严禁通过降级为 MINOR/SUGGESTION 绕过 OR6 PLANNING_CONFLICT_BLOCK；合法大纲桥段请归入 planningConflictAdvisories）。`,
+              {issueId: issue.id, severity: issue.severity, impactScope: issue.impactScope}
+            );
+          }
         }
       }
 

@@ -7,9 +7,11 @@
  *
  * All three schemes share the EXACT SAME foundation:
  *   1. `precheck v2` (`P0-3`) + `NEEDS_SEMANTIC_AUDIT` clues
- *   2. Five-tuple `reviewFingerprint` + Fail-Closed validation (`P0-4` `validateR3ReviewReport`)
+ *   2. Five-tuple `reviewFingerprint` + P0-4 `buildPlanningSlice()` + Fail-Closed validation (`P0-4`)
  *   3. Mandatory 6-dimension `dimensionAuditSlots` (`HL-1`–`HL-6`)
  *   4. `impactScope` hard interception & `OR6` `PLANNING_CONFLICT_BLOCK` router (`impact_scope_router.mjs`)
+ *   5. Strict two-stage reviewer independence (B1), locked +-300-char paragraph-anchored windows (B3),
+ *      Pass 1 -> Pass 2 evidence preservation (B4), and Stage 1 -> Stage 2 non-blocking retention (B5).
  */
 import {
   R3_DISCOVERY_REPORT_SCHEMA,
@@ -26,6 +28,10 @@ import {
 } from './review_pack_compiler.mjs';
 import {routeFinalReviewReport} from './impact_scope_router.mjs';
 
+const isPlainObject = x => Boolean(x) && typeof x === 'object' && !Array.isArray(x);
+const isNonEmptyString = x => typeof x === 'string' && x.trim().length > 0;
+const ALLOWED_CARRIED_DISPOSITIONS = Object.freeze(['kept', 'superseded', 'dismissed']);
+
 function buildFullStageInput(scheme, stage, protocolMode, templateKey, basePack) {
   const template = loadPrototypeTemplate(templateKey);
   return {
@@ -41,6 +47,7 @@ function buildFullStageInput(scheme, stage, protocolMode, templateKey, basePack)
     manuscriptPath: basePack.manuscriptPath,
     manuscriptText: basePack.manuscriptText,
     planningCoreSlice: basePack.planningCoreSlice,
+    hardConstraints: basePack.hardConstraints,
     ledgerSlice: basePack.ledgerSlice,
     needsSemanticAudit: basePack.needsSemanticAudit,
   };
@@ -54,6 +61,101 @@ function assertExpectedProtocolMode(report, expectedMode) {
     };
   }
   return null;
+}
+
+/**
+ * B1: Enforce reviewer independence (distinct runId AND distinct contextId) between two review stages.
+ */
+function checkStage2ReviewerIndependence(stage1Report, stage2Report, stage1Label, stage2Label) {
+  const r1 = stage1Report?.reviewer;
+  const r2 = stage2Report?.reviewer;
+  if (!isPlainObject(r1) || !isPlainObject(r2)) return [];
+  const errs = [];
+  if (r1.runId === r2.runId || r1.contextId === r2.contextId) {
+    errs.push({
+      code: 'R3_STAGE2_CONTEXT_NOT_INDEPENDENT',
+      message: `${stage2Label} 必须使用独立审稿上下文，不得与 ${stage1Label} 复用相同 runId 或 contextId。`,
+      stage1Reviewer: {runId: r1.runId, contextId: r1.contextId},
+      stage2Reviewer: {runId: r2.runId, contextId: r2.contextId},
+    });
+  }
+  return errs;
+}
+
+/**
+ * B4: Verify Scheme B Pass 2 preserves Pass 1's 6-dim `dimensionAuditSlots` and `semanticAuditResolutions` verbatim.
+ * Pass 2 may attach supplemental commentary in a separate field (e.g., `calibrationAuditNotes`), never silently mutating Pass 1 evidence.
+ */
+function checkSchemeBPass1EvidencePreserved(pass1Report, finalReport) {
+  const errs = [];
+  const p1Slots = new Map((pass1Report?.dimensionAuditSlots || []).map(s => [s.dimension, s]));
+  const p2Slots = new Map((finalReport?.dimensionAuditSlots || []).map(s => [s.dimension, s]));
+  for (const [dim, s1] of p1Slots.entries()) {
+    const s2 = p2Slots.get(dim);
+    if (!s2 || s2.checkedAnchor !== s1.checkedAnchor || s2.status !== s1.status) {
+      errs.push({
+        code: 'R3_SCHEME_B_PASS1_SLOTS_ALTERED',
+        dimension: dim,
+        message: `方案 B Pass 2 篡改或未完整保留 Pass 1 维度 ${dim} 的取证记录（checkedAnchor/status 必须与 Pass 1 一致）。`,
+      });
+    }
+  }
+
+  const p1Nsa = new Map((pass1Report?.semanticAuditResolutions || []).map(r => [r.auditId, r]));
+  const p2Nsa = new Map((finalReport?.semanticAuditResolutions || []).map(r => [r.auditId, r]));
+  for (const [aid, n1] of p1Nsa.entries()) {
+    const n2 = p2Nsa.get(aid);
+    if (!n2 || n2.status !== n1.status || n2.note !== n1.note) {
+      errs.push({
+        code: 'R3_SCHEME_B_PASS1_NSA_ALTERED',
+        auditId: aid,
+        message: `方案 B Pass 2 篡改了 Pass 1 对 ${aid} 的原始核销记录（status/note 必须原样保留；如需补充请写入独立字段）。`,
+      });
+    }
+  }
+  return errs;
+}
+
+/**
+ * B5: Verify Scheme C Stage 2 retains every Stage 1 MINOR/SUGGESTION issue verbatim, or provides an explicit auditable disposition.
+ */
+function checkSchemeCNonBlockingRetention(stage1Report, finalReport) {
+  const carried = (stage1Report?.issues || []).filter(
+    i => isPlainObject(i) && (i.severity === 'MINOR' || i.severity === 'SUGGESTION')
+  );
+  if (carried.length === 0) return [];
+
+  const finalById = new Map((finalReport?.issues || []).filter(isPlainObject).map(i => [i.id, i]));
+  const dispositions = Array.isArray(finalReport?.carriedIssueDispositions)
+    ? finalReport.carriedIssueDispositions
+    : [];
+  const dispById = new Map(dispositions.filter(isPlainObject).map(d => [d.id, d]));
+
+  const errs = [];
+  for (const orig of carried) {
+    const retained = finalById.get(orig.id);
+    if (retained && retained.severity === orig.severity && retained.quote === orig.quote) {
+      continue;
+    }
+    const disp = dispById.get(orig.id);
+    if (disp && ALLOWED_CARRIED_DISPOSITIONS.includes(disp.disposition) && isNonEmptyString(disp.note)) {
+      if (disp.disposition === 'kept' && (!retained || retained.severity !== orig.severity || retained.quote !== orig.quote)) {
+        errs.push({
+          code: 'R3_SCHEME_C_DROPPED_STAGE1_NONBLOCKING',
+          issueId: orig.id,
+          message: `方案 C Stage 2 对 ${orig.id} 声明 disposition="kept"，但未在最终 issues 中原样保留该条目（id/severity/quote 须一致）。`,
+        });
+      }
+      continue;
+    }
+    errs.push({
+      code: 'R3_SCHEME_C_DROPPED_STAGE1_NONBLOCKING',
+      issueId: orig.id,
+      severity: orig.severity,
+      message: `方案 C Stage 2 静默丢弃了 Stage 1 的非阻断条目 ${orig.id}（${orig.severity}），必须原样保留或在 carriedIssueDispositions 中给出明确处置。`,
+    });
+  }
+  return errs;
 }
 
 /**
@@ -123,11 +225,6 @@ export async function runSchemeA(
 
 /**
  * Scheme B (Two-Stage): Pass 1 Open High-Recall Discovery -> Pass 2 Independent Lightweight Calibration.
- *
- * Guarantees:
- *  - Pass 1 is Fail-Closed validated against `Pass1DiscoveryReport` BEFORE Pass 2 is invoked.
- *  - Pass 2 receives ONLY candidates + ±300-char verbatim excerpts + core planning slice (NO full chapter).
- *  - Pass 2 output is Fail-Closed validated against `FinalCalibrationReport` (`P0-4`) and routed via `OR6`.
  */
 export async function runSchemeB(
   projectDir,
@@ -160,7 +257,6 @@ export async function runSchemeB(
 
   const pass1Errors = [...pass1Validation.errors, ...pass1ExtraErrors];
   if (pass1Errors.length > 0) {
-    // Fail-Closed BEFORE Pass 2 is ever called!
     return {
       ok: false,
       exitCode: 2,
@@ -173,13 +269,37 @@ export async function runSchemeB(
     };
   }
 
-  // Pass 2: Strictly isolated lightweight calibration (NO full chapter manuscript!)
-  const pass2Input = buildSchemeBPass2Input(shared, pass1Report, {radius});
+  // Pass 2 input build: strictly locked +-300-char radius & unambiguous paragraphIndex-anchored quotes (B3)
+  let pass2Input;
+  try {
+    pass2Input = buildSchemeBPass2Input(shared, pass1Report, {radius});
+  } catch (err) {
+    const rawMsg = err?.message || 'R3_SCHEME_B_PASS2_INPUT_ERROR';
+    const code = rawMsg.split(':')[0];
+    return {
+      ok: false,
+      exitCode: 2,
+      scheme: 'B',
+      protocolMode: 'two_stage_B',
+      stage: 'pass2_input_build',
+      calls: {pass1: 1, pass2: 0, total: 1},
+      reviewFingerprint: shared.reviewFingerprint,
+      errors: [{code, message: rawMsg}],
+    };
+  }
+
   const finalReport = await adapter.runPass2Calibration(pass2Input);
 
   const finalValidation = validateR3ReviewReport(shared.projectRoot, chapterNumber, finalReport, {allowDiscovery: false});
   const finalModeErr = assertExpectedProtocolMode(finalReport, 'two_stage_B');
-  const finalErrors = [...finalValidation.errors, ...(finalModeErr ? [finalModeErr] : [])];
+  const independenceErrors = checkStage2ReviewerIndependence(pass1Report, finalReport, 'Pass 1', 'Pass 2');
+  const evidenceErrors = checkSchemeBPass1EvidencePreserved(pass1Report, finalReport);
+  const finalErrors = [
+    ...finalValidation.errors,
+    ...(finalModeErr ? [finalModeErr] : []),
+    ...independenceErrors,
+    ...evidenceErrors,
+  ];
   if (finalErrors.length > 0) {
     return {
       ok: false,
@@ -229,13 +349,6 @@ export async function runSchemeB(
 
 /**
  * Scheme C (Hybrid): High-Recall Single-Stage Complete Review + Conditional Independent Lightweight Triage.
- *
- * Guarantees:
- *  - Stage 1 output is Fail-Closed validated against `FinalCalibrationReport`.
- *  - Short-circuits Stage 2 (0 extra calls) when Stage 1 is `pass_candidate`, 0 BLOCKER/MAJOR,
- *    0 `planningConflictAdvisories`, and ALL `NEEDS_SEMANTIC_AUDIT` resolutions are `'pass'`.
- *  - Otherwise triggers lightweight Stage 2 triage (flagged items + ±300-char windows, NO full chapter)
- *    and Fail-Closed validates Stage 2 output before `OR6` routing.
  */
 export async function runSchemeC(
   projectDir,
@@ -283,7 +396,6 @@ export async function runSchemeC(
 
   const triggerCheck = shouldTriggerSchemeCStage2(stage1Report);
   if (!triggerCheck.trigger) {
-    // Short-circuit: clean pass -> skip Stage 2 completely (0 extra latency!)
     const routing = routeFinalReviewReport(stage1Report, {compileWriterCard, chapterNumber});
     if (!routing.ok) {
       return {
@@ -319,13 +431,39 @@ export async function runSchemeC(
     };
   }
 
-  // Stage 2: Conditional independent lightweight triage (NO full chapter!)
-  const stage2Input = buildSchemeCStage2Input(shared, stage1Report, {radius});
+  // Stage 2 input build: strictly locked +-300-char radius & unambiguous quote localization (B3)
+  let stage2Input;
+  try {
+    stage2Input = buildSchemeCStage2Input(shared, stage1Report, {radius});
+  } catch (err) {
+    const rawMsg = err?.message || 'R3_SCHEME_C_STAGE2_INPUT_ERROR';
+    const code = rawMsg.split(':')[0];
+    return {
+      ok: false,
+      exitCode: 2,
+      scheme: 'C',
+      protocolMode: 'single_plus_triage_C',
+      stage: 'stage2_input_build',
+      shortCircuited: false,
+      stage2TriggerReasons: triggerCheck.reasons,
+      calls: {stage1: 1, stage2: 0, total: 1},
+      reviewFingerprint: shared.reviewFingerprint,
+      errors: [{code, message: rawMsg}],
+    };
+  }
+
   const finalReport = await adapter.runStage2Triage(stage2Input);
 
   const finalValidation = validateR3ReviewReport(shared.projectRoot, chapterNumber, finalReport, {allowDiscovery: false});
   const finalModeErr = assertExpectedProtocolMode(finalReport, 'single_plus_triage_C');
-  const finalErrors = [...finalValidation.errors, ...(finalModeErr ? [finalModeErr] : [])];
+  const independenceErrors = checkStage2ReviewerIndependence(stage1Report, finalReport, 'Stage 1', 'Stage 2');
+  const retentionErrors = checkSchemeCNonBlockingRetention(stage1Report, finalReport);
+  const finalErrors = [
+    ...finalValidation.errors,
+    ...(finalModeErr ? [finalModeErr] : []),
+    ...independenceErrors,
+    ...retentionErrors,
+  ];
   if (finalErrors.length > 0) {
     return {
       ok: false,
